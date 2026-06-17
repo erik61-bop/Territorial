@@ -31,14 +31,37 @@ public final class GameFactory {
         return s;
     }
 
+    /** Coherent terrain: forests and mountain ranges grow as regions on a plain base, with a few
+     *  scattered cities — far cleaner than per-cell random speckle. */
     private static void assignTerrain(GameState s) {
-        for (int c = 0; c < s.cellCount; c++) {
-            double r = s.rng.nextDouble();
-            if      (r < 0.70) s.terrain[c] = Terrain.PLAIN;
-            else if (r < 0.82) s.terrain[c] = Terrain.FOREST;
-            else if (r < 0.90) s.terrain[c] = Terrain.MOUNTAIN;
-            else if (r < 0.96) s.terrain[c] = Terrain.CITY;
-            else               s.terrain[c] = Terrain.RIVER;
+        Arrays.fill(s.terrain, Terrain.PLAIN);
+        placeBlobs(s, Terrain.FOREST, 0.20, 8, 0.63);    // woodlands
+        placeBlobs(s, Terrain.MOUNTAIN, 0.11, 6, 0.55);  // ranges
+        for (int c = 0; c < s.cellCount; c++) {           // sparse cities (points of interest)
+            if (s.terrain[c] == Terrain.PLAIN && s.rng.nextDouble() < 0.010) s.terrain[c] = Terrain.CITY;
+        }
+    }
+
+    /** Grow {@code count} blobs of {@code type} over PLAIN cells until ~{@code frac} of the map is covered. */
+    private static void placeBlobs(GameState s, Terrain type, double frac, int count, double spread) {
+        int target = (int) (s.cellCount * frac);
+        ArrayDeque<Integer> q = new ArrayDeque<>();
+        int placed = 0;
+        for (int bi = 0; bi < count && placed < target; bi++) {
+            int seed = s.rng.nextInt(s.cellCount);
+            int blobMax = target / count + s.rng.nextInt(target / count + 1);
+            q.clear();
+            q.add(seed);
+            int n = 0;
+            while (!q.isEmpty() && n < blobMax && placed < target) {
+                int c = q.poll();
+                if (s.terrain[c] != Terrain.PLAIN) continue;
+                s.terrain[c] = type;
+                n++; placed++;
+                for (int nb : s.neighbours[c]) {
+                    if (s.terrain[nb] == Terrain.PLAIN && s.rng.nextDouble() < spread) q.add(nb);
+                }
+            }
         }
     }
 

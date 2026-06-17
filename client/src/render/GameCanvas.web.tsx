@@ -58,6 +58,12 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
         const base = PLAYER_COLORS[o % PLAYER_COLORS.length];
         const k = TERRAIN_SHADE[t] ?? 1;
         r = base[0] * k; g = base[1] * k; b = base[2] * k;
+        // Nation border: darken the rim where this cell meets a different owner.
+        const x = i % width, y = (i / width) | 0;
+        const edge =
+          (x > 0 && snap.owner[i - 1] !== o) || (x < width - 1 && snap.owner[i + 1] !== o) ||
+          (y > 0 && snap.owner[i - width] !== o) || (y < height - 1 && snap.owner[i + width] !== o);
+        if (edge) { r *= 0.5; g *= 0.5; b *= 0.5; }
       } else {
         const c = TERRAIN_COLORS[t] ?? TERRAIN_COLORS[0];
         r = c[0]; g = c[1]; b = c[2];
