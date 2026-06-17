@@ -61,9 +61,12 @@ function send(obj: unknown): void {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
 }
 
-/** targetOwner = a playerId to attack, or -1 to expand into neutral. One-shot. */
-export function sendAction(targetOwner: number, fraction: number): void {
-  send({ type: 'action', targetOwner, fraction });
+/**
+ * targetOwner = a playerId to attack, or -1 to expand into neutral. targetCell directs the wave
+ * (the tapped cell); -1 = cheapest-first. One-shot.
+ */
+export function sendAction(targetOwner: number, fraction: number, targetCell = -1): void {
+  send({ type: 'action', targetOwner, fraction, targetCell });
 }
 
 /** Send a quick-chat message; target is a playerId or -1. "peace_request" also requests peace. */

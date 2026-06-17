@@ -39,7 +39,8 @@ public class GameHandler extends TextWebSocketHandler {
             case "action" -> room.submitAction(
                     session,
                     n.path("targetOwner").asInt(io.territorial.sim.GameState.NEUTRAL),
-                    n.path("fraction").asDouble(0.5));
+                    n.path("fraction").asDouble(0.5),
+                    n.path("targetCell").asInt(-1));
             case "chat" -> room.submitChat(
                     session,
                     n.path("templateId").asText(""),

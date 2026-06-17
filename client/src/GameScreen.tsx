@@ -97,7 +97,7 @@ export default function GameScreen() {
     }
     if (target === pid) return;             // can't attack yourself
     showTap(screenX, screenY, target === -1 ? 'expand' : 'attack');
-    sendAction(target, st.fraction);        // target -1 => expand into neutral
+    sendAction(target, st.fraction, cell);  // target -1 => expand; cell directs the wave
   }, [showTap]);
 
   const lastPan = useRef<{ x: number; y: number } | null>(null);

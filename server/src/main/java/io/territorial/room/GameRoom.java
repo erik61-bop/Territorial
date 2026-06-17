@@ -180,10 +180,10 @@ public class GameRoom {
     }
 
     /** Queue a human's one-shot action for the next tick (latest submission wins). */
-    public void submitAction(WebSocketSession session, int targetOwner, double fraction) {
+    public void submitAction(WebSocketSession session, int targetOwner, double fraction, int targetCell) {
         Integer p = sessionToPlayer.get(session.getId());
         if (p == null) return;
-        humanActions.put(p, new Action(p, targetOwner, fraction));
+        humanActions.put(p, new Action(p, targetOwner, fraction, targetCell));
     }
 
     /** Queue a human's diplomacy order (peace request/accept/break) for the next tick. */

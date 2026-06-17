@@ -145,10 +145,16 @@ public final class Sim {
                     ? Config.NEUTRAL_COST
                     : s.defensePerCell(t) * s.momentum[t];
 
-            // Cost per frontier cell; capture cheapest-first.
+            // Cost per frontier cell. Order the wave: toward the directed cell if given
+            // (reinforcement direction), else cheapest-first.
             double[] cost = new double[frontier.length];
-            for (int k = 0; k < frontier.length; k++) cost[k] = cellCost(frontier[k], t, baseDef);
-            sortByCost(frontier, cost);
+            double[] key = new double[frontier.length];
+            boolean directed = a.targetCell() >= 0;
+            for (int k = 0; k < frontier.length; k++) {
+                cost[k] = cellCost(frontier[k], t, baseDef);
+                key[k] = directed ? s.distance(frontier[k], a.targetCell()) : cost[k];
+            }
+            sortByKey(frontier, cost, key);
 
             int takenThisWave = 0;
             for (int k = 0; k < frontier.length && wave > 0; k++) {
@@ -200,19 +206,21 @@ public final class Sim {
         return java.util.Arrays.copyOf(buf, n);
     }
 
-    /** Insertion sort by cost ascending (stable, deterministic; frontiers are small). */
-    private static void sortByCost(int[] cells, double[] cost) {
+    /** Insertion sort by {@code key} ascending, keeping cells+cost aligned (deterministic). */
+    private static void sortByKey(int[] cells, double[] cost, double[] key) {
         for (int i = 1; i < cells.length; i++) {
             int c = cells[i];
-            double k = cost[i];
+            double co = cost[i], ke = key[i];
             int j = i - 1;
-            while (j >= 0 && cost[j] > k) {
+            while (j >= 0 && key[j] > ke) {
                 cells[j + 1] = cells[j];
                 cost[j + 1] = cost[j];
+                key[j + 1] = key[j];
                 j--;
             }
             cells[j + 1] = c;
-            cost[j + 1] = k;
+            cost[j + 1] = co;
+            key[j + 1] = ke;
         }
     }
 
