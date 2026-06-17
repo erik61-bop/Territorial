@@ -42,4 +42,8 @@ public final class Config {
     // Diplomacy
     public static final int PEACE_TICKS           = 480;   // a peace lasts ~60s at 8/s
     public static final double BOT_ACCEPT_RATIO   = 0.80;  // bots accept peace unless target is much weaker
+
+    // Phases (ticks; 8/s). PEACE opening: expand into neutral only, no PvP. FINAL_WAR: peace void.
+    public static final int PEACE_PHASE_TICKS     = 120;   // ~15s opening land-grab, no PvP
+    public static final int FINAL_WAR_TICK        = 1200;  // ~150s in, all peace stripped -> forced finish
 }

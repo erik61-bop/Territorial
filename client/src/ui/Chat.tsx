@@ -117,7 +117,7 @@ export default function Chat() {
 
 const styles = StyleSheet.create({
   panel: { backgroundColor: 'rgba(20,20,28,0.9)', padding: 8, borderRadius: 10, marginTop: 6 },
-  offers: { position: 'absolute', top: 12, alignSelf: 'center' },
+  offers: { position: 'absolute', top: 52, alignSelf: 'center' },
   dock: { position: 'absolute', left: 12, bottom: 16, maxWidth: 360 },
   log: { gap: 2 },
   logLine: { fontSize: 13 },

@@ -91,7 +91,17 @@ terrain.defMult: PLAIN 1.0  FOREST 1.25  MOUNTAIN 1.6  CITY 1.0  RIVER 1.35
 CAPITAL_DEF=1.8   CAPITAL_INCOME=1.15
 MOMENTUM: MIN 0.6  MAX 1.5  DECAY 0.05  WIN 0.02  LOSS 0.03  DEFEND 0.06
 START_ARMY_PER_LAND=3.0  WIN_FRACTION=0.65  TICK_RATE=8/s
+PEACE_TICKS=480  PEACE_PHASE_TICKS=120  FINAL_WAR_TICK=1200
 ```
+
+## Phases (implemented)
+
+A match runs PEACE → WAR → FINAL_WAR by tick count:
+- **PEACE** (first `PEACE_PHASE_TICKS`): no PvP — players may only expand into neutral land.
+  This opening land-grab is a big equaliser (see balance note).
+- **WAR**: normal play; peace/alliance treaties are honoured.
+- **FINAL_WAR** (from `FINAL_WAR_TICK`): all treaties are void — everyone can attack everyone,
+  forcing a decisive finish. Bots only expand during PEACE.
 
 Two combat refinements that proved essential for fun + fairness:
 - **Penetration penalty** — each cell a single wave eats costs `×(1 + n·0.10)` more than the
@@ -110,9 +120,10 @@ that pool fast. This coalition behaviour is what keeps the biggest starter from 
 ## Balance result (300 games, 8 players: 2 big start + 6 small, sizes shuffled)
 
 ```
-small starters win   : 25.7%   (despite starting 4x smaller)
-biggest starter wins : 74.3%   (favoured, but never deterministic)
-avg game length      : 649 ticks (~80s @ 8/s)   draws: 0   fully deterministic
+With phases (current): small starters 56.0% · biggest 44.0% · avg 449 ticks · draws 0
+  (the PEACE opening land-grab is a strong equaliser; per-capita a big start is still ~2x favoured)
+Without the phase opening (earlier): small 25.7% · biggest 74.3% · avg 649 ticks
+Fully deterministic; bot-only games carry no diplomacy/phase-PvP differences beyond the opening.
 ```
 
 Run it: `./run-balance.sh` (or see server/README.md).

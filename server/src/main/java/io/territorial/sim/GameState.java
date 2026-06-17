@@ -7,6 +7,10 @@ package io.territorial.sim;
 public final class GameState {
     public static final int NEUTRAL = -1;
 
+    // Match phases.
+    public static final int PEACE = 0, WAR = 1, FINAL_WAR = 2;
+    public int phase = PEACE;
+
     public final int width, height, cellCount;
     public final int numPlayers;
     public final Rng rng;

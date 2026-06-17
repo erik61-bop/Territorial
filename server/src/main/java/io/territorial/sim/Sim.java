@@ -70,6 +70,9 @@ public final class Sim {
     /** Advance the world one tick. Actions are applied in ascending attackerId order. */
     public void tick(List<Action> actions) {
         recomputeDerived();
+        s.phase = s.tick < Config.PEACE_PHASE_TICKS ? GameState.PEACE
+                : s.tick >= Config.FINAL_WAR_TICK ? GameState.FINAL_WAR
+                : GameState.WAR;
         java.util.Arrays.fill(captured, 0);
         java.util.Arrays.fill(lost, 0);
         java.util.Arrays.fill(attacked, false);
@@ -106,7 +109,10 @@ public final class Sim {
             int t = a.targetOwner();
             if (x < 0 || x >= s.numPlayers || !s.alive[x]) continue;
             if (t == x) continue;
-            if (t != GameState.NEUTRAL && s.areFriendly(x, t)) continue; // peace/alliance holds
+            if (t != GameState.NEUTRAL) {
+                if (s.phase == GameState.PEACE) continue;                     // opening: no PvP
+                if (s.phase != GameState.FINAL_WAR && s.areFriendly(x, t)) continue; // peace/ally holds (void in Final War)
+            }
             double f = clamp(a.fraction(), 0.0, 1.0);
             if (f <= 0) continue;
 

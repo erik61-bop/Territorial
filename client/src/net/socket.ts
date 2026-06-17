@@ -43,6 +43,7 @@ export function connect(url = serverUrl()): WebSocket {
           tick: m.tick, owner: m.owner, army: m.army, land: m.land,
           alive: m.alive, human: m.human, winner: m.winner,
           rel: m.rel ?? [], offer: m.offer ?? [],
+          phase: m.phase ?? 1, phaseEndsIn: m.phaseEndsIn ?? -1,
         });
         break;
       case 'chat':

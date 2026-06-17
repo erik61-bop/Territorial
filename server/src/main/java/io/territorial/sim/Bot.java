@@ -68,6 +68,11 @@ public final class Bot {
 
         boolean misplay = s.rng.nextDouble() < MISPLAY_CHANCE;
 
+        // Opening Peace phase: no PvP allowed, so just grab neutral land (or hold).
+        if (s.phase == GameState.PEACE) {
+            return neutralAdjacent ? new Action(p, GameState.NEUTRAL, EXPAND_FRACTION) : null;
+        }
+
         // Rule: gang up on a RUNAWAY leader. Only once the leader is map-dominant, only if it
         // borders me and dwarfs me, and only probabilistically (coalitions are loose). Many
         // players doing this drain the leader's single pool from all sides at once.

@@ -18,6 +18,8 @@ export interface Snapshot {
   winner: number;      // -1 while playing
   rel: number[][];     // relation matrix: 0 none, 1 peace, 2 ally
   offer: boolean[][];  // offer[a][b] = a has offered b peace
+  phase: number;       // 0 PEACE, 1 WAR, 2 FINAL_WAR
+  phaseEndsIn: number; // ticks until next phase, or -1
 }
 
 export interface ChatMsg {

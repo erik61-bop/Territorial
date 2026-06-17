@@ -25,8 +25,24 @@ export default function Hud() {
   const myArmy = snap && playerId >= 0 ? snap.army[playerId] : 0;
   const won = snap && snap.winner >= 0;
 
+  const PHASES = [
+    { label: 'PEACE — expand, no attacks', color: '#7CFC9B', next: 'War' },
+    { label: 'WAR', color: '#FFD166', next: 'Final War' },
+    { label: 'FINAL WAR — no peace!', color: '#FF6B6B', next: '' },
+  ];
+  const phase = snap ? PHASES[snap.phase] ?? PHASES[1] : null;
+  const secs = snap && snap.phaseEndsIn >= 0 ? Math.ceil(snap.phaseEndsIn / 8) : -1; // 8 ticks/s
+  const phaseText = phase
+    ? phase.label + (secs >= 0 ? `   ·   ${phase.next} in ${secs >= 60 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : `${secs}s`}` : '')
+    : '';
+
   return (
     <>
+      {phase && !won && (
+        <View style={[styles.panel, styles.phaseBar]}>
+          <Text style={[styles.phaseText, { color: phase.color }]}>{phaseText}</Text>
+        </View>
+      )}
       {/* top-left: identity + my stats */}
       <View style={[styles.panel, styles.topLeft]}>
         <View style={styles.row}>
@@ -89,6 +105,8 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
   },
+  phaseBar: { top: 12, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 14 },
+  phaseText: { fontWeight: '800', fontSize: 14, letterSpacing: 0.5 },
   topLeft: { top: 12, left: 12, minWidth: 170 },
   topRight: { top: 12, right: 12, minWidth: 130 },
   bottom: { bottom: 16, alignSelf: 'center', alignItems: 'center' },
