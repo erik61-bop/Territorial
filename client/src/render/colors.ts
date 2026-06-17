@@ -14,6 +14,24 @@ export const TERRAIN_COLORS: [number, number, number][] = [
   [110, 160, 210], // river
 ];
 
+// Brightness multiplier applied to a player's colour by terrain, so defensive (darker) and
+// income (brighter) terrain is readable even inside owned territory.
+export const TERRAIN_SHADE: number[] = [
+  1.0,  // plain
+  0.80, // forest   (+def)
+  0.60, // mountain (+def, clearly darker)
+  1.20, // city     (income, brighter)
+  0.84, // river    (+def)
+];
+
+export const TERRAIN_INFO: { name: string; note: string }[] = [
+  { name: 'Plain', note: '' },
+  { name: 'Forest', note: '+25% def' },
+  { name: 'Mountain', note: '+60% def' },
+  { name: 'City', note: '+income' },
+  { name: 'River', note: '+35% def' },
+];
+
 export function playerRGB(id: number): [number, number, number] {
   return PLAYER_COLORS[id % PLAYER_COLORS.length];
 }

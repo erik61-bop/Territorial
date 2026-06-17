@@ -44,8 +44,8 @@ export default function GameScreen() {
     centeredCapital.current = myCapital;
   }, [map, myCapital, myLand, winW, winH]);
 
-  const showTap = useCallback((x: number, y: number) => {
-    setTap({ x, y });
+  const showTap = useCallback((x: number, y: number, kind: TapMark['kind']) => {
+    setTap({ x, y, kind });
     if (tapTimer.current) clearTimeout(tapTimer.current);
     tapTimer.current = setTimeout(() => setTap(null), 500);
   }, []);
@@ -62,14 +62,14 @@ export default function GameScreen() {
     if (cx < 0 || cy < 0 || cx >= m.width || cy >= m.height) return;
     const cell = cy * m.width + cx;
     const target = s.owner[cell];
-    showTap(screenX, screenY);
 
     const inSpawn = pid >= 0 && s.land[pid] === 0 && s.winner < 0;
     if (inSpawn) {
-      if (target === -1) sendSpawn(cell);   // must choose empty land
+      if (target === -1) { showTap(screenX, screenY, 'spawn'); sendSpawn(cell); } // must choose empty land
       return;
     }
     if (target === pid) return;             // can't attack yourself
+    showTap(screenX, screenY, target === -1 ? 'expand' : 'attack');
     sendAction(target, st.fraction);        // target -1 => expand into neutral
   }, [showTap]);
 

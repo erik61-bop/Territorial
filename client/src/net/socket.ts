@@ -40,7 +40,7 @@ export function connect(url = serverUrl()): WebSocket {
         break;
       case 'state':
         s.setSnap({
-          tick: m.tick, owner: m.owner, army: m.army, land: m.land,
+          tick: m.tick, owner: m.owner, army: m.army, morale: m.morale ?? [], land: m.land,
           alive: m.alive, human: m.human, winner: m.winner,
           rel: m.rel ?? [], offer: m.offer ?? [],
           phase: m.phase ?? 1, phaseEndsIn: m.phaseEndsIn ?? -1,

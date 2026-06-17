@@ -247,12 +247,17 @@ public class GameRoom {
 
     private Map<String, Object> buildStateMessage() {
         int[] army = new int[state.numPlayers];
-        for (int p = 0; p < state.numPlayers; p++) army[p] = (int) Math.round(state.army[p]);
+        int[] morale = new int[state.numPlayers]; // momentum x100, so the client avoids float noise
+        for (int p = 0; p < state.numPlayers; p++) {
+            army[p] = (int) Math.round(state.army[p]);
+            morale[p] = (int) Math.round(state.momentum[p] * 100);
+        }
         Map<String, Object> m = new HashMap<>();
         m.put("type", "state");
         m.put("tick", state.tick);
         m.put("owner", state.owner.clone());
         m.put("army", army);
+        m.put("morale", morale);
         m.put("land", state.land.clone());
         m.put("alive", state.alive.clone());
         m.put("human", human.clone());

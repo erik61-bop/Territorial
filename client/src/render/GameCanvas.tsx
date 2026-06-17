@@ -2,11 +2,13 @@ import React, { useMemo } from 'react';
 import {
   Canvas, Image, Skia, ColorType, AlphaType, FilterMode, MipmapMode, Circle, Group,
 } from '@shopify/react-native-skia';
-import { PLAYER_COLORS, TERRAIN_COLORS } from './colors';
+import { PLAYER_COLORS, TERRAIN_COLORS, TERRAIN_SHADE } from './colors';
 import type { MapInfo, Snapshot } from '../state/store';
 
 export interface Camera { scale: number; tx: number; ty: number; }
-export interface TapMark { x: number; y: number; }
+export interface TapMark { x: number; y: number; kind: 'attack' | 'expand' | 'spawn'; }
+
+const TAP_COLOR = { attack: 'rgba(255,80,80,0.95)', expand: 'rgba(255,255,255,0.9)', spawn: 'rgba(120,255,150,0.95)' };
 
 interface Props {
   map: MapInfo;
@@ -32,9 +34,20 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
     const px = new Uint8Array(n * 4);
     for (let i = 0; i < n; i++) {
       const o = snap.owner[i];
-      const c = o >= 0 ? PLAYER_COLORS[o % PLAYER_COLORS.length] : TERRAIN_COLORS[terrain[i] ?? 0];
+      const t = terrain[i] ?? 0;
       const j = i * 4;
-      px[j] = c[0]; px[j + 1] = c[1]; px[j + 2] = c[2]; px[j + 3] = 255;
+      if (o >= 0) {
+        // Owned cell: player colour shaded by terrain so mountains/forests stay readable.
+        const base = PLAYER_COLORS[o % PLAYER_COLORS.length];
+        const k = TERRAIN_SHADE[t] ?? 1;
+        px[j] = Math.min(255, base[0] * k);
+        px[j + 1] = Math.min(255, base[1] * k);
+        px[j + 2] = Math.min(255, base[2] * k);
+      } else {
+        const c = TERRAIN_COLORS[t];
+        px[j] = c[0]; px[j + 1] = c[1]; px[j + 2] = c[2];
+      }
+      px[j + 3] = 255;
     }
     const data = Skia.Data.fromBytes(px);
     return Skia.Image.MakeImage(
@@ -79,7 +92,7 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
         )}
       </Group>
       {tap && (
-        <Circle cx={tap.x} cy={tap.y} r={14} color="rgba(255,255,255,0.9)" style="stroke" strokeWidth={3} />
+        <Circle cx={tap.x} cy={tap.y} r={15} color={TAP_COLOR[tap.kind]} style="stroke" strokeWidth={3} />
       )}
     </Canvas>
   );

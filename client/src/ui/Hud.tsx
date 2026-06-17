@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useGame } from '../state/store';
-import { cssPlayer } from '../render/colors';
+import { cssPlayer, TERRAIN_INFO, TERRAIN_COLORS } from '../render/colors';
+
+const terrainCss = (i: number) => `rgb(${TERRAIN_COLORS[i][0]},${TERRAIN_COLORS[i][1]},${TERRAIN_COLORS[i][2]})`;
 
 const FRACTIONS = [0.25, 0.5, 0.75, 1.0];
 
@@ -23,6 +25,9 @@ export default function Hud() {
 
   const myLand = snap && playerId >= 0 ? snap.land[playerId] : 0;
   const myArmy = snap && playerId >= 0 ? snap.army[playerId] : 0;
+  const myMorale = snap && playerId >= 0 ? (snap.morale?.[playerId] ?? 100) : 100; // x100
+  const moraleColor = myMorale >= 108 ? '#7CFC9B' : myMorale <= 92 ? '#FF6B6B' : '#e8e8e8';
+  const moraleArrow = myMorale >= 108 ? '▲' : myMorale <= 92 ? '▼' : '–';
   const won = snap && snap.winner >= 0;
 
   const PHASES = [
@@ -52,6 +57,9 @@ export default function Hud() {
           </Text>
         </View>
         <Text style={styles.stat}>army {Math.round(myArmy)}   land {myLand}</Text>
+        <Text style={styles.stat}>
+          morale <Text style={{ color: moraleColor, fontWeight: '700' }}>{(myMorale / 100).toFixed(2)} {moraleArrow}</Text>
+        </Text>
         <Text style={[styles.dim, { color: connected ? '#7CFC9B' : '#FF6B6B' }]}>
           {connected ? 'connected' : 'connecting…'}{snap ? `  ·  tick ${snap.tick}` : ''}
         </Text>
@@ -86,6 +94,16 @@ export default function Hud() {
         </View>
       </View>
 
+      {/* terrain legend */}
+      <View style={[styles.panel, styles.legend]}>
+        {TERRAIN_INFO.map((t, i) => (
+          <View key={t.name} style={styles.row}>
+            <View style={[styles.swatch, { backgroundColor: terrainCss(i) }]} />
+            <Text style={styles.legendTxt}>{t.name}{t.note ? `  ${t.note}` : ''}</Text>
+          </View>
+        ))}
+      </View>
+
       {won && (
         <View style={styles.bannerWrap} pointerEvents="none">
           <Text style={styles.banner}>
@@ -110,6 +128,8 @@ const styles = StyleSheet.create({
   topLeft: { top: 12, left: 12, minWidth: 170 },
   topRight: { top: 12, right: 12, minWidth: 130 },
   bottom: { bottom: 16, alignSelf: 'center', alignItems: 'center' },
+  legend: { position: 'absolute', right: 12, bottom: 16, paddingVertical: 8 },
+  legendTxt: { color: '#cdd6f4', fontSize: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 2 },
   swatch: { width: 14, height: 14, borderRadius: 3 },
   title: { color: '#fff', fontWeight: '700', fontSize: 14, marginBottom: 2 },

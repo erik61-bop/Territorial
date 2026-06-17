@@ -12,6 +12,7 @@ export interface Snapshot {
   tick: number;
   owner: number[];     // per-cell owner playerId, or -1 neutral
   army: number[];      // per-player
+  morale: number[];    // per-player momentum x100 (e.g. 120 = 1.20)
   land: number[];
   alive: boolean[];
   human: boolean[];
