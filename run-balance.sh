@@ -4,5 +4,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/server"
 rm -rf out && mkdir -p out
-javac -d out $(find src/main/java -name '*.java')
+# Only the pure sim package (no Spring deps); the server is built with Maven.
+javac -d out $(find src/main/java/io/territorial/sim -name '*.java')
 java -cp out io.territorial.sim.BalanceMain

@@ -28,10 +28,14 @@ public class GameRoom {
     private final ObjectMapper json;
     private final int tickMs;
 
+    static final long CHAT_COOLDOWN_MS = 1200;   // anti-spam: min gap between a player's messages
+
     private final ReentrantLock lock = new ReentrantLock();
     private final List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
     private final Map<String, Integer> sessionToPlayer = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, Action> humanActions = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentLinkedQueue<Diplo> humanDiplo = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    private final ConcurrentHashMap<Integer, Long> lastChatAt = new ConcurrentHashMap<>();
     private final boolean[] human = new boolean[NUM_PLAYERS];
 
     private GameState state;
@@ -91,6 +95,18 @@ public class GameRoom {
                 return;
             }
 
+            // Diplomacy: humans' queued orders + bot decisions (bots only accept offers).
+            List<Diplo> diplos = new ArrayList<>();
+            Diplo hd;
+            while ((hd = humanDiplo.poll()) != null) diplos.add(hd);
+            for (int p = 0; p < NUM_PLAYERS; p++) {
+                if (state.alive[p] && !human[p]) {
+                    Diplo d = Bot.decideDiplo(state, p);
+                    if (d != null) diplos.add(d);
+                }
+            }
+            sim.applyDiplomacy(diplos);
+
             List<Action> actions = new ArrayList<>(NUM_PLAYERS);
             for (int p = 0; p < NUM_PLAYERS; p++) {
                 if (!state.alive[p]) continue;
@@ -144,6 +160,37 @@ public class GameRoom {
         humanActions.put(p, new Action(p, targetOwner, fraction));
     }
 
+    /** Queue a human's diplomacy order (peace request/accept/break) for the next tick. */
+    public void submitDiplo(WebSocketSession session, String kind, int target) {
+        Integer p = sessionToPlayer.get(session.getId());
+        if (p == null || target < 0 || target >= NUM_PLAYERS || target == p) return;
+        Diplo.Kind k;
+        try { k = Diplo.Kind.valueOf(kind); } catch (Exception e) { return; }
+        humanDiplo.add(new Diplo(p, target, k));
+    }
+
+    /**
+     * Relay a quick-chat message (by template id, optional target) to everyone, with a per-player
+     * cooldown. A "peace_request" template also doubles as a REQUEST_PEACE diplomacy order.
+     */
+    public void submitChat(WebSocketSession session, String templateId, int target, long nowMs) {
+        Integer p = sessionToPlayer.get(session.getId());
+        if (p == null || templateId == null || templateId.length() > 32) return;
+        Long last = lastChatAt.get(p);
+        if (last != null && nowMs - last < CHAT_COOLDOWN_MS) return;
+        lastChatAt.put(p, nowMs);
+
+        if ("peace_request".equals(templateId) && target >= 0 && target < NUM_PLAYERS && target != p) {
+            humanDiplo.add(new Diplo(p, target, Diplo.Kind.REQUEST_PEACE));
+        }
+        Map<String, Object> m = new HashMap<>();
+        m.put("type", "chat");
+        m.put("from", (int) p);
+        m.put("templateId", templateId);
+        m.put("target", target);
+        broadcast(m);
+    }
+
     public Map<String, Object> welcomeFor(WebSocketSession session) {
         Integer p = sessionToPlayer.get(session.getId());
         Map<String, Object> m = new HashMap<>();
@@ -184,6 +231,12 @@ public class GameRoom {
         m.put("alive", state.alive.clone());
         m.put("human", human.clone());
         m.put("winner", winner);
+        // Diplomacy matrices (byte[][] -> int[][] so Jackson emits arrays, not base64).
+        int[][] rel = new int[state.numPlayers][state.numPlayers];
+        for (int a = 0; a < state.numPlayers; a++)
+            for (int b = 0; b < state.numPlayers; b++) rel[a][b] = state.rel[a][b];
+        m.put("rel", rel);
+        m.put("offer", state.offer);
         return m;
     }
 

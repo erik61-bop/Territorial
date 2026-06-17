@@ -25,6 +25,11 @@ public final class GameState {
     public final int[] border;
     public final boolean[] alive;
 
+    // Diplomacy (symmetric). rel: 0 none, 1 peace, 2 ally. offer[a][b] = a has offered b peace.
+    public final byte[][] rel;
+    public final int[][] relUntil;       // tick at which a PEACE expires
+    public final boolean[][] offer;
+
     // Precomputed 4-neighbours per cell (-1 padded for off-grid), and neighbour count
     final int[][] neighbours;
 
@@ -51,6 +56,10 @@ public final class GameState {
         this.land = new int[numPlayers];
         this.border = new int[numPlayers];
         this.alive = new boolean[numPlayers];
+
+        this.rel = new byte[numPlayers][numPlayers];
+        this.relUntil = new int[numPlayers][numPlayers];
+        this.offer = new boolean[numPlayers][numPlayers];
 
         this.neighbours = new int[cellCount][];
         buildNeighbours();
@@ -98,4 +107,10 @@ public final class GameState {
     public double density(int p)        { return army[p] / Math.max(1, land[p]); }
     public double defensePerCell(int p)  { return army[p] / Math.max(1, border[p]); }
     public boolean ownsCapital(int p)    { return capitalCell[p] >= 0 && owner[capitalCell[p]] == p; }
+
+    /** True if a and b are allied or in an active (unexpired) peace — they cannot attack each other. */
+    public boolean areFriendly(int a, int b) {
+        byte r = rel[a][b];
+        return r == 2 || (r == 1 && tick < relUntil[a][b]);
+    }
 }

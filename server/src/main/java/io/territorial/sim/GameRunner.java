@@ -19,11 +19,15 @@ public final class GameRunner {
             winner = sim.winner();
             if (winner != -1) break;
 
+            List<Diplo> diplos = new ArrayList<>();
             List<Action> actions = new ArrayList<>(s.numPlayers);
             for (int p = 0; p < s.numPlayers; p++) {
+                Diplo d = Bot.decideDiplo(s, p);
+                if (d != null) diplos.add(d);
                 Action a = Bot.decide(s, p);
                 if (a != null) actions.add(a);
             }
+            sim.applyDiplomacy(diplos);
             sim.tick(actions);
         }
         sim.recomputeDerived();

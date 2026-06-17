@@ -35,10 +35,21 @@ public class GameHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         JsonNode n = json.readTree(message.getPayload());
         String type = n.path("type").asText("");
-        if ("action".equals(type)) {
-            int target = n.path("targetOwner").asInt(io.territorial.sim.GameState.NEUTRAL);
-            double fraction = n.path("fraction").asDouble(0.5);
-            room.submitAction(session, target, fraction);
+        switch (type) {
+            case "action" -> room.submitAction(
+                    session,
+                    n.path("targetOwner").asInt(io.territorial.sim.GameState.NEUTRAL),
+                    n.path("fraction").asDouble(0.5));
+            case "chat" -> room.submitChat(
+                    session,
+                    n.path("templateId").asText(""),
+                    n.path("target").asInt(-1),
+                    System.currentTimeMillis());
+            case "diplo" -> room.submitDiplo(
+                    session,
+                    n.path("kind").asText(""),
+                    n.path("target").asInt(-1));
+            default -> { /* ignore unknown */ }
         }
     }
 

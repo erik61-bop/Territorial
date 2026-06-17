@@ -38,4 +38,8 @@ public final class Config {
 
     // Win
     public static final double WIN_FRACTION       = 0.65;
+
+    // Diplomacy
+    public static final int PEACE_TICKS           = 480;   // a peace lasts ~60s at 8/s
+    public static final double BOT_ACCEPT_RATIO   = 0.80;  // bots accept peace unless target is much weaker
 }

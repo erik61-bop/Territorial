@@ -1,6 +1,7 @@
 import { useGame } from '../state/store';
 
 let ws: WebSocket | null = null;
+let chatKey = 1;
 
 /** ws://<same-host>:8080/ws/game on web; localhost otherwise. */
 export function serverUrl(): string {
@@ -41,7 +42,11 @@ export function connect(url = serverUrl()): WebSocket {
         s.setSnap({
           tick: m.tick, owner: m.owner, army: m.army, land: m.land,
           alive: m.alive, human: m.human, winner: m.winner,
+          rel: m.rel ?? [], offer: m.offer ?? [],
         });
+        break;
+      case 'chat':
+        s.pushChat({ key: chatKey++, from: m.from, templateId: m.templateId, target: m.target });
         break;
     }
   };
@@ -50,9 +55,21 @@ export function connect(url = serverUrl()): WebSocket {
   return sock;
 }
 
+function send(obj: unknown): void {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+
 /** targetOwner = a playerId to attack, or -1 to expand into neutral. One-shot. */
 export function sendAction(targetOwner: number, fraction: number): void {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'action', targetOwner, fraction }));
-  }
+  send({ type: 'action', targetOwner, fraction });
+}
+
+/** Send a quick-chat message; target is a playerId or -1. "peace_request" also requests peace. */
+export function sendChat(templateId: string, target: number): void {
+  send({ type: 'chat', templateId, target });
+}
+
+/** kind: REQUEST_PEACE | ACCEPT_PEACE | BREAK_PEACE. */
+export function sendDiplo(kind: string, target: number): void {
+  send({ type: 'diplo', kind, target });
 }

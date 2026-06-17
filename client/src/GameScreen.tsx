@@ -4,6 +4,7 @@ import { useGame } from './state/store';
 import { connect, sendAction } from './net/socket';
 import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
 import Hud from './ui/Hud';
+import Chat from './ui/Chat';
 
 const MIN_SCALE = 2;
 const MAX_SCALE = 40;
@@ -114,6 +115,7 @@ export default function GameScreen() {
         <Text style={styles.waiting}>connecting to server…</Text>
       )}
       <Hud />
+      <Chat />
     </View>
   );
 }

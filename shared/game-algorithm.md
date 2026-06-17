@@ -22,8 +22,12 @@ how often a small country wins.
 5. **Momentum.** Win a defense -> short attack boost; lose ground fast -> brief slump.
    Decays back to 1.0, so it is never permanent. The underdog's comeback engine.
 
-Social layer (later step, not in the balance sim): quick-chat, temporary peace you can
-betray after a warning, and a Final War clock that strips peace and forces a finish.
+Social layer (implemented): **quick-chat** (preset messages with optional target, server-relayed
+with a per-player cooldown) and **diplomacy** — mutual temporary peace (`PEACE_TICKS` ~60s) you
+can request, accept, or betray. The attack resolver skips friendly pairs (`areFriendly`), so bots
+honour peace too. Bots only ACCEPT peace (never initiate), so bot-only balance is unchanged.
+Still to come: alliances with shared vision, and a Final War clock that strips peace and forces a
+finish.
 
 ## State
 

@@ -21,6 +21,52 @@ public final class Sim {
         this.attacked = new boolean[state.numPlayers];
     }
 
+    /**
+     * Apply diplomacy for this tick: expire lapsed peaces, then process orders deterministically.
+     * Call once per tick BEFORE {@link #tick(List)} (the attack gate reads the resulting relations).
+     */
+    public void applyDiplomacy(List<Diplo> orders) {
+        // Expire lapsed peaces.
+        for (int a = 0; a < s.numPlayers; a++) {
+            for (int b = a + 1; b < s.numPlayers; b++) {
+                if (s.rel[a][b] == 1 && s.tick >= s.relUntil[a][b]) {
+                    s.rel[a][b] = 0; s.rel[b][a] = 0;
+                }
+            }
+        }
+        if (orders == null || orders.isEmpty()) return;
+
+        List<Diplo> ordered = new java.util.ArrayList<>(orders);
+        ordered.sort((x, y) -> x.from() != y.from() ? Integer.compare(x.from(), y.from())
+                : x.to() != y.to() ? Integer.compare(x.to(), y.to())
+                : Integer.compare(x.kind().ordinal(), y.kind().ordinal()));
+
+        for (Diplo d : ordered) {
+            int f = d.from(), t = d.to();
+            if (f < 0 || t < 0 || f >= s.numPlayers || t >= s.numPlayers || f == t) continue;
+            if (!s.alive[f] || !s.alive[t]) continue;
+            switch (d.kind()) {
+                case REQUEST_PEACE -> { if (s.rel[f][t] == 0) s.offer[f][t] = true; }
+                case ACCEPT_PEACE -> {
+                    if (s.offer[t][f]) {            // the other party had offered
+                        setPeace(f, t);
+                    }
+                }
+                case BREAK_PEACE -> {
+                    s.rel[f][t] = 0; s.rel[t][f] = 0;
+                    s.offer[f][t] = false; s.offer[t][f] = false;
+                }
+            }
+        }
+    }
+
+    private void setPeace(int a, int b) {
+        s.rel[a][b] = 1; s.rel[b][a] = 1;
+        s.relUntil[a][b] = s.tick + Config.PEACE_TICKS;
+        s.relUntil[b][a] = s.tick + Config.PEACE_TICKS;
+        s.offer[a][b] = false; s.offer[b][a] = false;
+    }
+
     /** Advance the world one tick. Actions are applied in ascending attackerId order. */
     public void tick(List<Action> actions) {
         recomputeDerived();
@@ -60,6 +106,7 @@ public final class Sim {
             int t = a.targetOwner();
             if (x < 0 || x >= s.numPlayers || !s.alive[x]) continue;
             if (t == x) continue;
+            if (t != GameState.NEUTRAL && s.areFriendly(x, t)) continue; // peace/alliance holds
             double f = clamp(a.fraction(), 0.0, 1.0);
             if (f <= 0) continue;
 

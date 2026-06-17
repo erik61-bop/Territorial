@@ -17,6 +17,22 @@ public final class Bot {
     static final double GANG_UP_CHANCE     = 0.70;  // and only probabilistically (coalitions are loose)
     static final double MISPLAY_CHANCE     = 0.05;
 
+    /**
+     * Decide a diplomacy order for the tick, or null. Bots only ACCEPT peace offers (and only if
+     * the offerer is not much weaker, so they don't make peace with easy prey). They never
+     * initiate — so bot-only games generate no diplomacy traffic and balance is unchanged.
+     */
+    public static Diplo decideDiplo(GameState s, int p) {
+        if (!s.alive[p]) return null;
+        for (int q = 0; q < s.numPlayers; q++) {
+            if (q == p || !s.alive[q]) continue;
+            if (s.offer[q][p] && s.land[q] >= s.land[p] * Config.BOT_ACCEPT_RATIO) {
+                return new Diplo(p, q, Diplo.Kind.ACCEPT_PEACE);
+            }
+        }
+        return null;
+    }
+
     /** Decide this player's single action for the tick, or null to hold. */
     public static Action decide(GameState s, int p) {
         if (!s.alive[p]) return null;

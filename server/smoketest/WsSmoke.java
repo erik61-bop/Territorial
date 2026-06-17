@@ -27,6 +27,8 @@ public class WsSmoke {
                         if (n == 1) {
                             System.out.println("FIRST STATE: " + s.substring(0, Math.min(160, s.length())) + "...");
                             webSocket.sendText("{\"type\":\"action\",\"targetOwner\":-1,\"fraction\":0.5}", true);
+                            // exercise the quick-chat path; expect a 'chat' broadcast back
+                            webSocket.sendText("{\"type\":\"chat\",\"templateId\":\"gg\",\"target\":-1}", true);
                         }
                     }
                     webSocket.request(1);
@@ -39,7 +41,7 @@ public class WsSmoke {
         System.out.println("STATE FRAMES IN ~2s: " + states.get());
         ws.sendClose(WebSocket.NORMAL_CLOSURE, "done");
         System.out.println(states.get() >= 5 && seen.indexOf("welcome") >= 0
-            && seen.indexOf("map") >= 0 && seen.indexOf("state") >= 0
-            ? "SMOKE: PASS" : "SMOKE: FAIL");
+            && seen.indexOf("map") >= 0 && seen.indexOf("state") >= 0 && seen.indexOf("chat") >= 0
+            ? "SMOKE: PASS (incl. chat round-trip)" : "SMOKE: FAIL");
     }
 }
