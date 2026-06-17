@@ -50,6 +50,9 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
     if (prev && prev.length === n) for (let i = 0; i < n; i++) if (prev[i] !== snap.owner[i]) changed++;
     const reset = !prev || prev.length !== n || changed > n * 0.2;
 
+    const np = snap.army.length;
+    const sumX = new Float64Array(np), sumY = new Float64Array(np), cnt = new Int32Array(np);
+
     for (let i = 0; i < n; i++) {
       const o = snap.owner[i];
       const t = terrain[i] ?? 0;
@@ -60,6 +63,7 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
         r = base[0] * k; g = base[1] * k; b = base[2] * k;
         // Nation border: darken the rim where this cell meets a different owner.
         const x = i % width, y = (i / width) | 0;
+        sumX[o] += x; sumY[o] += y; cnt[o]++;
         const edge =
           (x > 0 && snap.owner[i - 1] !== o) || (x < width - 1 && snap.owner[i + 1] !== o) ||
           (y > 0 && snap.owner[i - width] !== o) || (y < height - 1 && snap.owner[i + width] !== o);
@@ -95,6 +99,26 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
       ctx.lineWidth = pid === myId ? 2.5 : 1.5;
       ctx.strokeStyle = pid === myId ? '#fff' : 'rgba(255,255,255,0.8)';
       ctx.stroke();
+    }
+
+    // Nation army labels at each territory's centroid, coloured by your relation to them, so the
+    // strategy is readable: army vs land shows who's overextended; colour shows friend/foe.
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const rel = snap.rel?.[myId] ?? [];
+    for (let p = 0; p < np; p++) {
+      if (!snap.alive[p] || cnt[p] < 8) continue;
+      const lx = tx + (sumX[p] / cnt[p] + 0.5) * scale;
+      const ly = ty + (sumY[p] / cnt[p] + 0.5) * scale;
+      if (lx < -40 || lx > screenW + 40 || ly < -20 || ly > screenH + 20) continue;
+      const me = p === myId;
+      const col = me ? '#ffd54a' : rel[p] === 2 ? '#8affb0' : rel[p] === 1 ? '#86d6ff' : '#ffffff';
+      const txt = `${Math.round(snap.army[p])}`;
+      ctx.font = `bold ${me ? 16 : 13}px sans-serif`;
+      ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+      ctx.strokeText(txt, lx, ly);
+      ctx.fillStyle = col;
+      ctx.fillText(txt, lx, ly);
     }
 
     if (tap) {
