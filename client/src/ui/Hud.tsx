@@ -2,10 +2,9 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useGame } from '../state/store';
 import { cssPlayer, TERRAIN_INFO, TERRAIN_COLORS } from '../render/colors';
+import Slider from './Slider';
 
 const terrainCss = (i: number) => `rgb(${TERRAIN_COLORS[i][0]},${TERRAIN_COLORS[i][1]},${TERRAIN_COLORS[i][2]})`;
-
-const FRACTIONS = [0.25, 0.5, 0.75, 1.0];
 
 export default function Hud() {
   const connected = useGame((s) => s.connected);
@@ -83,20 +82,10 @@ export default function Hud() {
         ))}
       </View>
 
-      {/* bottom: commit fraction */}
+      {/* bottom: commit fraction slider */}
       <View style={[styles.panel, styles.bottom]}>
-        <Text style={styles.dim}>Tap a country to send {Math.round(fraction * 100)}% of your army</Text>
-        <View style={styles.row}>
-          {FRACTIONS.map((f) => (
-            <Pressable
-              key={f}
-              onPress={() => setFraction(f)}
-              style={[styles.fracBtn, fraction === f && styles.fracBtnActive]}
-            >
-              <Text style={styles.fracText}>{Math.round(f * 100)}%</Text>
-            </Pressable>
-          ))}
-        </View>
+        <Text style={styles.dim}>Tap a country to send <Text style={styles.fracText}>{Math.round(fraction * 100)}%</Text> of your army</Text>
+        <Slider value={fraction} onChange={setFraction} width={240} />
       </View>
 
       {/* terrain legend */}

@@ -22,8 +22,8 @@ import java.util.concurrent.locks.ReentrantLock;
 public class GameRoom {
 
     // Live-match shape (bigger, equal small spawns -> expansion is the early game).
-    static final int WIDTH = 60, HEIGHT = 60, NUM_PLAYERS = 12, START_SIZE = 10;
-    static final int SPAWN_SIZE = 10;            // a human's starting blob when they pick a spawn
+    static final int WIDTH = 120, HEIGHT = 120, NUM_PLAYERS = 12, START_SIZE = 30;
+    static final int SPAWN_SIZE = 30;            // a human's starting blob when they pick a spawn
     static final int RESTART_AFTER_TICKS = 40;   // hold on the result, then new match
 
     private final ObjectMapper json;
