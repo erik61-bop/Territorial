@@ -122,6 +122,7 @@ public final class Sim {
             int t = a.targetOwner();
             if (x < 0 || x >= s.numPlayers || !s.alive[x]) continue;
             if (t == x) continue;
+            if (t < 0 && t != GameState.NEUTRAL) continue;                    // can't target water/invalid
             if (t != GameState.NEUTRAL) {
                 if (s.phase == GameState.PEACE) continue;                     // opening: no PvP
                 if (s.phase != GameState.FINAL_WAR && s.areFriendly(x, t)) continue; // peace/ally holds (void in Final War)
@@ -129,9 +130,22 @@ public final class Sim {
             double f = clamp(a.fraction(), 0.0, 1.0);
             if (f <= 0) continue;
 
-            // Frontier: cells owned by t that touch a cell owned by x.
-            int[] frontier = frontierCells(x, t);
-            if (frontier.length == 0) continue;
+            // Frontier: land cells of t adjacent to x, plus amphibious cells of t reachable
+            // across a single water tile (strait) from x. naval[] marks the latter (extra cost).
+            java.util.List<Integer> fl = new java.util.ArrayList<>();
+            java.util.List<Boolean> nv = new java.util.ArrayList<>();
+            java.util.HashSet<Integer> seen = new java.util.HashSet<>();
+            for (int c : frontierCells(x, t)) { if (seen.add(c)) { fl.add(c); nv.add(false); } }
+            for (int wcell : s.waterCells) {
+                boolean touchesX = false;
+                for (int nb : s.neighbours[wcell]) if (s.owner[nb] == x) { touchesX = true; break; }
+                if (!touchesX) continue;
+                for (int nb : s.neighbours[wcell]) if (s.owner[nb] == t && seen.add(nb)) { fl.add(nb); nv.add(true); }
+            }
+            if (fl.isEmpty()) continue;
+            int[] frontier = new int[fl.size()];
+            boolean[] naval = new boolean[fl.size()];
+            for (int k = 0; k < frontier.length; k++) { frontier[k] = fl.get(k); naval[k] = nv.get(k); }
             if (t != GameState.NEUTRAL) attacked[t] = true;
 
             double sent = s.army[x] * f;
@@ -151,7 +165,7 @@ public final class Sim {
             double[] key = new double[frontier.length];
             boolean directed = a.targetCell() >= 0;
             for (int k = 0; k < frontier.length; k++) {
-                cost[k] = cellCost(frontier[k], t, baseDef);
+                cost[k] = cellCost(frontier[k], t, baseDef) * (naval[k] ? Config.NAVAL_COST_MULT : 1.0);
                 key[k] = directed ? s.distance(frontier[k], a.targetCell()) : cost[k];
             }
             sortByKey(frontier, cost, key);

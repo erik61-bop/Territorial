@@ -6,6 +6,9 @@ package io.territorial.sim;
  */
 public final class GameState {
     public static final int NEUTRAL = -1;
+    public static final int WATER = -2;   // sentinel owner for ocean cells (never ownable)
+
+    public int[] waterCells = new int[0];  // indices of water cells (set by GameFactory)
 
     // Match phases.
     public static final int PEACE = 0, WAR = 1, FINAL_WAR = 2;
@@ -106,11 +109,12 @@ public final class GameState {
         java.util.Arrays.fill(incomeUnits, 0);
         for (int c = 0; c < cellCount; c++) {
             int o = owner[c];
-            if (o == NEUTRAL) continue;
+            if (o < 0) continue;                       // neutral or water: unowned
             land[o]++;
             incomeUnits[o] += terrain[c].incomeMult;   // cities (1.2x) etc. boost income
             for (int nb : neighbours[c]) {
-                if (owner[nb] != o) { border[o]++; break; }
+                int no = owner[nb];
+                if (no != o && no != WATER) { border[o]++; break; }  // water is a safe edge
             }
         }
         for (int p = 0; p < numPlayers; p++) alive[p] = land[p] > 0;

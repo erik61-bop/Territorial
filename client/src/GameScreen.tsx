@@ -89,6 +89,7 @@ export default function GameScreen() {
     if (cx < 0 || cy < 0 || cx >= m.width || cy >= m.height) return;
     const cell = cy * m.width + cx;
     const target = s.owner[cell];
+    if (target === -2) return;              // water is not interactable
 
     const inSpawn = pid >= 0 && s.land[pid] === 0 && s.winner < 0;
     if (inSpawn) {

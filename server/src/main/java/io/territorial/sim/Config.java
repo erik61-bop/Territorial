@@ -13,6 +13,7 @@ public final class Config {
 
     // Combat / waves
     public static final double NEUTRAL_COST        = 3.5;  // flat cost to eat a neutral cell
+    public static final double NAVAL_COST_MULT     = 2.5;  // amphibious (cross-water) capture is costlier
     public static final double GARRISON_KILL       = 1.5;  // defender army drained per captured cell
     public static final double REFLUX              = 0.25; // fraction of unused wave refunded
     public static final double PENETRATION_PENALTY = 0.10; // each captured cell in a wave costs more

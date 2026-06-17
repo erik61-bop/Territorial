@@ -120,6 +120,16 @@ forcing function that makes this reachable.
 border cells (`supplyMult <= REBEL_SUPPLY`) back to neutral at `REBEL_CHANCE`/cell/tick — an
 anti-snowball beyond the income penalty. Paused during Final War.
 
+**Reinforcement direction.** An attack/expansion carries a `targetCell`; the wave is ordered toward
+it (nearest-first) so you push where you tap. With no direction (`-1`, used by bots) it falls back
+to cheapest-first, so bot-only balance is unchanged.
+
+**Naval / water.** `WATER` cells (owner sentinel `-2`, ~15% of the map in a few seas) are unownable
+and split the map; coastlines are SAFE borders (water neighbours don't count as border). You may
+cross a single water tile (a strait): a target cell reachable across one water cell from your coast
+is an amphibious frontier cell at `NAVAL_COST_MULT` cost. Wider seas need a bridgehead on the far
+coast first. `ownableCells = cellCount - water`, which is the win denominator.
+
 Two combat refinements that proved essential for fun + fairness:
 - **Penetration penalty** — each cell a single wave eats costs `×(1 + n·0.10)` more than the
   last, so you can chip a border but never blitz a whole nation in one tick. Forces sustained

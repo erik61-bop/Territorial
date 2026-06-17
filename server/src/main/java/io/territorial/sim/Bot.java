@@ -57,6 +57,7 @@ public final class Bot {
             for (int nb : s.neighbours[c]) {
                 int o = s.owner[nb];
                 if (o == GameState.NEUTRAL) { neutralAdjacent = true; }
+                else if (o == GameState.WATER) { /* coastline: not a target */ }
                 else if (o != p && !seen[o]) {
                     seen[o] = true;
                     double d = s.defensePerCell(o);

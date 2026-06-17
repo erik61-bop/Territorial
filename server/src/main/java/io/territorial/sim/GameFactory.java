@@ -16,6 +16,7 @@ public final class GameFactory {
         GameState s = new GameState(width, height, numPlayers, seed);
 
         assignTerrain(s);
+        carveWater(s);
         int[] capitals = placeCapitals(s, numPlayers);
         for (int p = 0; p < numPlayers; p++) {
             s.capitalCell[p] = capitals[p];
@@ -41,14 +42,47 @@ public final class GameFactory {
         }
     }
 
-    /** Greedy spread: each capital is the unused cell farthest (min-distance) from those chosen. */
+    /** Carve a few water blobs (seas/lakes) that split the map; mark them unownable. */
+    private static void carveWater(GameState s) {
+        int blobs = 3 + s.rng.nextInt(3);            // 3..5 bodies of water
+        int target = (int) (s.cellCount * 0.15);     // ~15% of the map is water
+        ArrayDeque<Integer> q = new ArrayDeque<>();
+        int placed = 0;
+        for (int bcount = 0; bcount < blobs && placed < target; bcount++) {
+            int seed = s.rng.nextInt(s.cellCount);
+            int blobMax = target / blobs + s.rng.nextInt(target / blobs + 1);
+            q.clear();
+            q.add(seed);
+            int n = 0;
+            while (!q.isEmpty() && n < blobMax && placed < target) {
+                int c = q.poll();
+                if (s.terrain[c] == Terrain.WATER) continue;
+                s.terrain[c] = Terrain.WATER;
+                s.owner[c] = GameState.WATER;
+                n++; placed++;
+                for (int nb : s.neighbours[c]) {
+                    if (s.terrain[nb] != Terrain.WATER && s.rng.nextDouble() < 0.62) q.add(nb);
+                }
+            }
+        }
+        // record water cells + ownable count
+        int[] tmp = new int[placed];
+        int w = 0;
+        for (int c = 0; c < s.cellCount; c++) if (s.terrain[c] == Terrain.WATER) tmp[w++] = c;
+        s.waterCells = java.util.Arrays.copyOf(tmp, w);
+        s.ownableCells = s.cellCount - w;
+    }
+
+    /** Greedy spread: each capital is the unused LAND cell farthest from those already chosen. */
     private static int[] placeCapitals(GameState s, int numPlayers) {
         int[] caps = new int[numPlayers];
         int first = s.rng.nextInt(s.cellCount);
+        while (s.terrain[first] == Terrain.WATER) first = s.rng.nextInt(s.cellCount);
         caps[0] = first;
         for (int p = 1; p < numPlayers; p++) {
             int best = -1, bestDist = -1;
             for (int c = 0; c < s.cellCount; c++) {
+                if (s.terrain[c] == Terrain.WATER) continue;   // capitals on land only
                 int minD = Integer.MAX_VALUE;
                 for (int q = 0; q < p; q++) minD = Math.min(minD, s.distance(c, caps[q]));
                 if (minD > bestDist) { bestDist = minD; best = c; }
@@ -95,7 +129,7 @@ public final class GameFactory {
         int[] land = new int[s.numPlayers];
         for (int c = 0; c < s.cellCount; c++) {
             int o = s.owner[c];
-            if (o != GameState.NEUTRAL) land[o]++;
+            if (o >= 0) land[o]++;
         }
         return land;
     }
