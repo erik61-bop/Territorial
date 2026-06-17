@@ -1,8 +1,11 @@
 # Territorial — Client (Expo + Skia, web-first)
 
-React Native (Expo) client. Renders the authoritative game from the Java server over WebSocket,
-using `@shopify/react-native-skia` for the board (one pixel per cell, scaled up — like the real
-Territorial.io). Web-first; the same code targets iOS/Android later.
+React Native (Expo) client. Renders the authoritative game from the Java server over WebSocket.
+The board is one pixel per cell scaled up (like the real Territorial.io). The renderer is chosen
+per platform via Metro extensions:
+- **web** → `src/render/GameCanvas.web.tsx` — plain **Canvas2D** (no WebGL, no WASM; works in any
+  browser/remote environment).
+- **native** → `src/render/GameCanvas.tsx` — `@shopify/react-native-skia` (GPU).
 
 ## Status — step 3 complete
 
@@ -36,18 +39,10 @@ public/
    `targetOwner: -1` = expand). Wheel = zoom, drag = pan. If you're wiped out, tap an empty area
    to respawn.
 
-### CanvasKit wasm (important)
+### Renderer note
 
-Skia on web needs `canvaskit.wasm` served at the site root. We keep a copy at
-`public/canvaskit.wasm` (Expo serves `public/` at `/` in dev and copies it into `dist/` on export),
-loaded by `WithSkiaWeb` in `App.tsx`. If you upgrade `@shopify/react-native-skia`, refresh it:
-
-```bash
-cp node_modules/canvaskit-wasm/bin/full/canvaskit.wasm public/canvaskit.wasm
-```
-
-Without this the board stays blank and the console shows
-`Expected 'application/wasm'` — the wasm 404'd.
+Web uses Canvas2D (no WebGL/WASM), so there's nothing to set up and it runs even where WebGL is
+unavailable (remote desktops, VMs, hardware-accel off). Skia is only pulled in for native builds.
 
 ## Run (native, later)
 
