@@ -26,9 +26,23 @@ public class GameHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        room.addHuman(session);
+        room.addHuman(session, tokenOf(session));
         room.send(session, room.welcomeFor(session));
         room.send(session, room.mapMessage());
+    }
+
+    /** Persistent client token from the ws URL query (?t=...), used for reconnection. */
+    private static String tokenOf(WebSocketSession session) {
+        java.net.URI uri = session.getUri();
+        if (uri == null || uri.getQuery() == null) return null;
+        for (String kv : uri.getQuery().split("&")) {
+            int i = kv.indexOf('=');
+            if (i > 0 && kv.substring(0, i).equals("t")) {
+                String v = kv.substring(i + 1);
+                return v.isEmpty() || v.length() > 64 ? null : v;
+            }
+        }
+        return null;
     }
 
     @Override

@@ -3,12 +3,26 @@ import { useGame } from '../state/store';
 let ws: WebSocket | null = null;
 let chatKey = 1;
 
-/** ws://<same-host>:8080/ws/game on web; localhost otherwise. */
+/** A persistent client id so a reload/disconnect reconnects to the same empire. */
+function clientToken(): string {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      let t = localStorage.getItem('territorial_token');
+      if (!t) { t = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('territorial_token', t); }
+      return t;
+    }
+  } catch { /* ignore */ }
+  return 'anon';
+}
+
+/** ws://<same-host>:8080/ws/game on web (same origin as the page); localhost otherwise. */
 export function serverUrl(): string {
+  const t = encodeURIComponent(clientToken());
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-    return `ws://${window.location.hostname}:8080/ws/game`;
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${proto}://${window.location.hostname}:8080/ws/game?t=${t}`;
   }
-  return 'ws://localhost:8080/ws/game';
+  return `ws://localhost:8080/ws/game?t=${t}`;
 }
 
 export function connect(url = serverUrl()): WebSocket {

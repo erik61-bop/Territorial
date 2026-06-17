@@ -30,6 +30,7 @@ public class GameRoom {
     private final int tickMs;
 
     static final long CHAT_COOLDOWN_MS = 1200;   // anti-spam: min gap between a player's messages
+    static final int RECONNECT_GRACE_TICKS = 320; // ~40s to reconnect before a slot is freed
 
     private final ReentrantLock lock = new ReentrantLock();
     private final List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
@@ -38,6 +39,12 @@ public class GameRoom {
     private final java.util.concurrent.ConcurrentLinkedQueue<Diplo> humanDiplo = new java.util.concurrent.ConcurrentLinkedQueue<>();
     private final ConcurrentHashMap<Integer, Long> lastChatAt = new ConcurrentHashMap<>();
     private final boolean[] human = new boolean[NUM_PLAYERS];
+    // Reconnection: a persistent client token owns a slot; a disconnected slot is held for a grace
+    // period (empire kept) before being freed.
+    private final boolean[] connected = new boolean[NUM_PLAYERS];
+    private final int[] disconnectTick = new int[NUM_PLAYERS];
+    private final String[] slotToken = new String[NUM_PLAYERS];
+    private final Map<String, Integer> tokenToSlot = new ConcurrentHashMap<>();
 
     private GameState state;
     private Sim sim;
@@ -118,6 +125,7 @@ public class GameRoom {
                 if (a != null) actions.add(a);
             }
             sim.tick(actions);
+            expireDisconnects();
             sim.recomputeDerived();
             winner = sim.winner();
             broadcast(buildStateMessage());
@@ -128,16 +136,30 @@ public class GameRoom {
 
     // ---- session lifecycle (called from WebSocket container threads) ----
 
-    /** Claim a free slot for a new player and clear it (they will pick a spawn); -1 if full. */
-    public int addHuman(WebSocketSession session) {
+    /**
+     * Attach a connection to a slot. If {@code token} already owns a (still-reserved) slot, the
+     * player RECONNECTS to it with their empire intact; otherwise a fresh slot is claimed and
+     * cleared (they pick a spawn). Returns the slot, or -1 if the match is full.
+     */
+    public int addHuman(WebSocketSession session, String token) {
         lock.lock();
         try {
             sessions.add(session);
+            if (token != null) {
+                Integer existing = tokenToSlot.get(token);
+                if (existing != null && human[existing]) {     // reconnect — keep their empire
+                    connected[existing] = true;
+                    sessionToPlayer.put(session.getId(), existing);
+                    return existing;
+                }
+            }
             for (int p = 0; p < NUM_PLAYERS; p++) {
                 if (!human[p]) {
                     human[p] = true;
+                    connected[p] = true;
                     sessionToPlayer.put(session.getId(), p);
                     state.clearPlayer(p);      // no inherited empire; player must choose a spawn
+                    if (token != null) { slotToken[p] = token; tokenToSlot.put(token, p); }
                     return p;
                 }
             }
@@ -147,18 +169,31 @@ public class GameRoom {
         }
     }
 
+    /** Mark the connection gone but HOLD the slot (empire kept) for the reconnect grace period. */
     public void removeHuman(WebSocketSession session) {
         lock.lock();
         try {
             sessions.remove(session);
             Integer p = sessionToPlayer.remove(session.getId());
-            if (p != null) {
-                state.clearPlayer(p);          // dissolve their empire
-                human[p] = false;
+            if (p != null && human[p]) {
+                connected[p] = false;
+                disconnectTick[p] = state.tick;
                 humanActions.remove(p);
             }
         } finally {
             lock.unlock();
+        }
+    }
+
+    /** Free slots whose player disconnected and never came back within the grace period. */
+    private void expireDisconnects() {
+        for (int p = 0; p < NUM_PLAYERS; p++) {
+            if (human[p] && !connected[p] && state.tick - disconnectTick[p] > RECONNECT_GRACE_TICKS) {
+                state.clearPlayer(p);          // dissolve the abandoned empire
+                human[p] = false;
+                humanActions.remove(p);
+                if (slotToken[p] != null) { tokenToSlot.remove(slotToken[p]); slotToken[p] = null; }
+            }
         }
     }
 
