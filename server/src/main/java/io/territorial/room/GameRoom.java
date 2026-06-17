@@ -45,6 +45,10 @@ public class GameRoom {
     private final int[] disconnectTick = new int[NUM_PLAYERS];
     private final String[] slotToken = new String[NUM_PLAYERS];
     private final Map<String, Integer> tokenToSlot = new ConcurrentHashMap<>();
+    // Snapshot deltas: lastOwner is the broadcast baseline; needsFull sessions get a full snapshot.
+    static final int KEYFRAME_TICKS = 40;        // a full snapshot every ~5s heals any desync
+    private int[] lastOwner;
+    private final java.util.Set<String> needsFull = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private GameState state;
     private Sim sim;
@@ -85,6 +89,7 @@ public class GameRoom {
         sim.recomputeDerived();
         winner = -1;
         holdTicks = 0;
+        lastOwner = null;
         humanActions.clear();
         humanDiplo.clear();
     }
@@ -102,7 +107,7 @@ public class GameRoom {
                     newMatch();
                     broadcast(buildMapMessage());
                 }
-                broadcast(buildStateMessage());
+                broadcastState();
                 return;
             }
 
@@ -128,7 +133,7 @@ public class GameRoom {
             expireDisconnects();
             sim.recomputeDerived();
             winner = sim.winner();
-            broadcast(buildStateMessage());
+            broadcastState();
         } finally {
             lock.unlock();
         }
@@ -145,6 +150,7 @@ public class GameRoom {
         lock.lock();
         try {
             sessions.add(session);
+            needsFull.add(session.getId());   // first state to a new connection is a full snapshot
             if (token != null) {
                 Integer existing = tokenToSlot.get(token);
                 if (existing != null && human[existing]) {     // reconnect — keep their empire
@@ -285,7 +291,8 @@ public class GameRoom {
         return m;
     }
 
-    private Map<String, Object> buildStateMessage() {
+    /** Everything except the cell ownership (which is sent full as "owner" or diffed as "changed"). */
+    private Map<String, Object> buildCommon() {
         int[] army = new int[state.numPlayers];
         int[] morale = new int[state.numPlayers]; // momentum x100, so the client avoids float noise
         int[] income = new int[state.numPlayers]; // army/sec (lastIncome x tickRate), rounded
@@ -296,9 +303,7 @@ public class GameRoom {
             income[p] = (int) Math.round(state.lastIncome[p] * perSec);
         }
         Map<String, Object> m = new HashMap<>();
-        m.put("type", "state");
         m.put("tick", state.tick);
-        m.put("owner", state.owner.clone());
         m.put("army", army);
         m.put("morale", morale);
         m.put("income", income);
@@ -321,7 +326,53 @@ public class GameRoom {
         return m;
     }
 
+    /**
+     * Broadcast ownership efficiently: a full "state" (owner array) to new clients and on keyframes,
+     * a "delta" (only changed cells) to everyone else. Per-player arrays are tiny so always full.
+     */
+    private void broadcastState() {
+        int[] owner = state.owner;
+        boolean keyframeAll = lastOwner == null || lastOwner.length != owner.length
+                || state.tick % KEYFRAME_TICKS == 0;
+
+        Map<String, Object> common = buildCommon();
+        Map<String, Object> full = new HashMap<>(common);
+        full.put("type", "state");
+        full.put("owner", owner.clone());
+        String fullText = serialize(full);
+
+        String deltaText = null;
+        if (!keyframeAll) {
+            int n = 0;
+            for (int c = 0; c < owner.length; c++) if (owner[c] != lastOwner[c]) n++;
+            int[] changed = new int[n * 2];
+            int k = 0;
+            for (int c = 0; c < owner.length; c++) if (owner[c] != lastOwner[c]) { changed[k++] = c; changed[k++] = owner[c]; }
+            Map<String, Object> delta = new HashMap<>(common);
+            delta.put("type", "delta");
+            delta.put("changed", changed);
+            deltaText = serialize(delta);
+        }
+
+        for (WebSocketSession s : sessions) {
+            boolean wantsFull = keyframeAll || needsFull.remove(s.getId());
+            sendRaw(s, wantsFull ? fullText : deltaText);
+        }
+        lastOwner = owner.clone();
+    }
+
     // ---- transport ----
+
+    private String serialize(Object payload) {
+        try { return json.writeValueAsString(payload); } catch (Exception e) { return null; }
+    }
+
+    private void sendRaw(WebSocketSession s, String text) {
+        if (text == null) return;
+        try {
+            synchronized (s) { if (s.isOpen()) s.sendMessage(new TextMessage(text)); }
+        } catch (Exception e) { /* drop on a dead session */ }
+    }
 
     public void send(WebSocketSession session, Object payload) {
         try {

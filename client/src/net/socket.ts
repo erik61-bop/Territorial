@@ -54,14 +54,28 @@ export function connect(url = serverUrl()): WebSocket {
         });
         break;
       case 'state':
+      case 'delta': {
+        // Full snapshot carries owner[]; a delta carries changed[idx,owner,...] applied to the
+        // previous owner array. Per-player arrays are always sent in full.
+        let owner: number[];
+        if (m.type === 'state') {
+          owner = m.owner;
+        } else {
+          const prev = useGame.getState().snap?.owner;
+          if (!prev) break;                 // no baseline yet — wait for the next full keyframe
+          owner = prev.slice();
+          const ch = m.changed ?? [];
+          for (let i = 0; i + 1 < ch.length; i += 2) owner[ch[i]] = ch[i + 1];
+        }
         s.setSnap({
-          tick: m.tick, owner: m.owner, army: m.army, morale: m.morale ?? [], income: m.income ?? [], land: m.land,
+          tick: m.tick, owner, army: m.army, morale: m.morale ?? [], income: m.income ?? [], land: m.land,
           alive: m.alive, human: m.human, winner: m.winner,
           rel: m.rel ?? [], offer: m.offer ?? [], allyOffer: m.allyOffer ?? [],
           phase: m.phase ?? 1, phaseEndsIn: m.phaseEndsIn ?? -1,
           capitals: m.capitals ?? [],
         });
         break;
+      }
       case 'chat':
         s.pushChat({ key: chatKey++, from: m.from, templateId: m.templateId, target: m.target });
         break;
