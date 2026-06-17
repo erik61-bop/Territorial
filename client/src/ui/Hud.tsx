@@ -1,0 +1,111 @@
+import React from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useGame } from '../state/store';
+import { cssPlayer } from '../render/colors';
+
+const FRACTIONS = [0.25, 0.5, 0.75, 1.0];
+
+export default function Hud() {
+  const connected = useGame((s) => s.connected);
+  const playerId = useGame((s) => s.playerId);
+  const snap = useGame((s) => s.snap);
+  const fraction = useGame((s) => s.fraction);
+  const setFraction = useGame((s) => s.setFraction);
+
+  const leaderboard = React.useMemo(() => {
+    if (!snap) return [];
+    return snap.land
+      .map((land, id) => ({ id, land, army: snap.army[id], alive: snap.alive[id] }))
+      .filter((p) => p.alive)
+      .sort((a, b) => b.land - a.land)
+      .slice(0, 6);
+  }, [snap]);
+
+  const myLand = snap && playerId >= 0 ? snap.land[playerId] : 0;
+  const myArmy = snap && playerId >= 0 ? snap.army[playerId] : 0;
+  const won = snap && snap.winner >= 0;
+
+  return (
+    <>
+      {/* top-left: identity + my stats */}
+      <View style={[styles.panel, styles.topLeft]}>
+        <View style={styles.row}>
+          <View style={[styles.swatch, { backgroundColor: playerId >= 0 ? cssPlayer(playerId) : '#666' }]} />
+          <Text style={styles.title}>
+            {playerId >= 0 ? `You — player ${playerId}` : 'Spectating'}
+          </Text>
+        </View>
+        <Text style={styles.stat}>army {Math.round(myArmy)}   land {myLand}</Text>
+        <Text style={[styles.dim, { color: connected ? '#7CFC9B' : '#FF6B6B' }]}>
+          {connected ? 'connected' : 'connecting…'}{snap ? `  ·  tick ${snap.tick}` : ''}
+        </Text>
+      </View>
+
+      {/* top-right: leaderboard */}
+      <View style={[styles.panel, styles.topRight]}>
+        <Text style={styles.title}>Leaderboard</Text>
+        {leaderboard.map((p) => (
+          <View key={p.id} style={styles.row}>
+            <View style={[styles.swatch, { backgroundColor: cssPlayer(p.id) }]} />
+            <Text style={styles.stat}>
+              {p.id === playerId ? 'you' : `P${p.id}`}  ·  {p.land}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* bottom: commit fraction */}
+      <View style={[styles.panel, styles.bottom]}>
+        <Text style={styles.dim}>Tap a country to send {Math.round(fraction * 100)}% of your army</Text>
+        <View style={styles.row}>
+          {FRACTIONS.map((f) => (
+            <Pressable
+              key={f}
+              onPress={() => setFraction(f)}
+              style={[styles.fracBtn, fraction === f && styles.fracBtnActive]}
+            >
+              <Text style={styles.fracText}>{Math.round(f * 100)}%</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      {won && (
+        <View style={styles.bannerWrap} pointerEvents="none">
+          <Text style={styles.banner}>
+            {snap!.winner === playerId ? 'You win! 🏆' : `Player ${snap!.winner} wins`}
+          </Text>
+          <Text style={styles.dim}>new match starting…</Text>
+        </View>
+      )}
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  panel: {
+    position: 'absolute',
+    backgroundColor: 'rgba(20,20,28,0.82)',
+    padding: 10,
+    borderRadius: 10,
+  },
+  topLeft: { top: 12, left: 12, minWidth: 170 },
+  topRight: { top: 12, right: 12, minWidth: 130 },
+  bottom: { bottom: 16, alignSelf: 'center', alignItems: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 2 },
+  swatch: { width: 14, height: 14, borderRadius: 3 },
+  title: { color: '#fff', fontWeight: '700', fontSize: 14, marginBottom: 2 },
+  stat: { color: '#e8e8e8', fontSize: 13 },
+  dim: { color: '#aaa', fontSize: 12 },
+  fracBtn: {
+    paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8,
+    backgroundColor: '#33384a', marginHorizontal: 4,
+  },
+  fracBtnActive: { backgroundColor: '#4c7dff' },
+  fracText: { color: '#fff', fontWeight: '600' },
+  bannerWrap: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  banner: { color: '#fff', fontSize: 40, fontWeight: '800', textShadowColor: '#000', textShadowRadius: 8 },
+});

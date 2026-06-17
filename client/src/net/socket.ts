@@ -1,0 +1,58 @@
+import { useGame } from '../state/store';
+
+let ws: WebSocket | null = null;
+
+/** ws://<same-host>:8080/ws/game on web; localhost otherwise. */
+export function serverUrl(): string {
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    return `ws://${window.location.hostname}:8080/ws/game`;
+  }
+  return 'ws://localhost:8080/ws/game';
+}
+
+export function connect(url = serverUrl()): WebSocket {
+  if (ws) return ws;
+  const store = useGame.getState();
+  const sock = new WebSocket(url);
+
+  sock.onopen = () => store.setConnected(true);
+  sock.onclose = () => {
+    store.setConnected(false);
+    ws = null;
+    // simple auto-reconnect after a short delay
+    setTimeout(() => connect(url), 1000);
+  };
+  sock.onerror = () => { /* state surfaced via connected=false */ };
+  sock.onmessage = (ev) => {
+    let m: any;
+    try { m = JSON.parse(ev.data as string); } catch { return; }
+    const s = useGame.getState();
+    switch (m.type) {
+      case 'welcome':
+        s.setPlayerId(m.playerId);
+        break;
+      case 'map':
+        s.setMap({
+          width: m.width, height: m.height, numPlayers: m.numPlayers,
+          terrain: m.terrain, capitals: m.capitals,
+        });
+        break;
+      case 'state':
+        s.setSnap({
+          tick: m.tick, owner: m.owner, army: m.army, land: m.land,
+          alive: m.alive, human: m.human, winner: m.winner,
+        });
+        break;
+    }
+  };
+
+  ws = sock;
+  return sock;
+}
+
+/** targetOwner = a playerId to attack, or -1 to expand into neutral. One-shot. */
+export function sendAction(targetOwner: number, fraction: number): void {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'action', targetOwner, fraction }));
+  }
+}

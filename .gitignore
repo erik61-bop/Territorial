@@ -1,0 +1,17 @@
+# Java / Maven
+server/target/
+server/out/
+**/*.class
+
+# Node / Expo
+node_modules/
+client/dist/
+client/.expo/
+client/web-build/
+client/static-server.js
+*.log
+npm-debug.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
