@@ -5,20 +5,26 @@ import {
 import { PLAYER_COLORS, TERRAIN_COLORS } from './colors';
 import type { MapInfo, Snapshot } from '../state/store';
 
+export interface Camera { scale: number; tx: number; ty: number; }
+export interface TapMark { x: number; y: number; }
+
 interface Props {
   map: MapInfo;
   snap: Snapshot;
-  scale: number;
+  camera: Camera;
+  screenW: number;
+  screenH: number;
+  tap: TapMark | null;
+  myId: number;
 }
 
 /**
- * Renders the board as a width x height pixel image (owner colour, or terrain when neutral),
- * scaled up with nearest-neighbour sampling. Capitals are drawn as ringed dots on top.
+ * Full-screen Skia canvas. The board is a width x height pixel image (owner colour, or terrain
+ * when neutral) drawn under a camera transform (translate + scale, nearest-neighbour). Capitals
+ * are ringed; your own capital is highlighted; a tap leaves a brief marker.
  */
-export default function GameCanvas({ map, snap, scale }: Props) {
+export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, myId }: Props) {
   const { width, height, terrain, capitals } = map;
-  const drawW = width * scale;
-  const drawH = height * scale;
 
   const image = useMemo(() => {
     const n = width * height;
@@ -39,12 +45,18 @@ export default function GameCanvas({ map, snap, scale }: Props) {
 
   if (!image) return null;
 
+  const { scale, tx, ty } = camera;
+  const drawW = width * scale;
+  const drawH = height * scale;
+  const cellCx = (cell: number) => tx + (cell % width) * scale + scale / 2;
+  const cellCy = (cell: number) => ty + Math.floor(cell / width) * scale + scale / 2;
+
   return (
-    <Canvas style={{ width: drawW, height: drawH }}>
+    <Canvas style={{ width: screenW, height: screenH }}>
       <Image
         image={image}
-        x={0}
-        y={0}
+        x={tx}
+        y={ty}
         width={drawW}
         height={drawH}
         fit="fill"
@@ -55,16 +67,19 @@ export default function GameCanvas({ map, snap, scale }: Props) {
           snap.alive[pid] && cell >= 0 ? (
             <Circle
               key={pid}
-              cx={(cell % width) * scale + scale / 2}
-              cy={Math.floor(cell / width) * scale + scale / 2}
-              r={Math.max(2, scale * 0.9)}
-              color="white"
+              cx={cellCx(cell)}
+              cy={cellCy(cell)}
+              r={Math.max(3, scale * (pid === myId ? 1.4 : 0.9))}
+              color={pid === myId ? '#fff' : 'rgba(255,255,255,0.8)'}
               style="stroke"
-              strokeWidth={1.5}
+              strokeWidth={pid === myId ? 2.5 : 1.5}
             />
           ) : null,
         )}
       </Group>
+      {tap && (
+        <Circle cx={tap.x} cy={tap.y} r={14} color="rgba(255,255,255,0.9)" style="stroke" strokeWidth={3} />
+      )}
     </Canvas>
   );
 }
