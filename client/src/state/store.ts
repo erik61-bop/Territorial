@@ -4,15 +4,19 @@ export interface MapInfo {
   width: number;
   height: number;
   numPlayers: number;
+  ownableCells: number; // non-water cells (win denominator + % of map)
   terrain: number[];   // per-cell terrain ordinal
   capitals: number[];  // per-player capital cell index
 }
+
+export type Mode = 'attack' | 'move' | 'split' | 'hold';
 
 export interface Snapshot {
   tick: number;
   owner: number[];     // per-cell owner playerId, or -1 neutral
   army: number[];      // per-player
   morale: number[];    // per-player momentum x100 (e.g. 120 = 1.20)
+  income: number[];    // per-player army/sec
   land: number[];
   alive: boolean[];
   human: boolean[];
@@ -41,6 +45,7 @@ interface GameStore {
   chat: ChatMsg[];     // recent messages (capped)
   started: boolean;    // has the player pressed Play (left the menu)
   muted: boolean;
+  mode: Mode;          // current action mode (from the bottom action bar)
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
@@ -50,6 +55,7 @@ interface GameStore {
   pushChat: (m: ChatMsg) => void;
   setStarted: (b: boolean) => void;
   toggleMuted: () => void;
+  setMode: (m: Mode) => void;
 }
 
 export const useGame = create<GameStore>((set) => ({
@@ -59,6 +65,7 @@ export const useGame = create<GameStore>((set) => ({
   chat: [],
   started: false,
   muted: false,
+  mode: 'attack',
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
   setMap: (m) => set({ map: m }),
@@ -67,6 +74,7 @@ export const useGame = create<GameStore>((set) => ({
   pushChat: (m) => set((st) => ({ chat: [...st.chat, m].slice(-6) })),
   setStarted: (b) => set({ started: b }),
   toggleMuted: () => set((st) => ({ muted: !st.muted })),
+  setMode: (m) => set({ mode: m }),
 }));
 
 // Expose the store on web for debugging / automated end-to-end checks.

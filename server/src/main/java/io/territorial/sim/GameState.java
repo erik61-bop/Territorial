@@ -33,6 +33,7 @@ public final class GameState {
     public final int[] border;
     public final boolean[] alive;
     public final double[] incomeUnits;   // sum of terrain income multipliers over owned cells
+    public final double[] lastIncome;    // army/tick added last tick (for the UI income readout)
 
     // Diplomacy (symmetric). rel: 0 none, 1 peace, 2 ally. offer[a][b] = a has offered b peace.
     public final byte[][] rel;
@@ -68,6 +69,7 @@ public final class GameState {
         this.border = new int[numPlayers];
         this.alive = new boolean[numPlayers];
         this.incomeUnits = new double[numPlayers];
+        this.lastIncome = new double[numPlayers];
 
         this.rel = new byte[numPlayers][numPlayers];
         this.relUntil = new int[numPlayers][numPlayers];

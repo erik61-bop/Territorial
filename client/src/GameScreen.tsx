@@ -4,7 +4,8 @@ import { useGame } from './state/store';
 import { connect, sendAction, sendSpawn } from './net/socket';
 import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
 import Hud from './ui/Hud';
-import Chat from './ui/Chat';
+import QuickChat from './ui/QuickChat';
+import Minimap from './ui/Minimap';
 import Menu from './ui/Menu';
 import { sfx } from './audio/sfx';
 
@@ -96,9 +97,21 @@ export default function GameScreen() {
       if (target === -1) { showTap(screenX, screenY, 'spawn'); sendSpawn(cell); } // must choose empty land
       return;
     }
+    if (st.mode === 'hold') return;         // defensive: ignore taps
     if (target === pid) return;             // can't attack yourself
-    showTap(screenX, screenY, target === -1 ? 'expand' : 'attack');
-    sendAction(target, st.fraction, cell);  // target -1 => expand; cell directs the wave
+
+    if (target === -1) {                    // empty land -> expand (in any mode except hold)
+      if (st.mode === 'attack' || st.mode === 'move' || st.mode === 'split') {
+        showTap(screenX, screenY, 'expand');
+        sendAction(-1, st.fraction, cell);
+      }
+      return;
+    }
+    if (st.mode === 'move') return;         // move-only mode doesn't attack
+    // attack (split sends smaller waves so you can spread across directions)
+    const f = st.mode === 'split' ? Math.min(st.fraction, 0.34) : st.fraction;
+    showTap(screenX, screenY, 'attack');
+    sendAction(target, f, cell);
   }, [showTap]);
 
   const lastPan = useRef<{ x: number; y: number } | null>(null);
@@ -162,7 +175,8 @@ export default function GameScreen() {
         </View>
       )}
       <Hud />
-      <Chat />
+      <QuickChat />
+      {map && snap && <Minimap camera={camera} screenW={winW} screenH={winH} />}
     </View>
   );
 }

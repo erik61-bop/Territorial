@@ -243,6 +243,7 @@ public class GameRoom {
         m.put("width", state.width);
         m.put("height", state.height);
         m.put("numPlayers", state.numPlayers);
+        m.put("ownableCells", state.ownableCells);
         m.put("terrain", terrain);
         m.put("capitals", state.capitalCell.clone());
         return m;
@@ -251,9 +252,12 @@ public class GameRoom {
     private Map<String, Object> buildStateMessage() {
         int[] army = new int[state.numPlayers];
         int[] morale = new int[state.numPlayers]; // momentum x100, so the client avoids float noise
+        int[] income = new int[state.numPlayers]; // army/sec (lastIncome x tickRate), rounded
+        double perSec = 1000.0 / tickMs;
         for (int p = 0; p < state.numPlayers; p++) {
             army[p] = (int) Math.round(state.army[p]);
             morale[p] = (int) Math.round(state.momentum[p] * 100);
+            income[p] = (int) Math.round(state.lastIncome[p] * perSec);
         }
         Map<String, Object> m = new HashMap<>();
         m.put("type", "state");
@@ -261,6 +265,7 @@ public class GameRoom {
         m.put("owner", state.owner.clone());
         m.put("army", army);
         m.put("morale", morale);
+        m.put("income", income);
         m.put("land", state.land.clone());
         m.put("alive", state.alive.clone());
         m.put("human", human.clone());

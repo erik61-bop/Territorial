@@ -106,7 +106,9 @@ public final class Sim {
             double income = Math.pow(s.incomeUnits[p], Config.LAND_INCOME_EXP)
                     * Config.INCOME_RATE * stability * capMult;
             double cap = s.land[p] * Config.ARMY_CAP_PER_LAND;
+            double before = s.army[p];
             s.army[p] = Math.min(s.army[p] + income, cap);
+            s.lastIncome[p] = s.army[p] - before;
         }
     }
 

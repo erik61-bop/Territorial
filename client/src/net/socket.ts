@@ -35,12 +35,13 @@ export function connect(url = serverUrl()): WebSocket {
       case 'map':
         s.setMap({
           width: m.width, height: m.height, numPlayers: m.numPlayers,
+          ownableCells: m.ownableCells ?? m.width * m.height,
           terrain: m.terrain, capitals: m.capitals,
         });
         break;
       case 'state':
         s.setSnap({
-          tick: m.tick, owner: m.owner, army: m.army, morale: m.morale ?? [], land: m.land,
+          tick: m.tick, owner: m.owner, army: m.army, morale: m.morale ?? [], income: m.income ?? [], land: m.land,
           alive: m.alive, human: m.human, winner: m.winner,
           rel: m.rel ?? [], offer: m.offer ?? [], allyOffer: m.allyOffer ?? [],
           phase: m.phase ?? 1, phaseEndsIn: m.phaseEndsIn ?? -1,
