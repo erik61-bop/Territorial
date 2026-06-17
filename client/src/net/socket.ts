@@ -42,7 +42,7 @@ export function connect(url = serverUrl()): WebSocket {
         s.setSnap({
           tick: m.tick, owner: m.owner, army: m.army, morale: m.morale ?? [], land: m.land,
           alive: m.alive, human: m.human, winner: m.winner,
-          rel: m.rel ?? [], offer: m.offer ?? [],
+          rel: m.rel ?? [], offer: m.offer ?? [], allyOffer: m.allyOffer ?? [],
           phase: m.phase ?? 1, phaseEndsIn: m.phaseEndsIn ?? -1,
           capitals: m.capitals ?? [],
         });
@@ -79,4 +79,9 @@ export function sendDiplo(kind: string, target: number): void {
 /** Place your starting blob at a chosen (neutral) cell. */
 export function sendSpawn(cell: number): void {
   send({ type: 'spawn', cell });
+}
+
+// Expose senders on web for automated end-to-end checks.
+if (typeof window !== 'undefined') {
+  (window as any).__net = { sendAction, sendChat, sendDiplo, sendSpawn };
 }

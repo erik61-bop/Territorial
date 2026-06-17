@@ -22,8 +22,9 @@ export default function Chat() {
     .filter((p) => p.a && p.id !== playerId)
     .map((p) => p.id);
 
-  // peace offers made TO me, and my active treaties
-  const offersToMe = alivePlayers.filter((id) => snap.offer?.[id]?.[playerId]);
+  // offers made TO me, and my active treaties
+  const peaceOffers = alivePlayers.filter((id) => snap.offer?.[id]?.[playerId]);
+  const allyOffers = alivePlayers.filter((id) => snap.allyOffer?.[id]?.[playerId]);
   const myRel = snap.rel?.[playerId] ?? [];
   const treaties = alivePlayers.filter((id) => myRel[id] === 1 || myRel[id] === 2);
 
@@ -41,11 +42,20 @@ export default function Chat() {
 
   return (
     <>
-      {/* incoming peace offers */}
-      {offersToMe.length > 0 && (
+      {/* incoming peace / alliance offers */}
+      {(peaceOffers.length > 0 || allyOffers.length > 0) && (
         <View style={[styles.panel, styles.offers]}>
-          {offersToMe.map((from) => (
-            <View key={from} style={styles.row}>
+          {allyOffers.map((from) => (
+            <View key={'a' + from} style={styles.row}>
+              <View style={[styles.swatch, { backgroundColor: cssPlayer(from) }]} />
+              <Text style={styles.txt}>P{from} offers an alliance</Text>
+              <Pressable style={styles.accept} onPress={() => sendDiplo('ACCEPT_ALLY', from)}>
+                <Text style={styles.btnTxt}>Ally</Text>
+              </Pressable>
+            </View>
+          ))}
+          {peaceOffers.map((from) => (
+            <View key={'p' + from} style={styles.row}>
               <View style={[styles.swatch, { backgroundColor: cssPlayer(from) }]} />
               <Text style={styles.txt}>P{from} offers peace</Text>
               <Pressable style={styles.accept} onPress={() => sendDiplo('ACCEPT_PEACE', from)}>
@@ -69,13 +79,19 @@ export default function Chat() {
 
         {treaties.length > 0 && (
           <View style={styles.treaties}>
-            <Text style={styles.dim}>peace: </Text>
-            {treaties.map((id) => (
-              <Pressable key={id} style={styles.treaty} onPress={() => sendDiplo('BREAK_PEACE', id)}>
-                <View style={[styles.dot, { backgroundColor: cssPlayer(id) }]} />
-                <Text style={styles.treatyTxt}>P{id} ✕</Text>
-              </Pressable>
-            ))}
+            {treaties.map((id) => {
+              const ally = myRel[id] === 2;
+              return (
+                <Pressable
+                  key={id}
+                  style={[styles.treaty, ally && styles.allyTreaty]}
+                  onPress={() => sendDiplo(ally ? 'BREAK_ALLY' : 'BREAK_PEACE', id)}
+                >
+                  <View style={[styles.dot, { backgroundColor: cssPlayer(id) }]} />
+                  <Text style={styles.treatyTxt}>{ally ? '🛡️' : '🤝'} P{id} ✕</Text>
+                </Pressable>
+              );
+            })}
           </View>
         )}
 
@@ -122,7 +138,8 @@ const styles = StyleSheet.create({
   log: { gap: 2 },
   logLine: { fontSize: 13 },
   treaties: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 6 },
-  treaty: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2a3550', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginRight: 6 },
+  treaty: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2a3550', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginRight: 6, marginBottom: 4 },
+  allyTreaty: { backgroundColor: '#3a4d2a' },
   treatyTxt: { color: '#cdd6f4', fontSize: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   msgWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, maxWidth: 340 },

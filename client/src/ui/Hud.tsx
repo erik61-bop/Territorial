@@ -104,14 +104,20 @@ export default function Hud() {
         ))}
       </View>
 
-      {won && (
-        <View style={styles.bannerWrap} pointerEvents="none">
-          <Text style={styles.banner}>
-            {snap!.winner === playerId ? 'You win! 🏆' : `Player ${snap!.winner} wins`}
-          </Text>
-          <Text style={styles.dim}>new match starting…</Text>
-        </View>
-      )}
+      {won && (() => {
+        const w = snap!.winner;
+        const onWinningSide = w === playerId || snap!.rel?.[playerId]?.[w] === 2;
+        return (
+          <View style={styles.bannerWrap} pointerEvents="none">
+            <Text style={styles.banner}>
+              {w === playerId ? 'You win! 🏆'
+                : onWinningSide ? 'Your alliance wins! 🛡️🏆'
+                : `Player ${w} wins`}
+            </Text>
+            <Text style={styles.dim}>new match starting…</Text>
+          </View>
+        );
+      })()}
     </>
   );
 }

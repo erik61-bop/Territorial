@@ -206,8 +206,11 @@ public class GameRoom {
         if (last != null && nowMs - last < CHAT_COOLDOWN_MS) return;
         lastChatAt.put(p, nowMs);
 
-        if ("peace_request".equals(templateId) && target >= 0 && target < NUM_PLAYERS && target != p) {
+        boolean validTarget = target >= 0 && target < NUM_PLAYERS && target != p;
+        if (validTarget && "peace_request".equals(templateId)) {
             humanDiplo.add(new Diplo(p, target, Diplo.Kind.REQUEST_PEACE));
+        } else if (validTarget && "ally_request".equals(templateId)) {
+            humanDiplo.add(new Diplo(p, target, Diplo.Kind.REQUEST_ALLY));
         }
         Map<String, Object> m = new HashMap<>();
         m.put("type", "chat");
@@ -273,6 +276,7 @@ public class GameRoom {
             for (int b = 0; b < state.numPlayers; b++) rel[a][b] = state.rel[a][b];
         m.put("rel", rel);
         m.put("offer", state.offer);
+        m.put("allyOffer", state.allyOffer);
         return m;
     }
 

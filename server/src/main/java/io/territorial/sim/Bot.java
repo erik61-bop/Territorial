@@ -26,9 +26,9 @@ public final class Bot {
         if (!s.alive[p]) return null;
         for (int q = 0; q < s.numPlayers; q++) {
             if (q == p || !s.alive[q]) continue;
-            if (s.offer[q][p] && s.land[q] >= s.land[p] * Config.BOT_ACCEPT_RATIO) {
-                return new Diplo(p, q, Diplo.Kind.ACCEPT_PEACE);
-            }
+            boolean notMuchWeaker = s.land[q] >= s.land[p] * Config.BOT_ACCEPT_RATIO;
+            if (s.allyOffer[q][p] && notMuchWeaker) return new Diplo(p, q, Diplo.Kind.ACCEPT_ALLY);
+            if (s.offer[q][p] && notMuchWeaker) return new Diplo(p, q, Diplo.Kind.ACCEPT_PEACE);
         }
         return null;
     }

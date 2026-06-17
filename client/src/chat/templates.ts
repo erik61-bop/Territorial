@@ -7,6 +7,7 @@ export interface ChatTemplate {
 
 export const TEMPLATES: ChatTemplate[] = [
   { id: 'peace_request', text: 'Peace? 🤝', requiresTarget: true },   // also sends a peace request
+  { id: 'ally_request', text: 'Alliance? 🛡️', requiresTarget: true }, // also sends an alliance request
   { id: 'attack_target', text: 'Attack {t}! ⚔️', requiresTarget: true },
   { id: 'help', text: 'Help me! 🆘', requiresTarget: false },
   { id: 'defend', text: 'Defend! 🛡️', requiresTarget: false },

@@ -32,7 +32,8 @@ public final class GameState {
     // Diplomacy (symmetric). rel: 0 none, 1 peace, 2 ally. offer[a][b] = a has offered b peace.
     public final byte[][] rel;
     public final int[][] relUntil;       // tick at which a PEACE expires
-    public final boolean[][] offer;
+    public final boolean[][] offer;      // pending peace offers
+    public final boolean[][] allyOffer;  // pending alliance offers
 
     // Precomputed 4-neighbours per cell (-1 padded for off-grid), and neighbour count
     final int[][] neighbours;
@@ -64,6 +65,7 @@ public final class GameState {
         this.rel = new byte[numPlayers][numPlayers];
         this.relUntil = new int[numPlayers][numPlayers];
         this.offer = new boolean[numPlayers][numPlayers];
+        this.allyOffer = new boolean[numPlayers][numPlayers];
 
         this.neighbours = new int[cellCount][];
         buildNeighbours();
@@ -123,7 +125,9 @@ public final class GameState {
         for (int c = 0; c < cellCount; c++) if (owner[c] == p) { owner[c] = NEUTRAL; n++; }
         army[p] = 0;
         for (int q = 0; q < numPlayers; q++) {
-            rel[p][q] = 0; rel[q][p] = 0; offer[p][q] = false; offer[q][p] = false;
+            rel[p][q] = 0; rel[q][p] = 0;
+            offer[p][q] = false; offer[q][p] = false;
+            allyOffer[p][q] = false; allyOffer[q][p] = false;
         }
         return n;
     }

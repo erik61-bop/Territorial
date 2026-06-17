@@ -56,8 +56,20 @@ public final class Sim {
                     s.rel[f][t] = 0; s.rel[t][f] = 0;
                     s.offer[f][t] = false; s.offer[t][f] = false;
                 }
+                case REQUEST_ALLY -> { if (s.rel[f][t] != 2) s.allyOffer[f][t] = true; }
+                case ACCEPT_ALLY -> { if (s.allyOffer[t][f]) setAlly(f, t); }
+                case BREAK_ALLY -> {
+                    if (s.rel[f][t] == 2) { s.rel[f][t] = 0; s.rel[t][f] = 0; }
+                    s.allyOffer[f][t] = false; s.allyOffer[t][f] = false;
+                }
             }
         }
+    }
+
+    private void setAlly(int a, int b) {
+        s.rel[a][b] = 2; s.rel[b][a] = 2;            // alliances don't expire
+        s.allyOffer[a][b] = false; s.allyOffer[b][a] = false;
+        s.offer[a][b] = false; s.offer[b][a] = false;
     }
 
     private void setPeace(int a, int b) {
@@ -224,7 +236,23 @@ public final class Sim {
         if (aliveCount == 0) return -1;
         if (aliveCount == 1) return last;
         if (totalLand > 0 && (double) biggestLand / totalLand >= Config.WIN_FRACTION) return biggest;
+        // Alliance victory: while alliances hold (not Final War), if every survivor is mutually
+        // allied the war is over — they share the win (represented by the lowest-id survivor).
+        if (s.phase != GameState.FINAL_WAR && allSurvivorsAllied()) {
+            for (int p = 0; p < s.numPlayers; p++) if (s.alive[p]) return p;
+        }
         return -1;
+    }
+
+    private boolean allSurvivorsAllied() {
+        for (int a = 0; a < s.numPlayers; a++) {
+            if (!s.alive[a]) continue;
+            for (int b = a + 1; b < s.numPlayers; b++) {
+                if (!s.alive[b]) continue;
+                if (s.rel[a][b] != 2) return false;   // an unallied survivor pair -> no victory
+            }
+        }
+        return true;
     }
 
     private static double clamp(double v, double lo, double hi) {

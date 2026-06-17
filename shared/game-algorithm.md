@@ -26,8 +26,10 @@ Social layer (implemented): **quick-chat** (preset messages with optional target
 with a per-player cooldown) and **diplomacy** — mutual temporary peace (`PEACE_TICKS` ~60s) you
 can request, accept, or betray. The attack resolver skips friendly pairs (`areFriendly`), so bots
 honour peace too. Bots only ACCEPT peace (never initiate), so bot-only balance is unchanged.
-Still to come: alliances with shared vision, and a Final War clock that strips peace and forces a
-finish.
+**Alliances** (implemented): a stronger, non-expiring bond (rel=2) — request/accept/break like
+peace. Allies can't attack each other (until Final War voids it). **Alliance victory:** if every
+surviving player is mutually allied (and it's not Final War), they share the win. Bots accept
+alliance/peace offers only from players not much weaker than them (so they don't ally easy prey).
 
 ## State
 
