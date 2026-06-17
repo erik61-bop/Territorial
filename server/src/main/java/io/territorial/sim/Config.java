@@ -36,14 +36,20 @@ public final class Config {
     // Setup
     public static final double START_ARMY_PER_LAND = 3.0;
 
-    // Win
-    public static final double WIN_FRACTION       = 0.65;
+    // Win — fraction of the whole (ownable) map you must control to dominate.
+    public static final double WIN_FRACTION       = 0.35;
+
+    // Territorial rebellion: badly overextended empires lose far-flung border cells to neutral.
+    public static final double REBEL_DENSITY      = 0.6;   // army/land below this = overextended
+    public static final double REBEL_SUPPLY       = 0.66;  // only cells this far out can rebel
+    public static final double REBEL_CHANCE       = 0.003; // per qualifying border cell per tick
 
     // Diplomacy
     public static final int PEACE_TICKS           = 480;   // a peace lasts ~60s at 8/s
     public static final double BOT_ACCEPT_RATIO   = 0.80;  // bots accept peace unless target is much weaker
 
     // Phases (ticks; 8/s). PEACE opening: expand into neutral only, no PvP. FINAL_WAR: peace void.
-    public static final int PEACE_PHASE_TICKS     = 120;   // ~15s opening land-grab, no PvP
-    public static final int FINAL_WAR_TICK        = 1200;  // ~150s in, all peace stripped -> forced finish
+    public static final int PEACE_PHASE_TICKS     = 60;    // ~8s opening land-grab, no PvP
+    public static final int FINAL_WAR_TICK        = 900;   // ~110s in, all treaties void -> forced finish
+    public static final double FINAL_WAR_ATTACK   = 1.6;   // offence surges so the map resolves
 }

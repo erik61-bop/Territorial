@@ -91,6 +91,7 @@ public final class Sim {
 
         applyIncome();
         resolveAttacks(actions);
+        applyRebellion();
         applyMomentum();
         s.tick++;
     }
@@ -137,6 +138,7 @@ public final class Sim {
             if (sent <= 0) continue;
             s.army[x] -= sent;
             double wave = sent * s.momentum[x];
+            if (s.phase == GameState.FINAL_WAR) wave *= Config.FINAL_WAR_ATTACK; // gloves off
 
             // Defender morale hardens defence (so a turtle that keeps winning gets tougher).
             double baseDef = (t == GameState.NEUTRAL)
@@ -214,6 +216,22 @@ public final class Sim {
         }
     }
 
+    /** Overextended empires (army spread too thin) shed far-flung border cells back to neutral. */
+    private void applyRebellion() {
+        if (s.phase == GameState.FINAL_WAR) return;   // gloves off: empires consolidate, no rebellion
+        for (int p = 0; p < s.numPlayers; p++) {
+            if (!s.alive[p] || s.density(p) >= Config.REBEL_DENSITY) continue;
+            int cap = s.capitalCell[p];
+            for (int c = 0; c < s.cellCount; c++) {
+                if (s.owner[c] != p || c == cap) continue;
+                boolean border = false;
+                for (int nb : s.neighbours[c]) if (s.owner[nb] != p) { border = true; break; }
+                if (!border || supplyMult(c, p) > Config.REBEL_SUPPLY) continue;
+                if (s.rng.nextDouble() < Config.REBEL_CHANCE) s.owner[c] = GameState.NEUTRAL;
+            }
+        }
+    }
+
     private void applyMomentum() {
         for (int p = 0; p < s.numPlayers; p++) {
             if (!s.alive[p]) { s.momentum[p] = 1.0; continue; }
@@ -228,17 +246,17 @@ public final class Sim {
 
     /** Winner id, or -1 if the game continues. Call after a tick (uses current derived state). */
     public int winner() {
-        int aliveCount = 0, last = -1, totalLand = 0, biggest = -1, biggestLand = -1;
+        int aliveCount = 0, last = -1, biggest = -1, biggestLand = -1;
         for (int p = 0; p < s.numPlayers; p++) {
             if (!s.alive[p]) continue;
             aliveCount++;
             last = p;
-            totalLand += s.land[p];
             if (s.land[p] > biggestLand) { biggestLand = s.land[p]; biggest = p; }
         }
         if (aliveCount == 0) return -1;
         if (aliveCount == 1) return last;
-        if (totalLand > 0 && (double) biggestLand / totalLand >= Config.WIN_FRACTION) return biggest;
+        // Domination: control WIN_FRACTION of the whole (ownable) map.
+        if (s.ownableCells > 0 && (double) biggestLand / s.ownableCells >= Config.WIN_FRACTION) return biggest;
         // Alliance victory: while alliances hold (not Final War), if every survivor is mutually
         // allied the war is over — they share the win (represented by the lowest-id survivor).
         if (s.phase != GameState.FINAL_WAR && allSurvivorsAllied()) {

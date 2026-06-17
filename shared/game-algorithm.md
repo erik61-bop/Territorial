@@ -108,8 +108,17 @@ A match runs PEACE → WAR → FINAL_WAR by tick count:
 - **PEACE** (first `PEACE_PHASE_TICKS`): no PvP — players may only expand into neutral land.
   This opening land-grab is a big equaliser (see balance note).
 - **WAR**: normal play; peace/alliance treaties are honoured.
-- **FINAL_WAR** (from `FINAL_WAR_TICK`): all treaties are void — everyone can attack everyone,
-  forcing a decisive finish. Bots only expand during PEACE.
+- **FINAL_WAR** (from `FINAL_WAR_TICK`): all treaties void, offence surges (`FINAL_WAR_ATTACK`),
+  and rebellion pauses — so the map consolidates and the game resolves decisively. Bots only
+  expand during PEACE.
+
+**Win = % of the whole map.** You win by being last standing, by alliance victory, or by controlling
+`WIN_FRACTION` of the whole ownable map (not just occupied land) — true domination. Final War is the
+forcing function that makes this reachable.
+
+**Territorial rebellion.** A badly overextended empire (`density < REBEL_DENSITY`) sheds far-flung
+border cells (`supplyMult <= REBEL_SUPPLY`) back to neutral at `REBEL_CHANCE`/cell/tick — an
+anti-snowball beyond the income penalty. Paused during Final War.
 
 Two combat refinements that proved essential for fun + fairness:
 - **Penetration penalty** — each cell a single wave eats costs `×(1 + n·0.10)` more than the
@@ -128,10 +137,10 @@ that pool fast. This coalition behaviour is what keeps the biggest starter from 
 ## Balance result (300 games, 8 players: 2 big start + 6 small, sizes shuffled)
 
 ```
-Current (cities-income + defence-driven morale): small 44.7% · biggest 55.3% · avg 1680 ticks · draws 0
-  Balanced: lots of upsets (small ~45%) yet a big start still matters (per-capita each big ~28%
-  vs each small ~7%). Turtles harden via morale, so games are longer/decisive (often to Final War).
-History: 56/44 (morale attack-only) ; 26/74 (no phase opening).
+Current (cities + defence morale + map-win + rebellion + Final-War surge):
+  small 53% · biggest 47% · avg 1678 ticks · draws 0
+  Balanced: upsets common, big start still ~2x favoured per-capita. Games resolve via Final War.
+History: 44.7/55.3 (occupied-win, no rebellion) ; 56/44 (morale attack-only) ; 26/74 (no opening).
 Fully deterministic.
 ```
 

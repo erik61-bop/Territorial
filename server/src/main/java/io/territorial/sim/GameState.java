@@ -14,6 +14,7 @@ public final class GameState {
     public final int width, height, cellCount;
     public final int numPlayers;
     public final Rng rng;
+    public int ownableCells;   // cells that can be owned (cellCount minus water); the win denominator
 
     // Per cell
     public final int[] owner;        // playerId or NEUTRAL
@@ -45,6 +46,7 @@ public final class GameState {
         this.width = width;
         this.height = height;
         this.cellCount = width * height;
+        this.ownableCells = cellCount;   // reduced by GameFactory when water is carved out
         this.numPlayers = numPlayers;
         this.rng = new Rng(seed);
 
