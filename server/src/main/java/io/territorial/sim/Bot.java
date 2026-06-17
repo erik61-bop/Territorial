@@ -10,12 +10,14 @@ public final class Bot {
     // Tunables for bot behaviour (kept here, not in Config, since they are AI not game rules).
     static final double EXPAND_MIN_DENSITY = 2.0;  // only expand if army-per-land is healthy
     static final double EXPAND_FRACTION    = 0.35;
-    static final double ATTACK_FRACTION    = 0.55;
-    static final double AGGRO_MARGIN       = 0.90;  // attack only neighbours meaningfully weaker
+    static final double ATTACK_FRACTION    = 0.60;  // commit enough to actually break a front
+    static final double GANG_FRACTION      = 0.72;  // throw more at a runaway leader
+    static final double AGGRO_MARGIN       = 1.02;  // attack neighbours up to ~as strong as me
+    static final double BREAK_MARGIN       = 1.25;  // ...but only if my wave clearly exceeds their defence
     static final double LEADER_RATIO       = 1.20;  // a neighbour this much bigger is a "threat"
-    static final double LEADER_DOMINANCE   = 0.30;  // gang up only once leader holds this map share
-    static final double GANG_UP_CHANCE     = 0.70;  // and only probabilistically (coalitions are loose)
-    static final double MISPLAY_CHANCE     = 0.05;
+    static final double LEADER_DOMINANCE   = 0.28;  // gang up once leader holds this map share
+    static final double GANG_UP_CHANCE     = 0.80;
+    static final double MISPLAY_CHANCE     = 0.02;
 
     /**
      * Decide a diplomacy order for the tick, or null. Bots only ACCEPT peace offers (and only if
@@ -47,8 +49,12 @@ public final class Bot {
         boolean leaderDominant = totalLand > 0 && leaderLand > totalLand * LEADER_DOMINANCE;
 
         boolean neutralAdjacent = false;
-        int weakestEnemy = -1;
+        int cityTarget = -1;              // a nearby neutral city to expand toward (income)
+        int neutralTarget = -1;           // any neutral frontier cell (expansion direction)
+        int weakestEnemy = -1;            // attackable enemy with the lowest defence-per-cell
         double weakestDef = Double.MAX_VALUE;
+        int strongestEnemy = -1;          // most dangerous adjacent enemy (can it break me?)
+        double strongestDef = -1;
         int biggestNeighbour = -1, biggestNeighbourLand = -1;
 
         boolean[] seen = new boolean[s.numPlayers];
@@ -56,53 +62,68 @@ public final class Bot {
             if (s.owner[c] != p) continue;
             for (int nb : s.neighbours[c]) {
                 int o = s.owner[nb];
-                if (o == GameState.NEUTRAL) { neutralAdjacent = true; }
-                else if (o == GameState.WATER) { /* coastline: not a target */ }
-                else if (o != p && !seen[o]) {
+                if (o == GameState.NEUTRAL) {
+                    neutralAdjacent = true;
+                    neutralTarget = nb;
+                    if (s.terrain[nb] == Terrain.CITY) cityTarget = nb;
+                } else if (o == GameState.WATER) {
+                    /* coastline */
+                } else if (o != p && !seen[o]) {
                     seen[o] = true;
+                    if (s.areFriendly(p, o)) continue;        // don't waste turns on peace/allies
                     double d = s.defensePerCell(o);
                     if (d < weakestDef) { weakestDef = d; weakestEnemy = o; }
+                    if (d > strongestDef) { strongestDef = d; strongestEnemy = o; }
                     if (s.land[o] > biggestNeighbourLand) { biggestNeighbourLand = s.land[o]; biggestNeighbour = o; }
                 }
             }
         }
 
         boolean misplay = s.rng.nextDouble() < MISPLAY_CHANCE;
+        double myDef = s.defensePerCell(p);
+        double surge = s.phase == GameState.FINAL_WAR ? Config.FINAL_WAR_ATTACK : 1.0;
+        double wave = s.army[p] * ATTACK_FRACTION * s.momentum[p] * surge;  // include Final War surge
+        int expandTarget = cityTarget >= 0 ? cityTarget : neutralTarget;   // prefer cities
 
-        // Opening Peace phase: no PvP allowed, so just grab neutral land (or hold).
+        // Opening Peace phase: no PvP — grab land (toward a city if one is adjacent).
         if (s.phase == GameState.PEACE) {
-            return neutralAdjacent ? new Action(p, GameState.NEUTRAL, EXPAND_FRACTION) : null;
+            return neutralAdjacent ? new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget) : null;
         }
 
-        // Rule: gang up on a RUNAWAY leader. Only once the leader is map-dominant, only if it
-        // borders me and dwarfs me, and only probabilistically (coalitions are loose). Many
-        // players doing this drain the leader's single pool from all sides at once.
+        // Final War: gloves off — throw almost everything at the weakest neighbour to crush and
+        // eliminate it, so the map consolidates and the game ends.
+        if (s.phase == GameState.FINAL_WAR && weakestEnemy >= 0) {
+            return new Action(p, weakestEnemy, 0.9, s.capitalCell[weakestEnemy]);
+        }
+
+        // Gang up on a runaway leader: commit hard and drive at its capital.
         if (!misplay && leaderDominant && biggestNeighbour == leader && biggestNeighbour != p
-                && biggestNeighbourLand > s.land[p] * LEADER_RATIO
-                && s.rng.nextDouble() < GANG_UP_CHANCE) {
-            return new Action(p, biggestNeighbour, ATTACK_FRACTION);
+                && biggestNeighbourLand > s.land[p] * LEADER_RATIO && s.rng.nextDouble() < GANG_UP_CHANCE) {
+            return new Action(p, leader, GANG_FRACTION, s.capitalCell[leader]);
         }
 
-        // Rule 1: expand into empty land while the army can spare it.
+        // Attack the weakest attackable neighbour — but only if (a) it isn't much stronger per cell
+        // and (b) my wave can actually break its defence. Drive the wave at its capital.
+        if (weakestEnemy >= 0 && weakestDef < myDef * AGGRO_MARGIN && wave > weakestDef * BREAK_MARGIN) {
+            return new Action(p, weakestEnemy, ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
+        }
+
+        // Expand into empty land while the army can spare it (toward a city if possible).
         if (neutralAdjacent && s.density(p) > EXPAND_MIN_DENSITY && !misplay) {
-            return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION);
+            return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget);
         }
 
-        // Rules 2-3: attack the weakest neighbour, but only if it is meaningfully weaker than me.
-        if (weakestEnemy >= 0) {
-            double myDef = s.defensePerCell(p);
-            boolean worthIt = weakestDef < myDef * AGGRO_MARGIN;
-            if (misplay || worthIt) {
-                return new Action(p, weakestEnemy, ATTACK_FRACTION);
-            }
+        // Occasional probe so it stays beatable / unpredictable.
+        if (misplay && weakestEnemy >= 0) {
+            return new Action(p, weakestEnemy, ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
         }
 
-        // Rule 1 fallback: nothing safe to hit, but neutral land exists -> grab some.
-        if (neutralAdjacent && !misplay) {
-            return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION);
+        // A strong neighbour can break me and I have no good move -> HOLD and regrow (defend),
+        // keeping density high. Otherwise grab neutral land if any remains.
+        boolean threatened = strongestEnemy >= 0 && strongestDef > myDef;
+        if (!threatened && neutralAdjacent) {
+            return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget);
         }
-
-        // Rule 4: surrounded by stronger foes / nothing to do -> hold and regrow.
-        return null;
+        return null;   // hold and regrow
     }
 }

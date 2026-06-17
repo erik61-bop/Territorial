@@ -37,8 +37,12 @@ public final class Config {
     // Setup
     public static final double START_ARMY_PER_LAND = 3.0;
 
-    // Win — fraction of the whole (ownable) map you must control to dominate.
-    public static final double WIN_FRACTION       = 0.35;
+    // Win — fraction of the whole (ownable) map you must control to dominate. During Final War this
+    // threshold ramps DOWN to a floor, guaranteeing the game (and the live match) always resolves.
+    public static final double WIN_FRACTION       = 0.30;
+    public static final double WIN_FLOOR          = 0.15;
+    public static final double WIN_DECAY_PER_TICK = 0.0004;  // ~tick 1275: threshold reaches the floor
+    public static final int FINAL_WAR_SUDDEN_DEATH = 500;    // ticks into Final War: largest simply wins
 
     // Territorial rebellion: badly overextended empires lose far-flung border cells to neutral.
     public static final double REBEL_DENSITY      = 0.6;   // army/land below this = overextended

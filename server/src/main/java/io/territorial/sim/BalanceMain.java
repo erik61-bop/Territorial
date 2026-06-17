@@ -18,6 +18,7 @@ public final class BalanceMain {
 
     public static void main(String[] args) {
         int smallWins = 0, biggestStarterWins = 0, draws = 0;
+        int timeouts = 0;
         long totalTicks = 0, winnerStartLandSum = 0;
 
         for (int g = 0; g < GAMES; g++) {
@@ -26,6 +27,7 @@ public final class BalanceMain {
             GameState s = GameFactory.create(WIDTH, HEIGHT, sizes, seed);
             GameRunner.Result r = GameRunner.run(s, MAX_TICKS);
             totalTicks += r.ticks();
+            if (r.ticks() >= MAX_TICKS) timeouts++;
 
             if (r.winner() < 0) { draws++; continue; }
             int startLand = r.initialLand()[r.winner()];
@@ -39,6 +41,7 @@ public final class BalanceMain {
 
         System.out.println("=== One Pool — balance report (" + GAMES + " games) ===");
         System.out.printf("avg game length      : %.0f ticks%n", totalTicks / (double) GAMES);
+        System.out.println("timeouts (hit cap): " + timeouts + " / " + GAMES);
         System.out.printf("avg winner start land: %.0f  (big start=120, small start=30)%n",
                 winnerStartLandSum / (double) GAMES);
         System.out.printf("SMALL-starter wins   : %d / %d  = %.1f%%%n", smallWins, GAMES, smallRate * 100);

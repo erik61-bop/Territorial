@@ -159,10 +159,11 @@ public final class Sim {
             double wave = sent * s.momentum[x];
             if (s.phase == GameState.FINAL_WAR) wave *= Config.FINAL_WAR_ATTACK; // gloves off
 
-            // Defender morale hardens defence (so a turtle that keeps winning gets tougher).
+            // Defender morale hardens defence (turtle that keeps winning gets tougher) — but in
+            // Final War defences crumble (morale ignored) so the map resolves decisively.
             double baseDef = (t == GameState.NEUTRAL)
                     ? Config.NEUTRAL_COST
-                    : s.defensePerCell(t) * s.momentum[t];
+                    : s.defensePerCell(t) * (s.phase == GameState.FINAL_WAR ? 1.0 : s.momentum[t]);
 
             // Cost per frontier cell. Order the wave: toward the directed cell if given
             // (reinforcement direction), else cheapest-first.
@@ -282,8 +283,15 @@ public final class Sim {
         }
         if (aliveCount == 0) return -1;
         if (aliveCount == 1) return last;
-        // Domination: control WIN_FRACTION of the whole (ownable) map.
-        if (s.ownableCells > 0 && (double) biggestLand / s.ownableCells >= Config.WIN_FRACTION) return biggest;
+        // Domination: control the required fraction of the whole map. In Final War the requirement
+        // ramps down to a floor so the match always resolves (no endless stalemate / live hang).
+        double frac = Config.WIN_FRACTION;
+        if (s.phase == GameState.FINAL_WAR) {
+            frac = Math.max(Config.WIN_FLOOR, Config.WIN_FRACTION - (s.tick - Config.FINAL_WAR_TICK) * Config.WIN_DECAY_PER_TICK);
+        }
+        if (s.ownableCells > 0 && (double) biggestLand / s.ownableCells >= frac) return biggest;
+        // Sudden death: deep into Final War, the largest survivor simply wins (guaranteed end).
+        if (s.phase == GameState.FINAL_WAR && s.tick - Config.FINAL_WAR_TICK > Config.FINAL_WAR_SUDDEN_DEATH) return biggest;
         // Alliance victory: while alliances hold (not Final War), if every survivor is mutually
         // allied the war is over — they share the win (represented by the lowest-id survivor).
         if (s.phase != GameState.FINAL_WAR && allSurvivorsAllied()) {
