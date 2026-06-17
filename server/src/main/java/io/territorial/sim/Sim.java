@@ -102,7 +102,7 @@ public final class Sim {
             if (!s.alive[p]) continue;
             double stability = clamp(s.density(p) / Config.STABILITY_TARGET, Config.STAB_MIN, 1.0);
             double capMult = s.ownsCapital(p) ? Config.CAPITAL_INCOME : 1.0;
-            double income = Math.pow(s.land[p], Config.LAND_INCOME_EXP)
+            double income = Math.pow(s.incomeUnits[p], Config.LAND_INCOME_EXP)
                     * Config.INCOME_RATE * stability * capMult;
             double cap = s.land[p] * Config.ARMY_CAP_PER_LAND;
             s.army[p] = Math.min(s.army[p] + income, cap);
@@ -138,7 +138,10 @@ public final class Sim {
             s.army[x] -= sent;
             double wave = sent * s.momentum[x];
 
-            double baseDef = (t == GameState.NEUTRAL) ? Config.NEUTRAL_COST : s.defensePerCell(t);
+            // Defender morale hardens defence (so a turtle that keeps winning gets tougher).
+            double baseDef = (t == GameState.NEUTRAL)
+                    ? Config.NEUTRAL_COST
+                    : s.defensePerCell(t) * s.momentum[t];
 
             // Cost per frontier cell; capture cheapest-first.
             double[] cost = new double[frontier.length];
@@ -147,10 +150,10 @@ public final class Sim {
 
             int takenThisWave = 0;
             for (int k = 0; k < frontier.length && wave > 0; k++) {
+                int c = frontier[k];
                 // Each successive cell costs more: you can chip a border, not blitz a nation.
                 double effCost = cost[k] * (1.0 + takenThisWave * Config.PENETRATION_PENALTY);
                 if (wave < effCost) break;
-                int c = frontier[k];
                 int old = s.owner[c];
                 s.owner[c] = x;
                 wave -= effCost;

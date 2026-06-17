@@ -19,8 +19,11 @@ how often a small country wins.
    immediately and become a wave that captures front cells cheapest-first until exhausted.
 4. **Supply fades with distance.** Far from your capital, attack reach and the defense of
    your far cells both weaken. Empires are weakest at the rim.
-5. **Momentum.** Win a defense -> short attack boost; lose ground fast -> brief slump.
-   Decays back to 1.0, so it is never permanent. The underdog's comeback engine.
+5. **Momentum (defence-driven).** Successfully defending raises your momentum; losing ground
+   lowers it; it decays back to 1.0. Momentum multiplies BOTH your attack waves AND your defence
+   (`baseDef * momentum`), so a turtle that holds its ground gets harder to crack and hits back
+   harder — the underdog comeback engine. Capturing does NOT raise momentum (that would just feed
+   the aggressor); the reward for capturing is the land itself.
 
 Social layer (implemented): **quick-chat** (preset messages with optional target, server-relayed
 with a per-player cooldown) and **diplomacy** — mutual temporary peace (`PEACE_TICKS` ~60s) you
@@ -56,7 +59,8 @@ checkWin          -> last-standing or land fraction >= WIN_FRACTION
 ```
 density(p)        = army[p] / max(1, land[p])
 stability(p)      = clamp(density(p) / STABILITY_TARGET, STAB_MIN, 1.0)
-income(p)         = land[p] * INCOME_RATE * stability(p) * (ownsCapital ? CAPITAL_INCOME : 1)
+incomeUnits(p)    = sum over owned cells of terrain.incomeMult   (cities = 1.2, plain = 1.0)
+income(p)         = incomeUnits(p)^LAND_INCOME_EXP * INCOME_RATE * stability(p) * (ownsCapital ? CAPITAL_INCOME : 1)
 army[p]           = min(army[p] + income(p), land[p] * ARMY_CAP_PER_LAND)
 
 defensePerCell(p) = army[p] / max(1, border[p])
@@ -65,7 +69,7 @@ supplyMult(c, p)  = clamp(1 - dist(c, capitalCell[p]) * SUPPLY_FALLOFF, SUPPLY_M
 attack X -> target T (T may be neutral), fraction f:
   sent  = army[X] * f ;  army[X] -= sent
   wave  = sent * momentum[X]
-  baseDef = (T == neutral) ? NEUTRAL_COST : defensePerCell(T)
+  baseDef = (T == neutral) ? NEUTRAL_COST : defensePerCell(T) * momentum[T]   // defender morale hardens defence
   frontier = cells owned by T adjacent to a cell owned by X, sorted cheapest-first by:
       cost(c) = baseDef * terrain(c).defMult * supplyMult(c, T) * (isCapital ? CAPITAL_DEF : 1)
   for c in frontier while wave > 0:
@@ -87,6 +91,8 @@ These are the values the balance harness validated (see "Balance result" below).
 
 ```
 INCOME_RATE=0.06  LAND_INCOME_EXP=1.0  ARMY_CAP_PER_LAND=9  STABILITY_TARGET=6  STAB_MIN=0.30
+income uses incomeUnits (terrain-weighted) not raw land; CITY incomeMult=1.2
+MOMENTUM_WIN=0.0 (capture gives no morale)  MOMENTUM_DEFEND=0.06  MOMENTUM_LOSS=0.03
 NEUTRAL_COST=3.5  GARRISON_KILL=1.5  REFLUX=0.25  PENETRATION_PENALTY=0.10
 SUPPLY_FALLOFF=0.02  SUPPLY_MIN=0.50
 terrain.defMult: PLAIN 1.0  FOREST 1.25  MOUNTAIN 1.6  CITY 1.0  RIVER 1.35
@@ -122,10 +128,23 @@ that pool fast. This coalition behaviour is what keeps the biggest starter from 
 ## Balance result (300 games, 8 players: 2 big start + 6 small, sizes shuffled)
 
 ```
-With phases (current): small starters 56.0% · biggest 44.0% · avg 449 ticks · draws 0
-  (the PEACE opening land-grab is a strong equaliser; per-capita a big start is still ~2x favoured)
-Without the phase opening (earlier): small 25.7% · biggest 74.3% · avg 649 ticks
-Fully deterministic; bot-only games carry no diplomacy/phase-PvP differences beyond the opening.
+Current (cities-income + defence-driven morale): small 44.7% · biggest 55.3% · avg 1680 ticks · draws 0
+  Balanced: lots of upsets (small ~45%) yet a big start still matters (per-capita each big ~28%
+  vs each small ~7%). Turtles harden via morale, so games are longer/decisive (often to Final War).
+History: 56/44 (morale attack-only) ; 26/74 (no phase opening).
+Fully deterministic.
 ```
+
+## Notes on "completing" the logic
+
+- **Cities** now actually grant income (`incomeUnits`), as the legend advertises — worth fighting over.
+- **Morale** multiplies defence as well as attack, and is earned by DEFENDING (not capturing), so it
+  is the underdog's tool, not the aggressor's.
+- **Attacker-side supply** (attacks weaken far from your own capital) was tried and removed: it
+  dragged games out and hurt small raiders. The defender-side `supplyMult` already makes an empire's
+  far rim cheap to take, which delivers the intended "weak at the edges" dynamic.
+- Not yet implemented (optional): territorial rebellion of overextended cells (currently only the
+  income `stability` penalty discourages overexpansion); win as a fraction of the whole map vs
+  occupied land.
 
 Run it: `./run-balance.sh` (or see server/README.md).

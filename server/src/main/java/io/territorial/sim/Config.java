@@ -29,9 +29,9 @@ public final class Config {
     public static final double MOMENTUM_MIN       = 0.60;
     public static final double MOMENTUM_MAX       = 1.50;
     public static final double MOMENTUM_DECAY     = 0.05;  // pull back toward 1.0
-    public static final double MOMENTUM_WIN       = 0.02;  // per captured cell
+    public static final double MOMENTUM_WIN       = 0.0;   // capturing is its own reward; no morale
     public static final double MOMENTUM_LOSS      = 0.03;  // per lost cell
-    public static final double MOMENTUM_DEFEND    = 0.06;  // attacked but lost nothing
+    public static final double MOMENTUM_DEFEND    = 0.06;  // attacked but lost nothing -> turtle hardens
 
     // Setup
     public static final double START_ARMY_PER_LAND = 3.0;

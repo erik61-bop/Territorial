@@ -28,6 +28,7 @@ public final class GameState {
     public final int[] land;
     public final int[] border;
     public final boolean[] alive;
+    public final double[] incomeUnits;   // sum of terrain income multipliers over owned cells
 
     // Diplomacy (symmetric). rel: 0 none, 1 peace, 2 ally. offer[a][b] = a has offered b peace.
     public final byte[][] rel;
@@ -61,6 +62,7 @@ public final class GameState {
         this.land = new int[numPlayers];
         this.border = new int[numPlayers];
         this.alive = new boolean[numPlayers];
+        this.incomeUnits = new double[numPlayers];
 
         this.rel = new byte[numPlayers][numPlayers];
         this.relUntil = new int[numPlayers][numPlayers];
@@ -99,10 +101,12 @@ public final class GameState {
     public void recompute() {
         java.util.Arrays.fill(land, 0);
         java.util.Arrays.fill(border, 0);
+        java.util.Arrays.fill(incomeUnits, 0);
         for (int c = 0; c < cellCount; c++) {
             int o = owner[c];
             if (o == NEUTRAL) continue;
             land[o]++;
+            incomeUnits[o] += terrain[c].incomeMult;   // cities (1.2x) etc. boost income
             for (int nb : neighbours[c]) {
                 if (owner[nb] != o) { border[o]++; break; }
             }
