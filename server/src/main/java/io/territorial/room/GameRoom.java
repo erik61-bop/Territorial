@@ -23,6 +23,7 @@ public class GameRoom {
 
     // Live-match shape (bigger, equal small spawns -> expansion is the early game).
     static final int WIDTH = 60, HEIGHT = 60, NUM_PLAYERS = 12, START_SIZE = 10;
+    static final int SPAWN_SIZE = 10;            // a human's starting blob when they pick a spawn
     static final int RESTART_AFTER_TICKS = 40;   // hold on the result, then new match
 
     private final ObjectMapper json;
@@ -71,11 +72,14 @@ public class GameRoom {
         int[] sizes = new int[NUM_PLAYERS];
         Arrays.fill(sizes, START_SIZE);
         state = GameFactory.create(WIDTH, HEIGHT, sizes, matchSeed++);
+        // Connected humans don't inherit a bot empire — they re-pick a spawn each match.
+        for (int p = 0; p < NUM_PLAYERS; p++) if (human[p]) state.clearPlayer(p);
         sim = new Sim(state);
         sim.recomputeDerived();
         winner = -1;
         holdTicks = 0;
         humanActions.clear();
+        humanDiplo.clear();
     }
 
     private void safeStep() {
@@ -124,15 +128,16 @@ public class GameRoom {
 
     // ---- session lifecycle (called from WebSocket container threads) ----
 
-    /** Assign a free (bot-controlled) slot to a new player; -1 if the match is full. */
+    /** Claim a free slot for a new player and clear it (they will pick a spawn); -1 if full. */
     public int addHuman(WebSocketSession session) {
         lock.lock();
         try {
             sessions.add(session);
             for (int p = 0; p < NUM_PLAYERS; p++) {
-                if (!human[p] && state.alive[p]) {
+                if (!human[p]) {
                     human[p] = true;
                     sessionToPlayer.put(session.getId(), p);
+                    state.clearPlayer(p);      // no inherited empire; player must choose a spawn
                     return p;
                 }
             }
@@ -147,7 +152,28 @@ public class GameRoom {
         try {
             sessions.remove(session);
             Integer p = sessionToPlayer.remove(session.getId());
-            if (p != null) { human[p] = false; humanActions.remove(p); } // slot reverts to a bot
+            if (p != null) {
+                state.clearPlayer(p);          // dissolve their empire
+                human[p] = false;
+                humanActions.remove(p);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** Place a joining (or eliminated) player's starting blob at a chosen neutral cell. */
+    public void submitSpawn(WebSocketSession session, int cell) {
+        Integer p = sessionToPlayer.get(session.getId());
+        if (p == null) return;
+        lock.lock();
+        try {
+            if (cell < 0 || cell >= state.cellCount) return;
+            if (state.owner[cell] != GameState.NEUTRAL) return;   // must be empty land
+            if (state.hasLand(p)) return;                          // already in play
+            int n = state.spawnBlob(p, cell, SPAWN_SIZE);
+            state.army[p] = n * io.territorial.sim.Config.START_ARMY_PER_LAND;
+            sim.recomputeDerived();
         } finally {
             lock.unlock();
         }
@@ -231,6 +257,7 @@ public class GameRoom {
         m.put("alive", state.alive.clone());
         m.put("human", human.clone());
         m.put("winner", winner);
+        m.put("capitals", state.capitalCell.clone());
         m.put("phase", state.phase);
         int endsIn = state.phase == GameState.PEACE ? Config.PEACE_PHASE_TICKS - state.tick
                 : state.phase == GameState.WAR ? Config.FINAL_WAR_TICK - state.tick : -1;

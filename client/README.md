@@ -31,9 +31,10 @@ public/
    ```bash
    npm run web        # http://localhost:8081 (or the port Expo prints)
    ```
-3. Open it in a browser. It connects to `ws://<host>:8080/ws/game`, takes a bot's slot,
-   and you play by tapping a country to send the selected % of your army (tap neutral land to
-   expand). `targetOwner: -1` = expand.
+3. Open it in a browser. Press **Play**, then **tap an empty (light) area to choose your spawn**.
+   After that, tap a country to send the selected % of your army (tap neutral land to expand;
+   `targetOwner: -1` = expand). Wheel = zoom, drag = pan. If you're wiped out, tap an empty area
+   to respawn.
 
 ### CanvasKit wasm (important)
 

@@ -112,6 +112,40 @@ public final class GameState {
     public double defensePerCell(int p)  { return army[p] / Math.max(1, border[p]); }
     public boolean ownsCapital(int p)    { return capitalCell[p] >= 0 && owner[capitalCell[p]] == p; }
 
+    public boolean hasLand(int p) {
+        for (int c = 0; c < cellCount; c++) if (owner[c] == p) return true;
+        return false;
+    }
+
+    /** Wipe a player's territory + army + treaties (used on join/leave/respawn). Returns cells freed. */
+    public int clearPlayer(int p) {
+        int n = 0;
+        for (int c = 0; c < cellCount; c++) if (owner[c] == p) { owner[c] = NEUTRAL; n++; }
+        army[p] = 0;
+        for (int q = 0; q < numPlayers; q++) {
+            rel[p][q] = 0; rel[q][p] = 0; offer[p][q] = false; offer[q][p] = false;
+        }
+        return n;
+    }
+
+    /** Seed player p a fresh blob (BFS over neutral) of up to {@code size} cells at {@code start}. */
+    public int spawnBlob(int p, int start, int size) {
+        if (start < 0 || start >= cellCount || owner[start] != NEUTRAL) return 0;
+        java.util.ArrayDeque<Integer> q = new java.util.ArrayDeque<>();
+        owner[start] = p;
+        capitalCell[p] = start;
+        int cnt = 1;
+        q.add(start);
+        while (!q.isEmpty() && cnt < size) {
+            int c = q.poll();
+            for (int nb : neighbours[c]) {
+                if (cnt >= size) break;
+                if (owner[nb] == NEUTRAL) { owner[nb] = p; cnt++; q.add(nb); }
+            }
+        }
+        return cnt;
+    }
+
     /** True if a and b are allied or in an active (unexpired) peace — they cannot attack each other. */
     public boolean areFriendly(int a, int b) {
         byte r = rel[a][b];

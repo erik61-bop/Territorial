@@ -44,6 +44,7 @@ export function connect(url = serverUrl()): WebSocket {
           alive: m.alive, human: m.human, winner: m.winner,
           rel: m.rel ?? [], offer: m.offer ?? [],
           phase: m.phase ?? 1, phaseEndsIn: m.phaseEndsIn ?? -1,
+          capitals: m.capitals ?? [],
         });
         break;
       case 'chat':
@@ -73,4 +74,9 @@ export function sendChat(templateId: string, target: number): void {
 /** kind: REQUEST_PEACE | ACCEPT_PEACE | BREAK_PEACE. */
 export function sendDiplo(kind: string, target: number): void {
   send({ type: 'diplo', kind, target });
+}
+
+/** Place your starting blob at a chosen (neutral) cell. */
+export function sendSpawn(cell: number): void {
+  send({ type: 'spawn', cell });
 }

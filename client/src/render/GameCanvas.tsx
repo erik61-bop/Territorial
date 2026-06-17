@@ -24,7 +24,8 @@ interface Props {
  * are ringed; your own capital is highlighted; a tap leaves a brief marker.
  */
 export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, myId }: Props) {
-  const { width, height, terrain, capitals } = map;
+  const { width, height, terrain } = map;
+  const capitals = snap.capitals?.length ? snap.capitals : map.capitals; // chosen spawns override
 
   const image = useMemo(() => {
     const n = width * height;

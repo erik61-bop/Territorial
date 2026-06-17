@@ -20,6 +20,7 @@ export interface Snapshot {
   offer: boolean[][];  // offer[a][b] = a has offered b peace
   phase: number;       // 0 PEACE, 1 WAR, 2 FINAL_WAR
   phaseEndsIn: number; // ticks until next phase, or -1
+  capitals: number[];  // per-player capital cell (reflects chosen spawn)
 }
 
 export interface ChatMsg {
@@ -36,6 +37,7 @@ interface GameStore {
   snap?: Snapshot;
   fraction: number;    // how much army a tap commits
   chat: ChatMsg[];     // recent messages (capped)
+  started: boolean;    // has the player pressed Play (left the menu)
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
@@ -43,6 +45,7 @@ interface GameStore {
   setSnap: (s: Snapshot) => void;
   setFraction: (f: number) => void;
   pushChat: (m: ChatMsg) => void;
+  setStarted: (b: boolean) => void;
 }
 
 export const useGame = create<GameStore>((set) => ({
@@ -50,12 +53,14 @@ export const useGame = create<GameStore>((set) => ({
   playerId: -1,
   fraction: 0.5,
   chat: [],
+  started: false,
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
   setMap: (m) => set({ map: m }),
   setSnap: (s) => set({ snap: s }),
   setFraction: (f) => set({ fraction: f }),
   pushChat: (m) => set((st) => ({ chat: [...st.chat, m].slice(-6) })),
+  setStarted: (b) => set({ started: b }),
 }));
 
 // Expose the store on web for debugging / automated end-to-end checks.
