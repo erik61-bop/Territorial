@@ -30,12 +30,22 @@ src/main/java/io/territorial/
 ```
 Expected: small starters win ~26%, biggest ~74%, decisive games, fully deterministic.
 
-## Run the server (Maven + Spring Boot)
+## Run (single port — recommended)
+
+The server also serves the exported web client (from `../client/dist`), so players use ONE port and
+the game WebSocket is same-origin (no second port to forward, no CORS, no Metro hot-reload sockets):
 
 ```bash
-mvn spring-boot:run        # starts on :8080
-curl http://localhost:8080/api/health        # {"status":"ok",...}
+cd ../client && npx expo export --platform web   # build the web client -> client/dist
+cd ../server && mvn spring-boot:run              # serves app + API + WS on :8080
+# open http://localhost:8080
 ```
+
+`WebConfig` serves `client/dist` at `/` (override the dir with `--territorial.webDir=file:/path/`).
+`/api/*` and `/ws/game` take precedence over the static handler.
+
+For live client development with hot-reload instead, run `npm run web` in `client/` (separate port);
+then both 8080 (server) and the Expo port must be reachable.
 
 WebSocket endpoint: `ws://localhost:8080/ws/game`
 
