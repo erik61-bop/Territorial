@@ -147,12 +147,21 @@ that pool fast. This coalition behaviour is what keeps the biggest starter from 
 ## Balance result (300 games, 8 players: 2 big start + 6 small, sizes shuffled)
 
 ```
-Current (cities + defence morale + map-win + rebellion + Final-War surge):
-  small 53% · biggest 47% · avg 1678 ticks · draws 0
-  Balanced: upsets common, big start still ~2x favoured per-capita. Games resolve via Final War.
-History: 44.7/55.3 (occupied-win, no rebellion) ; 56/44 (morale attack-only) ; 26/74 (no opening).
-Fully deterministic.
+Current (coherent terrain + cities + defence morale + map-win + rebellion + Final-War surge,
+         PEACE_PHASE_TICKS=200): small 52.7% · biggest 47.3% · avg 915 ticks · draws 0
+  Balanced: upsets common, big start still ~2x favoured per-capita. Resolves via Final War.
+Note: the coherent-terrain change shifted balance (random speckle had been ~48/52), re-tuned via
+the peace-opening length. Re-run run-balance.sh after ANY terrain/combat change.
+Fully deterministic; also passes run-fuzz.sh (400 chaotic games, invariants hold).
 ```
+
+## Robustness
+
+The sim is authoritative and treats client input as hostile: attack target must be NEUTRAL or a
+real player id (else ignored — no OOB); `targetCell` only directs when in range; `fraction` clamps
+to [0,1]; army is forced finite & >= 0 each tick; diplomacy validates ids+aliveness and keeps
+relations symmetric. `run-fuzz.sh` fires malformed/chaotic input across 400 randomized games and
+asserts invariants, determinism, and termination — must stay green.
 
 ## Notes on "completing" the logic
 

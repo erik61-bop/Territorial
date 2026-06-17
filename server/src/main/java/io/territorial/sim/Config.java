@@ -50,7 +50,7 @@ public final class Config {
     public static final double BOT_ACCEPT_RATIO   = 0.80;  // bots accept peace unless target is much weaker
 
     // Phases (ticks; 8/s). PEACE opening: expand into neutral only, no PvP. FINAL_WAR: peace void.
-    public static final int PEACE_PHASE_TICKS     = 60;    // ~8s opening land-grab, no PvP
+    public static final int PEACE_PHASE_TICKS     = 200;   // ~25s opening land-grab, no PvP
     public static final int FINAL_WAR_TICK        = 900;   // ~110s in, all treaties void -> forced finish
     public static final double FINAL_WAR_ATTACK   = 1.6;   // offence surges so the map resolves
 }

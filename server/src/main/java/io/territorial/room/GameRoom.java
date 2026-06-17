@@ -171,6 +171,7 @@ public class GameRoom {
             if (cell < 0 || cell >= state.cellCount) return;
             if (state.owner[cell] != GameState.NEUTRAL) return;   // must be empty land
             if (state.hasLand(p)) return;                          // already in play
+            state.clearPlayer(p);                                  // drop any stale treaties/army
             int n = state.spawnBlob(p, cell, SPAWN_SIZE);
             state.army[p] = n * io.territorial.sim.Config.START_ARMY_PER_LAND;
             sim.recomputeDerived();

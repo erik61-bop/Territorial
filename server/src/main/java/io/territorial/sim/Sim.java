@@ -93,6 +93,9 @@ public final class Sim {
         resolveAttacks(actions);
         applyRebellion();
         applyMomentum();
+        for (int p = 0; p < s.numPlayers; p++) {            // defensive: never NaN/Inf/negative
+            if (!Double.isFinite(s.army[p]) || s.army[p] < 0) s.army[p] = 0;
+        }
         s.tick++;
     }
 
@@ -124,7 +127,7 @@ public final class Sim {
             int t = a.targetOwner();
             if (x < 0 || x >= s.numPlayers || !s.alive[x]) continue;
             if (t == x) continue;
-            if (t < 0 && t != GameState.NEUTRAL) continue;                    // can't target water/invalid
+            if (t != GameState.NEUTRAL && (t < 0 || t >= s.numPlayers)) continue; // invalid/water target
             if (t != GameState.NEUTRAL) {
                 if (s.phase == GameState.PEACE) continue;                     // opening: no PvP
                 if (s.phase != GameState.FINAL_WAR && s.areFriendly(x, t)) continue; // peace/ally holds (void in Final War)
@@ -165,7 +168,7 @@ public final class Sim {
             // (reinforcement direction), else cheapest-first.
             double[] cost = new double[frontier.length];
             double[] key = new double[frontier.length];
-            boolean directed = a.targetCell() >= 0;
+            boolean directed = a.targetCell() >= 0 && a.targetCell() < s.cellCount;
             for (int k = 0; k < frontier.length; k++) {
                 cost[k] = cellCost(frontier[k], t, baseDef) * (naval[k] ? Config.NAVAL_COST_MULT : 1.0);
                 key[k] = directed ? s.distance(frontier[k], a.targetCell()) : cost[k];
