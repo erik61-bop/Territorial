@@ -6,6 +6,7 @@ import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
 import Hud from './ui/Hud';
 import Chat from './ui/Chat';
 import Menu from './ui/Menu';
+import { sfx } from './audio/sfx';
 
 const MIN_SCALE = 2;
 const MAX_SCALE = 40;
@@ -43,6 +44,32 @@ export default function GameScreen() {
     setCamera({ scale, tx: winW / 2 - (cx + 0.5) * scale, ty: winH / 2 - (cy + 0.5) * scale });
     centeredCapital.current = myCapital;
   }, [map, myCapital, myLand, winW, winH]);
+
+  // Sound cues derived from snapshot deltas (throttled so expansion doesn't chatter).
+  const prevLand = useRef<number | null>(null);
+  const prevPhase = useRef<number | null>(null);
+  const lastSfxAt = useRef<number>(0);
+  useEffect(() => {
+    if (!snap || playerId < 0) return;
+    const { muted } = useGame.getState();
+    const land = snap.land[playerId] ?? 0;
+    const now = typeof performance !== 'undefined' ? performance.now() : 0;
+    if (!muted && prevLand.current != null && now - lastSfxAt.current > 320) {
+      if (land - prevLand.current >= 1) { sfx.capture(); lastSfxAt.current = now; }
+      else if (prevLand.current - land >= 1) { sfx.loss(); lastSfxAt.current = now; }
+    }
+    prevLand.current = land;
+
+    if (!muted && prevPhase.current != null && prevPhase.current !== snap.phase) {
+      if (snap.phase === 2) sfx.finalWar();
+      else if (snap.phase === 1) sfx.war();
+    }
+    prevPhase.current = snap.phase;
+
+    if (!muted && snap.winner >= 0 && (snap.winner === playerId || snap.rel?.[playerId]?.[snap.winner] === 2)) {
+      if (now - lastSfxAt.current > 1000) { sfx.win(); lastSfxAt.current = now; }
+    }
+  }, [snap, playerId]);
 
   const showTap = useCallback((x: number, y: number, kind: TapMark['kind']) => {
     setTap({ x, y, kind });

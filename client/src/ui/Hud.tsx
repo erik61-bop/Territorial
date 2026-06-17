@@ -13,6 +13,8 @@ export default function Hud() {
   const snap = useGame((s) => s.snap);
   const fraction = useGame((s) => s.fraction);
   const setFraction = useGame((s) => s.setFraction);
+  const muted = useGame((s) => s.muted);
+  const toggleMuted = useGame((s) => s.toggleMuted);
 
   const leaderboard = React.useMemo(() => {
     if (!snap) return [];
@@ -55,6 +57,9 @@ export default function Hud() {
           <Text style={styles.title}>
             {playerId >= 0 ? `You — player ${playerId}` : 'Spectating'}
           </Text>
+          <Pressable onPress={toggleMuted} hitSlop={8}>
+            <Text style={styles.mute}>{muted ? '🔇' : '🔊'}</Text>
+          </Pressable>
         </View>
         <Text style={styles.stat}>army {Math.round(myArmy)}   land {myLand}</Text>
         <Text style={styles.stat}>
@@ -139,6 +144,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 2 },
   swatch: { width: 14, height: 14, borderRadius: 3 },
   title: { color: '#fff', fontWeight: '700', fontSize: 14, marginBottom: 2 },
+  mute: { fontSize: 15, marginLeft: 2 },
   stat: { color: '#e8e8e8', fontSize: 13 },
   dim: { color: '#aaa', fontSize: 12 },
   fracBtn: {

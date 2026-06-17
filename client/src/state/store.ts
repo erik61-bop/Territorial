@@ -40,6 +40,7 @@ interface GameStore {
   fraction: number;    // how much army a tap commits
   chat: ChatMsg[];     // recent messages (capped)
   started: boolean;    // has the player pressed Play (left the menu)
+  muted: boolean;
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
@@ -48,6 +49,7 @@ interface GameStore {
   setFraction: (f: number) => void;
   pushChat: (m: ChatMsg) => void;
   setStarted: (b: boolean) => void;
+  toggleMuted: () => void;
 }
 
 export const useGame = create<GameStore>((set) => ({
@@ -56,6 +58,7 @@ export const useGame = create<GameStore>((set) => ({
   fraction: 0.5,
   chat: [],
   started: false,
+  muted: false,
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
   setMap: (m) => set({ map: m }),
@@ -63,6 +66,7 @@ export const useGame = create<GameStore>((set) => ({
   setFraction: (f) => set({ fraction: f }),
   pushChat: (m) => set((st) => ({ chat: [...st.chat, m].slice(-6) })),
   setStarted: (b) => set({ started: b }),
+  toggleMuted: () => set((st) => ({ muted: !st.muted })),
 }));
 
 // Expose the store on web for debugging / automated end-to-end checks.

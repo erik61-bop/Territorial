@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   Canvas, Image, Skia, ColorType, AlphaType, FilterMode, MipmapMode, Circle, Group,
 } from '@shopify/react-native-skia';
@@ -29,26 +29,44 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
   const { width, height, terrain } = map;
   const capitals = snap.capitals?.length ? snap.capitals : map.capitals; // chosen spawns override
 
+  const prevOwner = useRef<number[] | null>(null);
+  const heat = useRef<Float32Array | null>(null);
+
   const image = useMemo(() => {
     const n = width * height;
     const px = new Uint8Array(n * 4);
+    if (!heat.current || heat.current.length !== n) heat.current = new Float32Array(n);
+    const h = heat.current;
+    const prev = prevOwner.current;
+
+    // Count ownership changes; a huge change = new match/spawn burst, so skip flashing then.
+    let changed = 0;
+    if (prev && prev.length === n) for (let i = 0; i < n; i++) if (prev[i] !== snap.owner[i]) changed++;
+    const reset = !prev || prev.length !== n || changed > n * 0.2;
+
     for (let i = 0; i < n; i++) {
       const o = snap.owner[i];
       const t = terrain[i] ?? 0;
       const j = i * 4;
+      let r: number, g: number, bl: number;
       if (o >= 0) {
-        // Owned cell: player colour shaded by terrain so mountains/forests stay readable.
         const base = PLAYER_COLORS[o % PLAYER_COLORS.length];
         const k = TERRAIN_SHADE[t] ?? 1;
-        px[j] = Math.min(255, base[0] * k);
-        px[j + 1] = Math.min(255, base[1] * k);
-        px[j + 2] = Math.min(255, base[2] * k);
+        r = base[0] * k; g = base[1] * k; bl = base[2] * k;
       } else {
         const c = TERRAIN_COLORS[t];
-        px[j] = c[0]; px[j + 1] = c[1]; px[j + 2] = c[2];
+        r = c[0]; g = c[1]; bl = c[2];
       }
+      // Capture flash: cells that just changed owner glow white, then fade over a few frames.
+      if (!reset && prev![i] !== o) h[i] = 1; else h[i] *= 0.45;
+      if (h[i] > 0.05) {
+        const f = Math.min(1, h[i]) * 0.6;
+        r += (255 - r) * f; g += (255 - g) * f; bl += (255 - bl) * f;
+      }
+      px[j] = Math.min(255, r); px[j + 1] = Math.min(255, g); px[j + 2] = Math.min(255, bl);
       px[j + 3] = 255;
     }
+    prevOwner.current = snap.owner;
     const data = Skia.Data.fromBytes(px);
     return Skia.Image.MakeImage(
       { width, height, colorType: ColorType.RGBA_8888, alphaType: AlphaType.Opaque },
