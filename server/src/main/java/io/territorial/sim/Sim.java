@@ -108,7 +108,7 @@ public final class Sim {
             double capMult = s.ownsCapital(p) ? Config.CAPITAL_INCOME : 1.0;
             double income = Math.pow(s.incomeUnits[p], Config.LAND_INCOME_EXP)
                     * Config.INCOME_RATE * stability * capMult;
-            double cap = s.land[p] * Config.ARMY_CAP_PER_LAND;
+            double cap = s.incomeUnits[p] * Config.ARMY_CAP_PER_LAND;  // terrain-weighted, like income
             double before = s.army[p];
             s.army[p] = Math.min(s.army[p] + income, cap);
             s.lastIncome[p] = s.army[p] - before;
@@ -271,7 +271,9 @@ public final class Sim {
             double m = s.momentum[p];
             m += Config.MOMENTUM_WIN * captured[p];
             m -= Config.MOMENTUM_LOSS * lost[p];
-            if (attacked[p] && lost[p] == 0) m += Config.MOMENTUM_DEFEND;
+            // Successful defence: attacked but you held (losing only a sliver) -> morale up.
+            // This stops a defender who loses a couple cells from spiralling.
+            if (attacked[p] && lost[p] <= Math.max(1, s.land[p] / 25)) m += Config.MOMENTUM_DEFEND;
             m += (1.0 - m) * Config.MOMENTUM_DECAY;          // decay toward 1.0
             s.momentum[p] = clamp(m, Config.MOMENTUM_MIN, Config.MOMENTUM_MAX);
         }

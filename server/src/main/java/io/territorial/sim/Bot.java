@@ -101,9 +101,9 @@ public final class Bot {
             return canExpand ? new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget) : null;
         }
 
-        // Final War: gloves off — throw almost everything at the weakest neighbour to crush and
-        // eliminate it, so the map consolidates and the game ends.
-        if (s.phase == GameState.FINAL_WAR && weakestEnemy >= 0) {
+        // Final War: gloves off — crush the weakest neighbour if the wave can break it (defender
+        // morale is off in Final War, so weakestDef is the bar). Avoids pointless suicide waves.
+        if (s.phase == GameState.FINAL_WAR && weakestEnemy >= 0 && (wave > weakestDef || misplay)) {
             return new Action(p, weakestEnemy, 0.9, s.capitalCell[weakestEnemy]);
         }
 

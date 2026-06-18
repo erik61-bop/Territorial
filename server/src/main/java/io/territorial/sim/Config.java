@@ -15,7 +15,7 @@ public final class Config {
     public static final double NEUTRAL_COST        = 2.3;  // claiming empty land is fairly cheap (fills the map)
     public static final double NAVAL_COST_MULT     = 2.5;  // amphibious (cross-water) capture is costlier
     public static final double GARRISON_KILL       = 1.5;  // defender army drained per captured cell
-    public static final double REFLUX              = 0.25; // fraction of unused wave refunded
+    public static final double REFLUX              = 0.40; // unused/failed wave refunded (less waste)
     public static final double PENETRATION_PENALTY = 0.10; // each captured cell in a wave costs more
 
     // Supply
@@ -32,7 +32,7 @@ public final class Config {
     public static final double MOMENTUM_MAX       = 1.50;
     public static final double MOMENTUM_DECAY     = 0.05;  // pull back toward 1.0
     public static final double MOMENTUM_WIN       = 0.0;   // capturing is its own reward; no morale
-    public static final double MOMENTUM_LOSS      = 0.03;  // per lost cell
+    public static final double MOMENTUM_LOSS      = 0.02;  // per lost cell (softened death-spiral)
     public static final double MOMENTUM_DEFEND    = 0.06;  // attacked but lost nothing -> turtle hardens
 
     // Setup
