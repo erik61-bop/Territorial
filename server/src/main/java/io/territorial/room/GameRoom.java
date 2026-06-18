@@ -31,6 +31,7 @@ public class GameRoom {
 
     static final long CHAT_COOLDOWN_MS = 1200;   // anti-spam: min gap between a player's messages
     static final int RECONNECT_GRACE_TICKS = 320; // ~40s to reconnect before a slot is freed
+    static final double SUSTAIN_CAP = 0.30;       // max army fraction a standing order spends per tick
 
     private final ReentrantLock lock = new ReentrantLock();
     private final List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
@@ -126,7 +127,18 @@ public class GameRoom {
             List<Action> actions = new ArrayList<>(NUM_PLAYERS);
             for (int p = 0; p < NUM_PLAYERS; p++) {
                 if (!state.alive[p]) continue;
-                Action a = human[p] ? humanActions.remove(p) : Bot.decide(state, p);
+                Action a;
+                if (human[p]) {
+                    a = humanActions.get(p);                       // STANDING order: persists each tick
+                    if (a != null && a.targetOwner() >= 0 && !state.alive[a.targetOwner()]) {
+                        humanActions.remove(p); a = null;          // target eliminated -> stop
+                    }
+                    if (a != null) {                               // cap per-tick so it flows, not dumps
+                        a = new Action(p, a.targetOwner(), Math.min(a.fraction(), SUSTAIN_CAP), a.targetCell());
+                    }
+                } else {
+                    a = Bot.decide(state, p);
+                }
                 if (a != null) actions.add(a);
             }
             sim.tick(actions);
@@ -213,6 +225,7 @@ public class GameRoom {
             if (state.owner[cell] != GameState.NEUTRAL) return;   // must be empty land
             if (state.hasLand(p)) return;                          // already in play
             state.clearPlayer(p);                                  // drop any stale treaties/army
+            humanActions.remove(p);                                // and any stale standing order
             int n = state.spawnBlob(p, cell, SPAWN_SIZE);
             state.army[p] = n * io.territorial.sim.Config.START_ARMY_PER_LAND;
             sim.recomputeDerived();
@@ -221,11 +234,17 @@ public class GameRoom {
         }
     }
 
-    /** Queue a human's one-shot action for the next tick (latest submission wins). */
+    /** Set a human's STANDING order: it keeps firing each tick until replaced, stopped, or invalid. */
     public void submitAction(WebSocketSession session, int targetOwner, double fraction, int targetCell) {
         Integer p = sessionToPlayer.get(session.getId());
         if (p == null) return;
         humanActions.put(p, new Action(p, targetOwner, fraction, targetCell));
+    }
+
+    /** Stop a human's standing order (Hold / defend). */
+    public void stopOrder(WebSocketSession session) {
+        Integer p = sessionToPlayer.get(session.getId());
+        if (p != null) humanActions.remove(p);
     }
 
     /** Queue a human's diplomacy order (peace request/accept/break) for the next tick. */

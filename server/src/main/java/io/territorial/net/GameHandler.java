@@ -61,6 +61,7 @@ public class GameHandler extends TextWebSocketHandler {
                     n.path("target").asInt(-1),
                     System.currentTimeMillis());
             case "spawn" -> room.submitSpawn(session, n.path("cell").asInt(-1));
+            case "stop" -> room.stopOrder(session);
             case "diplo" -> room.submitDiplo(
                     session,
                     n.path("kind").asText(""),

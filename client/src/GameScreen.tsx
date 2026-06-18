@@ -70,6 +70,10 @@ export default function GameScreen() {
     if (!muted && snap.winner >= 0 && (snap.winner === playerId || snap.rel?.[playerId]?.[snap.winner] === 2)) {
       if (now - lastSfxAt.current > 1000) { sfx.win(); lastSfxAt.current = now; }
     }
+
+    // Clear the standing-order indicator once its target is eliminated (server already stopped it).
+    const ord = useGame.getState().order;
+    if (ord != null && ord >= 0 && !snap.alive[ord]) useGame.getState().setOrder(null);
   }, [snap, playerId]);
 
   const showTap = useCallback((x: number, y: number, kind: TapMark['kind']) => {

@@ -96,6 +96,13 @@ function send(obj: unknown): void {
  */
 export function sendAction(targetOwner: number, fraction: number, targetCell = -1): void {
   send({ type: 'action', targetOwner, fraction, targetCell });
+  useGame.getState().setOrder(targetOwner);   // remember the standing order for the UI
+}
+
+/** Stop the standing order (Hold / defend). */
+export function sendStop(): void {
+  send({ type: 'stop' });
+  useGame.getState().setOrder(null);
 }
 
 /** Send a quick-chat message; target is a playerId or -1. "peace_request" also requests peace. */

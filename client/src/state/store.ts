@@ -41,11 +41,12 @@ interface GameStore {
   playerId: number;
   map?: MapInfo;
   snap?: Snapshot;
-  fraction: number;    // how much army a tap commits
+  fraction: number;    // per-tick army rate for a standing order
   chat: ChatMsg[];     // recent messages (capped)
   started: boolean;    // has the player pressed Play (left the menu)
   muted: boolean;
   mode: Mode;          // current action mode (from the bottom action bar)
+  order: number | null; // current standing-order target (playerId, -1 = expand, null = none)
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
@@ -56,16 +57,18 @@ interface GameStore {
   setStarted: (b: boolean) => void;
   toggleMuted: () => void;
   setMode: (m: Mode) => void;
+  setOrder: (o: number | null) => void;
 }
 
 export const useGame = create<GameStore>((set) => ({
   connected: false,
   playerId: -1,
-  fraction: 0.5,
+  fraction: 0.35,
   chat: [],
   started: false,
   muted: false,
   mode: 'attack',
+  order: null,
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
   setMap: (m) => set({ map: m }),
@@ -75,6 +78,7 @@ export const useGame = create<GameStore>((set) => ({
   setStarted: (b) => set({ started: b }),
   toggleMuted: () => set((st) => ({ muted: !st.muted })),
   setMode: (m) => set({ mode: m }),
+  setOrder: (o) => set({ order: o }),
 }));
 
 // Expose the store on web for debugging / automated end-to-end checks.

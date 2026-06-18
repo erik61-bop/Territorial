@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useGame, Mode } from '../state/store';
 import { cssPlayer, TERRAIN_INFO, TERRAIN_COLORS } from '../render/colors';
 import Slider from './Slider';
+import { sendStop } from '../net/socket';
 
 const terrainCss = (i: number) => `rgb(${TERRAIN_COLORS[i][0]},${TERRAIN_COLORS[i][1]},${TERRAIN_COLORS[i][2]})`;
 const mmss = (secs: number) => `${Math.floor(secs / 60)}:${String(Math.max(0, secs % 60)).padStart(2, '0')}`;
@@ -31,6 +32,7 @@ export default function Hud() {
   const toggleMuted = useGame((s) => s.toggleMuted);
   const mode = useGame((s) => s.mode);
   const setMode = useGame((s) => s.setMode);
+  const order = useGame((s) => s.order);
 
   const aliveCount = snap ? snap.alive.filter(Boolean).length : 0;
   const eliminated = snap ? snap.alive.length - aliveCount : 0;
@@ -125,7 +127,7 @@ export default function Hud() {
           {ACTIONS.map((a) => (
             <Pressable
               key={a.mode}
-              onPress={() => setMode(a.mode)}
+              onPress={() => { setMode(a.mode); if (a.mode === 'hold') sendStop(); }}
               style={[styles.action, { borderColor: a.color }, mode === a.mode && { backgroundColor: a.color }]}
             >
               <Text style={styles.actionIcon}>{a.icon}</Text>
@@ -133,7 +135,11 @@ export default function Hud() {
             </Pressable>
           ))}
         </View>
-        <Text style={styles.dim}>{ACTIONS.find((a) => a.mode === mode)?.hint}</Text>
+        <Text style={styles.dim}>
+          {order != null
+            ? (order === -1 ? '↗ expanding — keeps going (Hold to stop)' : `⚔ attacking P${order} — keeps going (Hold to stop)`)
+            : ACTIONS.find((a) => a.mode === mode)?.hint}
+        </Text>
       </View>
 
       {/* terrain legend */}
