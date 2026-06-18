@@ -22,18 +22,78 @@ public final class Bot {
     static final double GANG_UP_CHANCE     = 0.80;
     static final double MISPLAY_CHANCE     = 0.02;
 
+    // Diplomacy tunables (AI behaviour, not game rules).
+    static final double DIPLO_INIT_CHANCE = 0.04;  // chance/tick a bot considers initiating
+    static final int    BETRAY_AFTER_WAR  = 500;   // ticks into war before betrayal is on the table
+    static final double BETRAY_RATIO      = 0.5;   // turn on a friend who shrinks below half my land
+
     /**
-     * Decide a diplomacy order for the tick, or null. Bots only ACCEPT peace offers (and only if
-     * the offerer is not much weaker, so they don't make peace with easy prey). They never
-     * initiate — so bot-only games generate no diplomacy traffic and balance is unchanged.
+     * Decide a diplomacy order for the tick, or null. Bots ACCEPT good offers, GANG UP on a runaway
+     * leader by allying with fellow non-leaders, SUE FOR PEACE when overpowered, and BETRAY a friend
+     * who has become easy prey late in the war. Easy bots (level 0) only react, never initiate.
      */
     public static Diplo decideDiplo(GameState s, int p) {
         if (!s.alive[p]) return null;
+
+        // Global leader + map share (drives gang-ups and peace-buying), and how many remain.
+        int leader = -1, leaderLand = -1, totalLand = 0, aliveCount = 0;
+        for (int q = 0; q < s.numPlayers; q++) {
+            if (!s.alive[q]) continue;
+            aliveCount++;
+            totalLand += s.land[q];
+            if (s.land[q] > leaderLand) { leaderLand = s.land[q]; leader = q; }
+        }
+        boolean leaderDominant = totalLand > 0 && leaderLand > totalLand * LEADER_DOMINANCE && leader != p;
+        // Endgame: with few players left, coalitions dissolve — everyone wants the SOLE win, so no new
+        // alliances form and existing friends get betrayed. This keeps the finish a last-one-standing.
+        boolean endgame = aliveCount <= 3;
+
+        // 1. Accept incoming offers. Ally readily against a dominant leader (common enemy); otherwise
+        //    only with someone not much weaker. No new alliances in the endgame (go for the solo win).
         for (int q = 0; q < s.numPlayers; q++) {
             if (q == p || !s.alive[q]) continue;
             boolean notMuchWeaker = s.land[q] >= s.land[p] * Config.BOT_ACCEPT_RATIO;
-            if (s.allyOffer[q][p] && notMuchWeaker) return new Diplo(p, q, Diplo.Kind.ACCEPT_ALLY);
-            if (s.offer[q][p] && notMuchWeaker) return new Diplo(p, q, Diplo.Kind.ACCEPT_PEACE);
+            boolean commonEnemy = leaderDominant && q != leader;
+            if (!endgame && s.allyOffer[q][p] && (notMuchWeaker || commonEnemy)) return new Diplo(p, q, Diplo.Kind.ACCEPT_ALLY);
+            if (s.offer[q][p] && notMuchWeaker)                                  return new Diplo(p, q, Diplo.Kind.ACCEPT_PEACE);
+        }
+
+        if (level < 1) return null;                        // Easy bots only react, never initiate.
+
+        // 2. Betrayal — alliances are a temporary tool against a runaway leader, not a way to share the
+        //    map. Break a friendship when (a) the endgame is here, (b) the common enemy is gone (no
+        //    dominant leader left to fear), or (c) the war has dragged and the friend is easy prey.
+        boolean obsolete = !leaderDominant;   // no runaway leader -> the alliance has lost its purpose
+        boolean warDragged = s.tick - Config.PEACE_PHASE_TICKS > BETRAY_AFTER_WAR;
+        if (p != leader || aliveCount <= 2) {
+            int prey = -1, preyLand = Integer.MAX_VALUE;
+            for (int q = 0; q < s.numPlayers; q++) {
+                if (q == p || !s.alive[q] || !s.areFriendly(p, q)) continue;
+                boolean breakIt = endgame || obsolete || (warDragged && s.land[q] < s.land[p] * BETRAY_RATIO);
+                if (breakIt && s.land[q] < preyLand) { preyLand = s.land[q]; prey = q; }
+            }
+            double chance = (endgame || obsolete) ? 0.30 : DIPLO_INIT_CHANCE;
+            if (prey >= 0 && s.rng.nextDouble() < chance) {
+                return new Diplo(p, prey, s.rel[p][prey] == 2 ? Diplo.Kind.BREAK_ALLY : Diplo.Kind.BREAK_PEACE);
+            }
+        }
+
+        if (s.rng.nextDouble() > DIPLO_INIT_CHANCE) return null;   // initiate only occasionally
+
+        if (leaderDominant && !endgame) {
+            // 3. Gang up: offer an alliance to the strongest OTHER non-leader to jointly resist.
+            int ally = -1, allyLand = -1;
+            for (int q = 0; q < s.numPlayers; q++) {
+                if (q == p || q == leader || !s.alive[q]) continue;
+                if (s.rel[p][q] == 2 || s.allyOffer[p][q]) continue;   // already allied / offered
+                if (s.land[q] > allyLand) { allyLand = s.land[q]; ally = q; }
+            }
+            if (ally >= 0) return new Diplo(p, ally, Diplo.Kind.REQUEST_ALLY);
+
+            // 4. Or, if the leader dwarfs me, sue for peace to buy time.
+            if (s.land[leader] > s.land[p] * LEADER_RATIO && s.rel[p][leader] == 0 && !s.offer[p][leader]) {
+                return new Diplo(p, leader, Diplo.Kind.REQUEST_PEACE);
+            }
         }
         return null;
     }

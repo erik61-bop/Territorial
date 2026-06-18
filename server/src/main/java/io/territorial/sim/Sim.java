@@ -294,29 +294,11 @@ public final class Sim {
         }
         if (aliveCount == 0) return -1;
         if (aliveCount == 1) return last;
-        // Pure conquest: the war ends when one side remains. An all-allied set of survivors shares
-        // the win (nobody left to fight).
-        if (allSurvivorsAllied()) return last >= 0 ? firstAlive() : -1;
-        // Safety: a war that drags far past the opening (rare stalemate) is decided by the largest
-        // power, so the live match can never hang. In practice conquest ends games well before this.
+        // Last one standing only: alliances help you win but never SHARE the win — a coalition must
+        // betray and fight to a single victor (bots do this in the endgame). The deadline below is a
+        // pure safety so the live match can never hang on a rare stalemate.
         if (s.tick - Config.PEACE_PHASE_TICKS > Config.WAR_DEADLINE) return biggest;
         return -1;
-    }
-
-    private int firstAlive() {
-        for (int p = 0; p < s.numPlayers; p++) if (s.alive[p]) return p;
-        return -1;
-    }
-
-    private boolean allSurvivorsAllied() {
-        for (int a = 0; a < s.numPlayers; a++) {
-            if (!s.alive[a]) continue;
-            for (int b = a + 1; b < s.numPlayers; b++) {
-                if (!s.alive[b]) continue;
-                if (s.rel[a][b] != 2) return false;   // an unallied survivor pair -> no victory
-            }
-        }
-        return true;
     }
 
     private static double clamp(double v, double lo, double hi) {
