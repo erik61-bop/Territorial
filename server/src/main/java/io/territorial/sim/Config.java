@@ -41,20 +41,21 @@ public final class Config {
     // Win — pure conquest: a match ends only when one side remains (last player / alliance standing).
     // "War exhaustion": the longer the war drags, the stronger attacks get, so defences eventually
     // crumble and the war always concludes (no phases / no domination shortcut).
-    public static final double WAR_ESCALATION_PER_TICK = 0.0025;
+    public static final double WAR_ESCALATION_PER_TICK = 0.005;
     // Safety only: if a war drags this many ticks past the opening (rare pathological stalemate),
     // the largest power wins so the live server can never hang. Most games end by true conquest first.
-    public static final int WAR_DEADLINE = 1800;
+    public static final int WAR_DEADLINE = 1400;
 
     /** Attack-strength multiplier that grows the longer the war has lasted (1.0 at war start). */
     public static double warEscalation(int tick) {
         return 1.0 + Math.max(0, tick - PEACE_PHASE_TICKS) * WAR_ESCALATION_PER_TICK;
     }
 
-    // Territorial rebellion: badly overextended empires lose far-flung border cells to neutral.
+    // Territorial rebellion: disabled (0) — it dumped land back to neutral and prevented the
+    // consolidation needed for a last-man-standing finish. War exhaustion is the anti-snowball now.
     public static final double REBEL_DENSITY      = 0.6;   // army/land below this = overextended
     public static final double REBEL_SUPPLY       = 0.66;  // only cells this far out can rebel
-    public static final double REBEL_CHANCE       = 0.003; // per qualifying border cell per tick
+    public static final double REBEL_CHANCE       = 0.0;   // per qualifying border cell per tick
 
     // Diplomacy
     public static final int PEACE_TICKS           = 480;   // a peace lasts ~60s at 8/s

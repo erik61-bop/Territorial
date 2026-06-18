@@ -7,7 +7,7 @@ import java.util.List;
 public final class GameRunner {
     private GameRunner() {}
 
-    public record Result(int winner, int ticks, int[] initialLand, int[] finalLand) {}
+    public record Result(int winner, int ticks, int[] initialLand, int[] finalLand, int aliveAtEnd) {}
 
     public static Result run(GameState s, int maxTicks) {
         Sim sim = new Sim(s);
@@ -34,7 +34,9 @@ public final class GameRunner {
         if (winner == -1) winner = sim.winner();           // may still be -1 (timeout draw)
         if (winner == -1) winner = largestLand(s);          // resolve a timeout by territory
 
-        return new Result(winner, s.tick, initialLand, s.land.clone());
+        int alive = 0;
+        for (int p = 0; p < s.numPlayers; p++) if (s.alive[p]) alive++;
+        return new Result(winner, s.tick, initialLand, s.land.clone(), alive);
     }
 
     private static int largestLand(GameState s) {

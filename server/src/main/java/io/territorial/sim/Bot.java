@@ -94,7 +94,8 @@ public final class Bot {
         // Only expand if the wave can actually capture neutral land; otherwise HOLD and let income
         // build the army up (expanding with too little army just wastes it and starves you).
         boolean canExpand = neutralAdjacent
-                && s.density(p) > EXPAND_MIN_DENSITY                           // keep a defensive reserve
+                && (s.density(p) > EXPAND_MIN_DENSITY || warDragging)          // keep a reserve, but in
+                                                                              // late war push to close gaps
                 && s.army[p] * EXPAND_FRACTION * s.momentum[p] > Config.NEUTRAL_COST;
 
         // Opening Peace phase: no PvP — grab land (toward a city) when able, else accumulate.
