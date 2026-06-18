@@ -6,6 +6,7 @@ import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
 import Hud from './ui/Hud';
 import QuickChat from './ui/QuickChat';
 import Minimap from './ui/Minimap';
+import Inspect from './ui/Inspect';
 import Menu from './ui/Menu';
 import { sfx } from './audio/sfx';
 
@@ -97,6 +98,7 @@ export default function GameScreen() {
     const cell = cy * m.width + cx;
     const target = s.owner[cell];
     if (target === -2) return;              // water is not interactable
+    if (target >= 0) useGame.getState().setSelected(target);  // tap a nation -> inspect it
 
     const inSpawn = pid >= 0 && s.land[pid] === 0 && s.winner < 0;
     if (inSpawn) {
@@ -182,6 +184,7 @@ export default function GameScreen() {
       )}
       <Hud />
       <QuickChat />
+      <Inspect />
       {map && snap && <Minimap camera={camera} screenW={winW} screenH={winH} />}
     </View>
   );
