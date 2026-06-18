@@ -93,6 +93,10 @@ public final class Sim {
         applyMomentum();
         for (int p = 0; p < s.numPlayers; p++) {            // defensive: never NaN/Inf/negative
             if (!Double.isFinite(s.army[p]) || s.army[p] < 0) s.army[p] = 0;
+            // Enforce the army cap AFTER combat too (reflux/captures can't push it past the cap) —
+            // otherwise leaders hoard armies far beyond land*cap.
+            double cap = s.land[p] * Config.ARMY_CAP_PER_LAND;
+            if (s.army[p] > cap) s.army[p] = cap;
         }
         s.tick++;
     }

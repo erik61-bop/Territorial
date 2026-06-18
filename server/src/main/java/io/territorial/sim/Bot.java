@@ -103,24 +103,22 @@ public final class Bot {
             return canExpand ? new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget) : null;
         }
 
+        // GROW FIRST: claim free neutral land (cheap and always effective) before assaulting forts.
+        // A smart player banks economy from empty land rather than bleeding on fortified borders.
+        if (canExpand && !misplay) {
+            return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget);
+        }
+
         // Gang up on a runaway leader: commit hard and drive at its capital.
         if (!misplay && leaderDominant && biggestNeighbour == leader && biggestNeighbour != p
                 && biggestNeighbourLand > s.land[p] * LEADER_RATIO && s.rng.nextDouble() < GANG_UP_CHANCE) {
             return new Action(p, leader, GANG_FRACTION, s.capitalCell[leader]);
         }
 
-        // Attack the weakest attackable neighbour — but only if (a) it isn't much stronger per cell
-        // and (b) my wave can actually break its defence. Drive the wave at its capital.
-        // Attack the weakest neighbour my wave can break (against the war-crumbled defence). Early
-        // war: only if it's not stronger than me (cautious). Late war: attack anything breakable.
-        if (weakestEnemy >= 0 && wave > weakestDef * breakMargin
-                && (warDragging || weakestDef < myDef * AGGRO_MARGIN)) {
+        // Otherwise attack the weakest front my concentrated wave can break — even a bigger empire
+        // (its defence is spread thin per cell; I mass on one point). Keeps the army WORKING.
+        if (weakestEnemy >= 0 && wave > weakestDef * breakMargin) {
             return new Action(p, weakestEnemy, warDragging ? 0.85 : ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
-        }
-
-        // Expand into empty land when the army can capture it (toward a city if possible).
-        if (canExpand && !misplay) {
-            return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget);
         }
 
         // Occasional probe so it stays beatable / unpredictable.
