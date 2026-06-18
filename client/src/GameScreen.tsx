@@ -108,18 +108,14 @@ export default function GameScreen() {
     if (st.mode === 'hold') return;         // defensive: ignore taps
     if (target === pid) return;             // can't attack yourself
 
-    if (target === -1) {                    // empty land -> expand (in any mode except hold)
-      if (st.mode === 'attack' || st.mode === 'move' || st.mode === 'split') {
-        showTap(screenX, screenY, 'expand');
-        sendAction(-1, st.fraction, cell);
-      }
+    if (target === -1) {                    // empty land -> expand
+      showTap(screenX, screenY, 'expand');
+      sendAction(-1, st.fraction, cell);
       return;
     }
-    if (st.mode === 'move') return;         // move-only mode doesn't attack
-    // attack (split sends smaller waves so you can spread across directions)
-    const f = st.mode === 'split' ? Math.min(st.fraction, 0.34) : st.fraction;
+    // enemy land -> attack (the standing order keeps the army flowing there)
     showTap(screenX, screenY, 'attack');
-    sendAction(target, f, cell);
+    sendAction(target, st.fraction, cell);
   }, [showTap]);
 
   const lastPan = useRef<{ x: number; y: number } | null>(null);

@@ -9,7 +9,7 @@ export interface MapInfo {
   capitals: number[];  // per-player capital cell index
 }
 
-export type Mode = 'attack' | 'move' | 'split' | 'hold';
+export type Mode = 'attack' | 'hold';
 
 export interface Snapshot {
   tick: number;

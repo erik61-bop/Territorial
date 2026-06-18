@@ -53,27 +53,55 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
     const np = snap.army.length;
     const sumX = new Float64Array(np), sumY = new Float64Array(np), cnt = new Int32Array(np);
 
+    // Fog of war during PEACE only: you see your territory + a radius around it; rivals beyond that
+    // are hidden. War lifts the fog. (Pre-spawn you see everything so you can pick a spawn.)
+    const VISION = 11;
+    const fog = snap.phase === 0 && myId >= 0 && (snap.land?.[myId] ?? 0) > 0;
+    let visible: Uint8Array | null = null;
+    if (fog) {
+      visible = new Uint8Array(n);
+      let frontier: number[] = [];
+      for (let i = 0; i < n; i++) if (snap.owner[i] === myId) { visible[i] = 1; frontier.push(i); }
+      for (let step = 0; step < VISION && frontier.length; step++) {
+        const next: number[] = [];
+        for (const c of frontier) {
+          const x = c % width, y = (c / width) | 0;
+          if (x > 0 && !visible[c - 1]) { visible[c - 1] = 1; next.push(c - 1); }
+          if (x < width - 1 && !visible[c + 1]) { visible[c + 1] = 1; next.push(c + 1); }
+          if (y > 0 && !visible[c - width]) { visible[c - width] = 1; next.push(c - width); }
+          if (y < height - 1 && !visible[c + width]) { visible[c + width] = 1; next.push(c + width); }
+        }
+        frontier = next;
+      }
+    }
+
     for (let i = 0; i < n; i++) {
       const o = snap.owner[i];
       const t = terrain[i] ?? 0;
+      const hidden = !!visible && visible[i] === 0;   // outside vision during PEACE -> fogged
       let r: number, g: number, b: number;
-      if (o >= 0) {
+      if (o >= 0 && !hidden) {
         const base = PLAYER_COLORS[o % PLAYER_COLORS.length];
         const k = TERRAIN_SHADE[t] ?? 1;
         r = base[0] * k; g = base[1] * k; b = base[2] * k;
         // Nation border: darken the rim where this cell meets a different owner.
         const x = i % width, y = (i / width) | 0;
-        sumX[o] += x; sumY[o] += y; cnt[o]++;
+        sumX[o] += x; sumY[o] += y; cnt[o]++;        // only visible cells -> fogged nations get no label
         const edge =
           (x > 0 && snap.owner[i - 1] !== o) || (x < width - 1 && snap.owner[i + 1] !== o) ||
           (y > 0 && snap.owner[i - width] !== o) || (y < height - 1 && snap.owner[i + width] !== o);
         if (edge) { r *= 0.5; g *= 0.5; b *= 0.5; }
       } else {
+        // Neutral, or a fogged cell: show only the terrain (ownership concealed).
         const c = TERRAIN_COLORS[t] ?? TERRAIN_COLORS[0];
         r = c[0]; g = c[1]; b = c[2];
       }
-      if (!reset && prev![i] !== o) h[i] = 1; else h[i] *= 0.45;
-      if (h[i] > 0.05) { const f = Math.min(1, h[i]) * 0.6; r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; }
+      if (!hidden) {
+        if (!reset && prev![i] !== o) h[i] = 1; else h[i] *= 0.45;
+        if (h[i] > 0.05) { const f = Math.min(1, h[i]) * 0.6; r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; }
+      } else {
+        r *= 0.4; g *= 0.4; b *= 0.42;               // fog of war: dim the unseen map
+      }
       const j = i * 4;
       px[j] = Math.min(255, r); px[j + 1] = Math.min(255, g); px[j + 2] = Math.min(255, b); px[j + 3] = 255;
     }
@@ -95,6 +123,7 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
     for (let pid = 0; pid < caps.length; pid++) {
       const cell = caps[pid];
       if (!snap.alive[pid] || cell == null || cell < 0) continue;
+      if (visible && visible[cell] === 0) continue;   // fogged capital -> hidden
       const cx = tx + (cell % width) * scale + scale / 2;
       const cy = ty + Math.floor(cell / width) * scale + scale / 2;
       const me = pid === myId;

@@ -124,6 +124,17 @@ anti-snowball beyond the income penalty. Paused during Final War.
 it (nearest-first) so you push where you tap. With no direction (`-1`, used by bots) it falls back
 to cheapest-first, so bot-only balance is unchanged.
 
+**Controls.** Two modes only: **Attack** (tap empty land to expand, tap a country to conquer — a
+standing order keeps the army flowing there) and **Hold** (stop the order, defend). The send-rate
+slider sets how much of the pool flows per tick. (The old Move/Split modes were just UI re-skins of
+expand / smaller-attack and were removed.)
+
+**Fog of war (Peace only).** During the opening PEACE phase you see only your territory plus a
+vision radius around it; rivals beyond that are hidden (the map dims, enemy colours/labels/crowns
+and the minimap conceal them). The instant WAR begins the fog lifts and the whole board is revealed.
+Pre-spawn the map is fully visible so you can pick a spawn. (Client-side rendering; the opening is a
+blind land-grab, the war is open information.)
+
 **Naval / water.** `WATER` cells (owner sentinel `-2`, ~15% of the map in a few seas) are unownable
 and split the map; coastlines are SAFE borders (water neighbours don't count as border). You may
 cross a single water tile (a strait): a target cell reachable across one water cell from your coast

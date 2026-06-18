@@ -10,15 +10,13 @@ const mmss = (secs: number) => `${Math.floor(secs / 60)}:${String(Math.max(0, se
 
 const PHASES = [
   { name: 'PEACE PERIOD', color: '#7CFC9B', next: 'War' },
-  { name: 'WAR PERIOD', color: '#FFD166', next: 'Final War' },
+  { name: 'WAR PERIOD', color: '#FFD166', next: '' },
   { name: 'FINAL WAR', color: '#FF6B6B', next: '' },
 ];
 
 const ACTIONS: { mode: Mode; label: string; icon: string; color: string; hint: string }[] = [
-  { mode: 'move', label: 'Move', icon: '🏃', color: '#2f6df0', hint: 'expand into empty land' },
-  { mode: 'attack', label: 'Attack', icon: '⚔️', color: '#e0473e', hint: 'conquer enemy land' },
-  { mode: 'split', label: 'Split', icon: '🔱', color: '#e0a52e', hint: 'send smaller waves to spread' },
-  { mode: 'hold', label: 'Hold', icon: '🛡️', color: '#46a35a', hint: 'stay and defend' },
+  { mode: 'attack', label: 'Attack', icon: '⚔️', color: '#e0473e', hint: 'tap empty land to expand, a country to conquer' },
+  { mode: 'hold', label: 'Hold', icon: '🛡️', color: '#46a35a', hint: 'stop your order and defend' },
 ];
 
 export default function Hud() {
@@ -84,7 +82,8 @@ export default function Hud() {
         <View style={[styles.card, styles.phaseBar]}>
           <Text style={[styles.phaseName, { color: phase.color }]}>{phase.name}</Text>
           {phaseSecs >= 0 && <Text style={styles.phaseTimer}>{mmss(phaseSecs)}</Text>}
-          {phaseSecs >= 0 && <Text style={styles.dim}>{phase.next} starts in {mmss(phaseSecs)}</Text>}
+          {phaseSecs >= 0 && phase.next !== '' && <Text style={styles.dim}>{phase.next} starts in {mmss(phaseSecs)}</Text>}
+          {snap?.phase === 0 && <Text style={styles.dim}>🌫 fog of war — rivals hidden until war</Text>}
         </View>
       )}
 

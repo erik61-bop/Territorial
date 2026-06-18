@@ -10,6 +10,7 @@ const W = 196, H = 150;
 export default function Minimap({ camera, screenW, screenH }: { camera: Camera; screenW: number; screenH: number }) {
   const map = useGame((s) => s.map);
   const snap = useGame((s) => s.snap);
+  const myId = useGame((s) => s.playerId);
   const ref = useRef<any>(null);
   const offRef = useRef<any>(null);
 
@@ -23,9 +24,12 @@ export default function Minimap({ camera, screenW, screenH }: { camera: Camera; 
     const octx = off.getContext('2d');
     const img = octx.createImageData(width, height);
     const px = img.data;
+    // During PEACE the overview is fogged too: show only your own territory, not rivals' positions.
+    const fog = snap.phase === 0;
     for (let i = 0; i < width * height; i++) {
       const o = snap.owner[i];
-      const col = o >= 0 ? PLAYER_COLORS[o % PLAYER_COLORS.length] : (TERRAIN_COLORS[terrain[i] ?? 0] ?? TERRAIN_COLORS[0]);
+      const showOwner = o >= 0 && (!fog || o === myId);
+      const col = showOwner ? PLAYER_COLORS[o % PLAYER_COLORS.length] : (TERRAIN_COLORS[terrain[i] ?? 0] ?? TERRAIN_COLORS[0]);
       const j = i * 4; px[j] = col[0]; px[j + 1] = col[1]; px[j + 2] = col[2]; px[j + 3] = 255;
     }
     octx.putImageData(img, 0, 0);
@@ -41,7 +45,7 @@ export default function Minimap({ camera, screenW, screenH }: { camera: Camera; 
     const vy1 = Math.min(height, (screenH - camera.ty) / camera.scale);
     ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 1.5;
     ctx.strokeRect(ox + vx0 * scale, oy + vy0 * scale, (vx1 - vx0) * scale, (vy1 - vy0) * scale);
-  }, [map, snap, camera, screenW, screenH]);
+  }, [map, snap, camera, screenW, screenH, myId]);
 
   return (
     <View style={styles.wrap}>
