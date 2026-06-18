@@ -28,11 +28,13 @@ how often a small country wins.
 Social layer (implemented): **quick-chat** (preset messages with optional target, server-relayed
 with a per-player cooldown) and **diplomacy** — mutual temporary peace (`PEACE_TICKS` ~60s) you
 can request, accept, or betray. The attack resolver skips friendly pairs (`areFriendly`), so bots
-honour peace too. Bots only ACCEPT peace (never initiate), so bot-only balance is unchanged.
-**Alliances** (implemented): a stronger, non-expiring bond (rel=2) — request/accept/break like
-peace. Allies can't attack each other (until Final War voids it). **Alliance victory:** if every
-surviving player is mutually allied (and it's not Final War), they share the win. Bots accept
-alliance/peace offers only from players not much weaker than them (so they don't ally easy prey).
+honour peace too. **Bots INITIATE diplomacy** (Normal/Hard): gang up on a runaway leader via
+alliances, sue for peace when overpowered, and betray. **Alliances** (implemented): a stronger,
+non-expiring bond (rel=2) — request/accept/break like peace; allies can't attack each other. There
+is **no shared win** — a coalition must betray and fight to a single victor, so bots dissolve
+alliances once the common-enemy leader is contained or in the endgame. Bots accept alliance/peace
+offers only from players not much weaker (so they don't ally easy prey), but readily against a
+dominant common enemy.
 
 ## State
 
@@ -51,7 +53,7 @@ recomputeDerived  -> land, border, alive
 applyIncome       -> grow armies, gated by stability, capped by land
 resolveAttacks    -> the wave model (actions processed by ascending playerId)
 applyMomentum     -> update from this tick's captures/losses/defends
-checkWin          -> last-standing or land fraction >= WIN_FRACTION
+checkWin          -> last one standing (else the WAR_DEADLINE safety picks the largest)
 ```
 
 ## Formulas
@@ -92,14 +94,14 @@ These are the values the balance harness validated (see "Balance result" below).
 ```
 INCOME_RATE=0.06  LAND_INCOME_EXP=1.0  ARMY_CAP_PER_LAND=9  STABILITY_TARGET=6  STAB_MIN=0.30
 income uses incomeUnits (terrain-weighted) not raw land; CITY incomeMult=1.2
-MOMENTUM_WIN=0.0 (capture gives no morale)  MOMENTUM_DEFEND=0.06  MOMENTUM_LOSS=0.03
-NEUTRAL_COST=3.5  GARRISON_KILL=1.5  REFLUX=0.25  PENETRATION_PENALTY=0.10
+MOMENTUM_WIN=0.0 (capture gives no morale)  MOMENTUM_DEFEND=0.06  MOMENTUM_LOSS=0.02
+NEUTRAL_COST=2.3  GARRISON_KILL=1.5  REFLUX=0.40  PENETRATION_PENALTY=0.10
 SUPPLY_FALLOFF=0.02  SUPPLY_MIN=0.50
 terrain.defMult: PLAIN 1.0  FOREST 1.25  MOUNTAIN 1.6  CITY 1.0  RIVER 1.35
 CAPITAL_DEF=1.8   CAPITAL_INCOME=1.15
-MOMENTUM: MIN 0.6  MAX 1.5  DECAY 0.05  WIN 0.02  LOSS 0.03  DEFEND 0.06
-START_ARMY_PER_LAND=3.0  WIN_FRACTION=0.65  TICK_RATE=8/s
-PEACE_TICKS=480  PEACE_PHASE_TICKS=120  FINAL_WAR_TICK=1200
+MOMENTUM: MIN 0.6  MAX 1.5  DECAY 0.05  WIN 0.0  LOSS 0.02  DEFEND 0.06
+START_ARMY_PER_LAND=3.0  ARMY_CAP_PER_LAND=9  STABILITY_TARGET=6  INCOME_RATE=0.06  TICK_RATE=8/s
+PEACE_TICKS=480  PEACE_PHASE_TICKS=200  WAR_DEADLINE=1400  WAR_ESCALATION_PER_TICK=0.005
 ```
 
 ## Phases & winning (pure conquest)
@@ -116,9 +118,12 @@ A match runs PEACE → WAR (no Final War phase):
 conquest. **Safety only:** if a war drags `WAR_DEADLINE` ticks past the opening (rare pathological
 stalemate), the largest power wins so the live server can never hang — most games end by conquest first.
 
-**Territorial rebellion.** A badly overextended empire (`density < REBEL_DENSITY`) sheds far-flung
-border cells (`supplyMult <= REBEL_SUPPLY`) back to neutral at `REBEL_CHANCE`/cell/tick — an
-anti-snowball beyond the income penalty. Paused during Final War.
+**Territorial rebellion.** Implemented but **DISABLED** (`REBEL_CHANCE=0`): an overextended empire
+*could* shed far-flung border cells back to neutral, but that re-fragmented the map and blocked the
+consolidation a last-one-standing finish needs. **War escalation is the anti-snowball instead** —
+the longer the war drags, the stronger attacks get (`warEscalation` boosts the wave and fades the
+penetration penalty), so even balanced standoffs eventually crack and the match ends by conquest;
+the `WAR_DEADLINE` is a pure safety so the server never hangs.
 
 **Reinforcement direction.** An attack/expansion carries a `targetCell`; the wave is ordered toward
 it (nearest-first) so you push where you tap. With no direction (`-1`, used by bots) it falls back
@@ -180,7 +185,7 @@ that pool fast. This coalition behaviour is what keeps the biggest starter from 
 ```
 Current (coherent terrain + cities + defence morale + map-win + rebellion + Final-War surge,
          PEACE_PHASE_TICKS=200): small 52.7% · biggest 47.3% · avg 915 ticks · draws 0
-  Balanced: upsets common, big start still ~2x favoured per-capita. Resolves via Final War.
+  Balanced: upsets common. Resolves via war escalation + the WAR_DEADLINE safety (no Final War).
 Note: the coherent-terrain change shifted balance (random speckle had been ~48/52), re-tuned via
 the peace-opening length. Re-run run-balance.sh after ANY terrain/combat change.
 Fully deterministic; also passes run-fuzz.sh (400 chaotic games, invariants hold).

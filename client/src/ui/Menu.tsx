@@ -55,6 +55,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
       <Text style={styles.hint}>
         Pick a spawn, expand during Peace (rivals are hidden by fog), then attack, ally, and betray
         your way to be the last one standing. Tap a country to keep attacking it; Hold to stop.
+        {'\n'}Move: drag or WASD / arrows · zoom: wheel or +/− · click the minimap to jump there.
       </Text>
     </View>
   );

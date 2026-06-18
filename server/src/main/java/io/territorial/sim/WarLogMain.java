@@ -102,5 +102,5 @@ public final class WarLogMain {
         int best = -1, bl = -1; for (int p = 0; p < PLAYERS; p++) if (s.land[p] > bl) { bl = s.land[p]; best = p; }
         return best;
     }
-    private static String phaseName(int ph) { return ph == GameState.PEACE ? "PEACE" : ph == GameState.WAR ? "WAR" : "FINAL_WAR"; }
+    private static String phaseName(int ph) { return ph == GameState.PEACE ? "PEACE" : "WAR"; }
 }

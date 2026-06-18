@@ -134,7 +134,7 @@ public final class Sim {
             if (t != GameState.NEUTRAL && (t < 0 || t >= s.numPlayers)) continue; // invalid/water target
             if (t != GameState.NEUTRAL) {
                 if (s.phase == GameState.PEACE) continue;                     // opening: no PvP
-                if (s.phase != GameState.FINAL_WAR && s.areFriendly(x, t)) continue; // peace/ally holds (void in Final War)
+                if (s.areFriendly(x, t)) continue;                            // peace/ally holds
             }
             double f = clamp(a.fraction(), 0.0, 1.0);
             if (f <= 0) continue;

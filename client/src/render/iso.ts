@@ -34,6 +34,23 @@ export function unproject(sx: number, sy: number, cam: IsoCam): { x: number; y: 
   return { x: (a + b) / 2, y: (b - a) / 2 };
 }
 
+/**
+ * Height-aware inverse: a raised tile's TOP appears shifted up the screen by 2*h*ISO_V in (x+y).
+ * Iterate so clicking a mountain/city picks that tile, not the ground cell in front of it.
+ * `heightOf(x,y)` returns a cell's terrain height (BASE_H off-map).
+ */
+export function unprojectH(sx: number, sy: number, cam: IsoCam, heightOf: (x: number, y: number) => number): { x: number; y: number } {
+  const a = (sx - cam.tx) / cam.scale;          // x - y (height-independent)
+  const b0 = (sy - cam.ty) / (cam.scale * 0.5); // x + y at height 0
+  let x = (a + b0) / 2, y = (b0 - a) / 2;
+  for (let iter = 0; iter < 3; iter++) {
+    const h = heightOf(Math.floor(x), Math.floor(y));
+    const b = b0 + 2 * h * ISO_V;
+    x = (a + b) / 2; y = (b - a) / 2;
+  }
+  return { x, y };
+}
+
 /** Camera so that grid cell (cx,cy) at height h sits at screen (centerX, centerY). */
 export function centerOn(cx: number, cy: number, h: number, scale: number, centerX: number, centerY: number): IsoCam {
   const base: IsoCam = { scale, tx: 0, ty: 0 };

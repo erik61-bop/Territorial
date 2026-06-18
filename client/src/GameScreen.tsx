@@ -3,7 +3,7 @@ import { View, Text, useWindowDimensions, PanResponder, Platform, StyleSheet } f
 import { useGame } from './state/store';
 import { connect, sendAction, sendSpawn, sendDifficulty, sendProfile } from './net/socket';
 import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
-import { unproject, centerOn, terrainHeight } from './render/iso';
+import { unprojectH, centerOn, terrainHeight, BASE_H } from './render/iso';
 import Hud from './ui/Hud';
 import QuickChat from './ui/QuickChat';
 import Minimap from './ui/Minimap';
@@ -76,8 +76,7 @@ export default function GameScreen() {
     prevLand.current = land;
 
     if (!muted && prevPhase.current != null && prevPhase.current !== snap.phase) {
-      if (snap.phase === 2) sfx.finalWar();
-      else if (snap.phase === 1) sfx.war();
+      if (snap.phase === 1) sfx.war();
     }
     prevPhase.current = snap.phase;
 
@@ -103,7 +102,9 @@ export default function GameScreen() {
     const pid = st.playerId;
     const cam = cameraRef.current;
     if (!m || !s) return;
-    const u = unproject(screenX, screenY, cam);
+    const heightOf = (x: number, y: number) =>
+      (x < 0 || y < 0 || x >= m.width || y >= m.height) ? BASE_H : terrainHeight(m.terrain[y * m.width + x] ?? 0);
+    const u = unprojectH(screenX, screenY, cam, heightOf);
     const cx = Math.floor(u.x);
     const cy = Math.floor(u.y);
     if (cx < 0 || cy < 0 || cx >= m.width || cy >= m.height) return;
@@ -173,6 +174,41 @@ export default function GameScreen() {
     return () => node.removeEventListener('wheel', onWheel);
   }, [started]);
 
+  // Keyboard navigation (web): arrows / WASD pan, +/- zoom (about screen centre).
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !started) return;
+    const onKey = (e: KeyboardEvent) => {
+      const PAN = 70;
+      let dx = 0, dy = 0, zoom = 1;
+      switch (e.key) {
+        case 'ArrowLeft': case 'a': case 'A': dx = PAN; break;
+        case 'ArrowRight': case 'd': case 'D': dx = -PAN; break;
+        case 'ArrowUp': case 'w': case 'W': dy = PAN; break;
+        case 'ArrowDown': case 's': case 'S': dy = -PAN; break;
+        case '+': case '=': zoom = 1.15; break;
+        case '-': case '_': zoom = 1 / 1.15; break;
+        default: return;
+      }
+      e.preventDefault();
+      setCamera((c) => {
+        if (zoom !== 1) {
+          const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, c.scale * zoom));
+          const k = next / c.scale, mx = winW / 2, my = winH / 2;
+          return { scale: next, tx: mx - (mx - c.tx) * k, ty: my - (my - c.ty) * k };
+        }
+        return { ...c, tx: c.tx + dx, ty: c.ty + dy };
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [started, winW, winH]);
+
+  // Jump the camera to a map cell (used by minimap clicks).
+  const jumpTo = useCallback((mapX: number, mapY: number) => {
+    const c = cameraRef.current;
+    setCamera(centerOn(mapX, mapY, 0, c.scale, winW / 2, winH / 2));
+  }, [winW, winH]);
+
   if (!started) {
     return <Menu onPlay={(difficulty, name, color) => {
       useGame.getState().setProfile(name, color);
@@ -197,7 +233,7 @@ export default function GameScreen() {
       <Hud />
       <QuickChat />
       <Inspect />
-      {map && snap && <Minimap camera={camera} screenW={winW} screenH={winH} />}
+      {map && snap && <Minimap camera={camera} screenW={winW} screenH={winH} onJump={jumpTo} />}
     </View>
   );
 }

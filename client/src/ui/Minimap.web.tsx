@@ -8,7 +8,7 @@ import type { Camera } from '../render/GameCanvas';
 const W = 196, H = 150;
 
 /** Bottom-right overview of the whole map with a viewport rectangle. Web (Canvas2D). */
-export default function Minimap({ camera, screenW, screenH }: { camera: Camera; screenW: number; screenH: number }) {
+export default function Minimap({ camera, screenW, screenH, onJump }: { camera: Camera; screenW: number; screenH: number; onJump?: (mapX: number, mapY: number) => void }) {
   const map = useGame((s) => s.map);
   const snap = useGame((s) => s.snap);
   const myId = useGame((s) => s.playerId);
@@ -52,7 +52,20 @@ export default function Minimap({ camera, screenW, screenH }: { camera: Camera; 
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>MINIMAP</Text>
-      {React.createElement('canvas', { ref, width: W, height: H, style: { width: W, height: H, borderRadius: 8, display: 'block' } })}
+      {React.createElement('canvas', {
+        ref, width: W, height: H,
+        style: { width: W, height: H, borderRadius: 8, display: 'block', cursor: 'pointer' },
+        onPointerDown: (e: any) => e.stopPropagation(),
+        onClick: (e: any) => {
+          e.stopPropagation();
+          if (!map || !onJump) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const scale = Math.min(W / map.width, H / map.height);
+          const ox = (W - map.width * scale) / 2, oy = (H - map.height * scale) / 2;
+          const mx = (e.clientX - rect.left - ox) / scale, my = (e.clientY - rect.top - oy) / scale;
+          if (mx >= 0 && my >= 0 && mx < map.width && my < map.height) onJump(mx, my);
+        },
+      })}
     </View>
   );
 }

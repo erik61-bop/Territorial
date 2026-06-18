@@ -10,8 +10,8 @@ public final class GameState {
 
     public int[] waterCells = new int[0];  // indices of water cells (set by GameFactory)
 
-    // Match phases.
-    public static final int PEACE = 0, WAR = 1, FINAL_WAR = 2;
+    // Match phases. Flow is PEACE -> WAR (no Final War — win is last one standing).
+    public static final int PEACE = 0, WAR = 1;
     public int phase = PEACE;
 
     public final int width, height, cellCount;
