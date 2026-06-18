@@ -29,7 +29,7 @@ export default function Minimap({ camera, screenW, screenH }: { camera: Camera; 
     for (let i = 0; i < width * height; i++) {
       const o = snap.owner[i];
       const showOwner = o >= 0 && (!fog || o === myId);
-      const col = showOwner ? PLAYER_COLORS[o % PLAYER_COLORS.length] : (TERRAIN_COLORS[terrain[i] ?? 0] ?? TERRAIN_COLORS[0]);
+      const col = showOwner ? PLAYER_COLORS[(snap.colors?.[o] ?? o) % PLAYER_COLORS.length] : (TERRAIN_COLORS[terrain[i] ?? 0] ?? TERRAIN_COLORS[0]);
       const j = i * 4; px[j] = col[0]; px[j + 1] = col[1]; px[j + 2] = col[2]; px[j + 3] = 255;
     }
     octx.putImageData(img, 0, 0);

@@ -27,6 +27,18 @@ export interface Snapshot {
   phase: number;       // 0 PEACE, 1 WAR, 2 FINAL_WAR
   phaseEndsIn: number; // ticks until next phase, or -1
   capitals: number[];  // per-player capital cell (reflects chosen spawn)
+  names?: string[];    // per-player display name
+  colors?: number[];   // per-player colour index into PLAYER_COLORS
+}
+
+/** Colour index for a player (uses the server's colour permutation, falls back to slot). */
+export function colorIndexOf(snap: Snapshot | undefined, id: number): number {
+  return snap?.colors?.[id] ?? id;
+}
+/** Display name for a player ("You" for yourself). */
+export function nameOf(snap: Snapshot | undefined, id: number, me: number): string {
+  if (id === me) return 'You';
+  return snap?.names?.[id] ?? `Player ${id + 1}`;
 }
 
 export interface ChatMsg {
@@ -46,6 +58,8 @@ interface GameStore {
   started: boolean;    // has the player pressed Play (left the menu)
   muted: boolean;
   mode: Mode;          // current action mode (from the bottom action bar)
+  myName: string;      // chosen display name (sent on join)
+  myColor: number;     // chosen colour index (sent on join)
   order: number | null; // current standing-order target (playerId, -1 = expand, null = none)
   underAttackAt: number; // performance.now() of the last time we lost land (for the threat cue)
   selected: number | null; // nation currently inspected (playerId), or null
@@ -59,6 +73,7 @@ interface GameStore {
   setStarted: (b: boolean) => void;
   toggleMuted: () => void;
   setMode: (m: Mode) => void;
+  setProfile: (name: string, color: number) => void;
   setOrder: (o: number | null) => void;
   flagUnderAttack: () => void;
   setSelected: (id: number | null) => void;
@@ -72,6 +87,8 @@ export const useGame = create<GameStore>((set) => ({
   started: false,
   muted: false,
   mode: 'attack',
+  myName: '',
+  myColor: 0,
   order: null,
   underAttackAt: 0,
   selected: null,
@@ -84,6 +101,7 @@ export const useGame = create<GameStore>((set) => ({
   setStarted: (b) => set({ started: b }),
   toggleMuted: () => set((st) => ({ muted: !st.muted })),
   setMode: (m) => set({ mode: m }),
+  setProfile: (name, color) => set({ myName: name, myColor: color }),
   setOrder: (o) => set({ order: o }),
   flagUnderAttack: () => set({ underAttackAt: typeof performance !== 'undefined' ? performance.now() : Date.now() }),
   setSelected: (id) => set({ selected: id }),

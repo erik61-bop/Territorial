@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { useGame, Mode } from '../state/store';
+import { useGame, Mode, nameOf, colorIndexOf } from '../state/store';
 import { cssPlayer, TERRAIN_INFO, TERRAIN_COLORS } from '../render/colors';
 import Slider from './Slider';
 import { sendStop } from '../net/socket';
@@ -103,12 +103,14 @@ export default function Hud() {
       <View style={[styles.card, styles.leaderboard]}>
         <Text style={styles.cardLabel}>LEADERBOARD</Text>
         {top.map((p, i) => (
-          <Row key={p.id} rank={i + 1} id={p.id} land={p.land} me={playerId} />
+          <Row key={p.id} rank={i + 1} id={p.id} land={p.land} me={playerId}
+               name={nameOf(snap, p.id, playerId)} color={cssPlayer(colorIndexOf(snap, p.id))} />
         ))}
         {showMine && (
           <>
             <Text style={styles.ellipsis}>…</Text>
-            <Row rank={myRank + 1} id={playerId} land={myLand} me={playerId} />
+            <Row rank={myRank + 1} id={playerId} land={myLand} me={playerId}
+                 name={nameOf(snap, playerId, playerId)} color={cssPlayer(colorIndexOf(snap, playerId))} />
           </>
         )}
       </View>
@@ -116,8 +118,8 @@ export default function Hud() {
       {/* bottom-left: your status */}
       <View style={[styles.card, styles.status]}>
         <View style={styles.statusHead}>
-          <View style={[styles.shield, { backgroundColor: playerId >= 0 ? cssPlayer(playerId) : '#666' }]} />
-          <Text style={styles.statusTitle}>{playerId >= 0 ? `You — P${playerId}` : 'Spectating'}</Text>
+          <View style={[styles.shield, { backgroundColor: playerId >= 0 ? cssPlayer(colorIndexOf(snap, playerId)) : '#666' }]} />
+          <Text style={styles.statusTitle}>{playerId >= 0 ? (useGame.getState().myName || nameOf(snap, playerId, playerId)) : 'Spectating'}</Text>
         </View>
         <Text style={styles.statusLine}>Land <Text style={styles.statusVal}>{myLand}</Text>    Army <Text style={styles.statusVal}>{Math.round(myArmy)}</Text></Text>
         <Text style={styles.statusLine}>Income <Text style={[styles.statusVal, { color: '#7CFC9B' }]}>+{myIncome}/s</Text>    Morale <Text style={[styles.statusVal, { color: moraleColor }]}>{(myMorale / 100).toFixed(2)}</Text></Text>
@@ -165,8 +167,7 @@ export default function Hud() {
         <View style={styles.bannerWrap} pointerEvents="none">
           <Text style={styles.banner}>
             {snap!.winner === playerId ? 'You win! 🏆'
-              : snap!.rel?.[playerId]?.[snap!.winner] === 2 ? 'Your alliance wins! 🛡️🏆'
-              : `Player ${snap!.winner} wins`}
+              : `${nameOf(snap, snap!.winner, playerId)} wins 🏆`}
           </Text>
           <Text style={styles.dim}>new match starting…</Text>
         </View>
@@ -175,12 +176,12 @@ export default function Hud() {
   );
 }
 
-function Row({ rank, id, land, me }: { rank: number; id: number; land: number; me: number }) {
+function Row({ rank, id, land, me, name, color }: { rank: number; id: number; land: number; me: number; name: string; color: string }) {
   return (
     <View style={[styles.lbRow, id === me && styles.lbMine]}>
       <Text style={styles.lbRank}>{rank}</Text>
-      <View style={[styles.dot, { backgroundColor: cssPlayer(id) }]} />
-      <Text style={styles.lbName}>{id === me ? 'You' : `P${id}`}</Text>
+      <View style={[styles.dot, { backgroundColor: color }]} />
+      <Text style={styles.lbName} numberOfLines={1}>{name}</Text>
       <Text style={styles.lbLand}>{land}</Text>
     </View>
   );

@@ -40,6 +40,10 @@ public class GameRoom {
     private final java.util.concurrent.ConcurrentLinkedQueue<Diplo> humanDiplo = new java.util.concurrent.ConcurrentLinkedQueue<>();
     private final ConcurrentHashMap<Integer, Long> lastChatAt = new ConcurrentHashMap<>();
     private final boolean[] human = new boolean[NUM_PLAYERS];
+    // Player identity: chosen display name (humans only) and a colour index. colorIdx is kept a
+    // permutation of 0..NUM_PLAYERS-1 (every empire a distinct colour) by swapping on a pick.
+    private final String[] names = new String[NUM_PLAYERS];
+    private final int[] colorIdx = new int[NUM_PLAYERS];
     // Reconnection: a persistent client token owns a slot; a disconnected slot is held for a grace
     // period (empire kept) before being freed.
     private final boolean[] connected = new boolean[NUM_PLAYERS];
@@ -66,6 +70,7 @@ public class GameRoom {
 
     @PostConstruct
     void start() {
+        for (int p = 0; p < NUM_PLAYERS; p++) colorIdx[p] = p;   // default: one colour per slot
         newMatch();
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "game-tick");
@@ -209,6 +214,7 @@ public class GameRoom {
             if (human[p] && !connected[p] && state.tick - disconnectTick[p] > RECONNECT_GRACE_TICKS) {
                 state.clearPlayer(p);          // dissolve the abandoned empire
                 human[p] = false;
+                names[p] = null;               // back to a "Bot N" identity
                 humanActions.remove(p);
                 if (slotToken[p] != null) { tokenToSlot.remove(slotToken[p]); slotToken[p] = null; }
             }
@@ -245,6 +251,25 @@ public class GameRoom {
     public void stopOrder(WebSocketSession session) {
         Integer p = sessionToPlayer.get(session.getId());
         if (p != null) humanActions.remove(p);
+    }
+
+    /** Set a player's display name and colour. The colour is applied by swapping with whoever holds
+     *  it, so every empire keeps a distinct colour. */
+    public void setProfile(WebSocketSession session, String name, int color) {
+        Integer p = sessionToPlayer.get(session.getId());
+        if (p == null) return;
+        lock.lock();
+        try {
+            if (name != null) {
+                String nm = name.trim().replaceAll("[\\p{Cntrl}]", "");
+                if (nm.length() > 16) nm = nm.substring(0, 16);
+                if (!nm.isEmpty()) names[p] = nm;
+            }
+            if (color >= 0 && color < NUM_PLAYERS && color != colorIdx[p]) {
+                for (int j = 0; j < NUM_PLAYERS; j++) if (colorIdx[j] == color) { colorIdx[j] = colorIdx[p]; break; }
+                colorIdx[p] = color;
+            }
+        } finally { lock.unlock(); }
     }
 
     /** Set bot difficulty for the match (0 Easy, 1 Normal, 2 Hard). Match-global; latest wins. */
@@ -334,6 +359,11 @@ public class GameRoom {
         m.put("land", state.land.clone());
         m.put("alive", state.alive.clone());
         m.put("human", human.clone());
+        String[] nm = new String[state.numPlayers];
+        for (int p = 0; p < state.numPlayers; p++)
+            nm[p] = human[p] ? (names[p] != null ? names[p] : "Player " + (p + 1)) : "Bot " + (p + 1);
+        m.put("names", nm);
+        m.put("colors", colorIdx.clone());
         m.put("winner", winner);
         m.put("capitals", state.capitalCell.clone());
         m.put("phase", state.phase);

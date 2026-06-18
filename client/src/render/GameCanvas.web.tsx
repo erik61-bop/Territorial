@@ -81,7 +81,7 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
       const hidden = !!visible && visible[i] === 0;   // outside vision during PEACE -> fogged
       let r: number, g: number, b: number;
       if (o >= 0 && !hidden) {
-        const base = PLAYER_COLORS[o % PLAYER_COLORS.length];
+        const base = PLAYER_COLORS[(snap.colors?.[o] ?? o) % PLAYER_COLORS.length];
         const k = TERRAIN_SHADE[t] ?? 1;
         r = base[0] * k; g = base[1] * k; b = base[2] * k;
         // Nation border: darken the rim where this cell meets a different owner.

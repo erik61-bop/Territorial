@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { useGame } from '../state/store';
+import { useGame, nameOf, colorIndexOf } from '../state/store';
 import { cssPlayer } from '../render/colors';
 import { sendChat, sendDiplo, sendAction } from '../net/socket';
 
@@ -26,8 +26,8 @@ export default function Inspect() {
   return (
     <View style={styles.card}>
       <View style={styles.head}>
-        <View style={[styles.dot, { backgroundColor: cssPlayer(sel) }]} />
-        <Text style={styles.title}>{me ? 'You' : `Player ${sel}`}</Text>
+        <View style={[styles.dot, { backgroundColor: cssPlayer(colorIndexOf(snap, sel)) }]} />
+        <Text style={styles.title}>{nameOf(snap, sel, playerId)}</Text>
         <Text style={[styles.rel, { color: relColor }]}>{relName}</Text>
         <Pressable onPress={() => setSelected(null)} hitSlop={8}><Text style={styles.close}>✕</Text></Pressable>
       </View>

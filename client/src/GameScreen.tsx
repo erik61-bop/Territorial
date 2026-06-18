@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, useWindowDimensions, PanResponder, Platform, StyleSheet } from 'react-native';
 import { useGame } from './state/store';
-import { connect, sendAction, sendSpawn, sendDifficulty } from './net/socket';
+import { connect, sendAction, sendSpawn, sendDifficulty, sendProfile } from './net/socket';
 import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
 import Hud from './ui/Hud';
 import QuickChat from './ui/QuickChat';
@@ -162,7 +162,11 @@ export default function GameScreen() {
   }, [started]);
 
   if (!started) {
-    return <Menu onPlay={(difficulty) => { setStarted(true); connect(); setTimeout(() => sendDifficulty(difficulty), 600); }} />;
+    return <Menu onPlay={(difficulty, name, color) => {
+      useGame.getState().setProfile(name, color);
+      setStarted(true); connect();
+      setTimeout(() => { sendDifficulty(difficulty); sendProfile(name, color); }, 600);
+    }} />;
   }
 
   return (

@@ -73,6 +73,7 @@ export function connect(url = serverUrl()): WebSocket {
           rel: m.rel ?? [], offer: m.offer ?? [], allyOffer: m.allyOffer ?? [],
           phase: m.phase ?? 1, phaseEndsIn: m.phaseEndsIn ?? -1,
           capitals: m.capitals ?? [],
+          names: m.names, colors: m.colors,
         });
         break;
       }
@@ -108,6 +109,11 @@ export function sendStop(): void {
 /** Set bot difficulty for the match (0 Easy, 1 Normal, 2 Hard). */
 export function sendDifficulty(level: number): void {
   send({ type: 'difficulty', level });
+}
+
+/** Send the player's chosen display name and colour index. */
+export function sendProfile(name: string, color: number): void {
+  send({ type: 'profile', name, color });
 }
 
 /** Send a quick-chat message; target is a playerId or -1. "peace_request" also requests peace. */

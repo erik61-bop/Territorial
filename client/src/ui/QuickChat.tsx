@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
-import { useGame } from '../state/store';
+import { useGame, nameOf, colorIndexOf } from '../state/store';
 import { cssPlayer } from '../render/colors';
 import { TEMPLATES, CATEGORIES, TEMPLATE_BY_ID, formatMessage, ChatCategory } from '../chat/templates';
 import { sendChat, sendDiplo } from '../net/socket';
-
-const label = (id: number, me: number) => (id === me ? 'you' : `P${id}`);
 
 export default function QuickChat() {
   const playerId = useGame((s) => s.playerId);
   const snap = useGame((s) => s.snap);
   const chat = useGame((s) => s.chat);
+  const nm = (id: number) => nameOf(snap, id, playerId);
+  const col = (id: number) => cssPlayer(colorIndexOf(snap, id));
 
   const [open, setOpen] = useState(true);
   const [tab, setTab] = useState<ChatCategory>('Diplomacy');
@@ -38,15 +38,15 @@ export default function QuickChat() {
         <View style={styles.offers}>
           {allyOffers.map((from) => (
             <View key={'a' + from} style={styles.offerRow}>
-              <View style={[styles.dot, { backgroundColor: cssPlayer(from) }]} />
-              <Text style={styles.offerTxt}>P{from} offers an alliance</Text>
+              <View style={[styles.dot, { backgroundColor: col(from) }]} />
+              <Text style={styles.offerTxt}>{nm(from)} offers an alliance</Text>
               <Pressable style={styles.accept} onPress={() => sendDiplo('ACCEPT_ALLY', from)}><Text style={styles.btnTxt}>Ally</Text></Pressable>
             </View>
           ))}
           {peaceOffers.map((from) => (
             <View key={'p' + from} style={styles.offerRow}>
-              <View style={[styles.dot, { backgroundColor: cssPlayer(from) }]} />
-              <Text style={styles.offerTxt}>P{from} offers peace</Text>
+              <View style={[styles.dot, { backgroundColor: col(from) }]} />
+              <Text style={styles.offerTxt}>{nm(from)} offers peace</Text>
               <Pressable style={styles.accept} onPress={() => sendDiplo('ACCEPT_PEACE', from)}><Text style={styles.btnTxt}>Accept</Text></Pressable>
             </View>
           ))}
@@ -57,8 +57,8 @@ export default function QuickChat() {
       <View style={styles.log} pointerEvents="none">
         {chat.map((m) => (
           <Text key={m.key} style={styles.logLine}>
-            <Text style={{ color: cssPlayer(m.from), fontWeight: '800' }}>{label(m.from, playerId)}</Text>
-            <Text style={styles.logTxt}>{'  ' + formatMessage(m.templateId, m.target, (id) => label(id, playerId))}</Text>
+            <Text style={{ color: col(m.from), fontWeight: '800' }}>{nm(m.from)}</Text>
+            <Text style={styles.logTxt}>{'  ' + formatMessage(m.templateId, m.target, (id) => nm(id))}</Text>
           </Text>
         ))}
       </View>
@@ -87,8 +87,8 @@ export default function QuickChat() {
                   <View style={styles.targets}>
                     {alive.map((id) => (
                       <Pressable key={id} style={styles.target} onPress={() => pickTarget(id)}>
-                        <View style={[styles.dot, { backgroundColor: cssPlayer(id) }]} />
-                        <Text style={styles.btnTxt}>P{id}</Text>
+                        <View style={[styles.dot, { backgroundColor: col(id) }]} />
+                        <Text style={styles.btnTxt}>{nm(id)}</Text>
                       </Pressable>
                     ))}
                   </View>
@@ -114,8 +114,8 @@ export default function QuickChat() {
                   const ally = myRel[id] === 2;
                   return (
                     <Pressable key={id} style={[styles.treaty, ally && styles.allyTreaty]} onPress={() => sendDiplo(ally ? 'BREAK_ALLY' : 'BREAK_PEACE', id)}>
-                      <View style={[styles.dot, { backgroundColor: cssPlayer(id) }]} />
-                      <Text style={styles.treatyTxt}>{ally ? '🛡️' : '🤝'} P{id} ✕</Text>
+                      <View style={[styles.dot, { backgroundColor: col(id) }]} />
+                      <Text style={styles.treatyTxt}>{ally ? '🛡️' : '🤝'} {nm(id)} ✕</Text>
                     </Pressable>
                   );
                 })}

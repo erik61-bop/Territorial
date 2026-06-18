@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
+import { PLAYER_COLORS } from '../render/colors';
 
 const LEVELS = [
   { v: 0, label: 'Easy' },
@@ -7,12 +8,37 @@ const LEVELS = [
   { v: 2, label: 'Hard' },
 ];
 
-export default function Menu({ onPlay }: { onPlay: (difficulty: number) => void }) {
+const rgb = (c: number[]) => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: string, color: number) => void }) {
   const [diff, setDiff] = useState(1);
+  const [name, setName] = useState('');
+  const [color, setColor] = useState(0);
   return (
     <View style={styles.root}>
       <Text style={styles.title}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>The Art of Conquest — one army is your sword and your shield.</Text>
+
+      <Text style={styles.diffLabel}>Your name</Text>
+      <TextInput
+        style={styles.nameInput}
+        value={name}
+        onChangeText={(t) => setName(t.slice(0, 16))}
+        placeholder="Commander"
+        placeholderTextColor="#566"
+        maxLength={16}
+      />
+
+      <Text style={styles.diffLabel}>Your colour</Text>
+      <View style={styles.colorRow}>
+        {PLAYER_COLORS.map((c, i) => (
+          <Pressable
+            key={i}
+            onPress={() => setColor(i)}
+            style={[styles.swatch, { backgroundColor: rgb(c) }, color === i && styles.swatchActive]}
+          />
+        ))}
+      </View>
 
       <Text style={styles.diffLabel}>Bot difficulty</Text>
       <View style={styles.diffRow}>
@@ -23,12 +49,12 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number) => void 
         ))}
       </View>
 
-      <Pressable style={styles.play} onPress={() => onPlay(diff)}>
+      <Pressable style={styles.play} onPress={() => onPlay(diff, name.trim(), color)}>
         <Text style={styles.playTxt}>▶  Play</Text>
       </Pressable>
       <Text style={styles.hint}>
-        Pick a spawn, expand during Peace, then attack, ally, and betray your way to the top before
-        Final War. Tap a country to keep attacking it; Hold to stop.
+        Pick a spawn, expand during Peace (rivals are hidden by fog), then attack, ally, and betray
+        your way to be the last one standing. Tap a country to keep attacking it; Hold to stop.
       </Text>
     </View>
   );
@@ -37,8 +63,16 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number) => void 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#0d0d12', alignItems: 'center', justifyContent: 'center', padding: 24 },
   title: { color: '#fff', fontSize: 56, fontWeight: '900', letterSpacing: 4 },
-  subtitle: { color: '#9aa', fontSize: 15, marginTop: 8, marginBottom: 24, textAlign: 'center' },
+  subtitle: { color: '#9aa', fontSize: 15, marginTop: 8, marginBottom: 22, textAlign: 'center' },
   diffLabel: { color: '#8aa0c8', fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 8 },
+  nameInput: {
+    width: 260, color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center',
+    backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145', borderRadius: 10,
+    paddingVertical: 10, marginBottom: 20,
+  },
+  colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 320, marginBottom: 22 },
+  swatch: { width: 30, height: 30, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
+  swatchActive: { borderColor: '#fff' },
   diffRow: { flexDirection: 'row', gap: 8, marginBottom: 26 },
   diffBtn: { paddingVertical: 8, paddingHorizontal: 22, borderRadius: 10, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },
   diffActive: { backgroundColor: '#2f6df0', borderColor: '#2f6df0' },
