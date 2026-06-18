@@ -74,7 +74,7 @@ export function connect(url = serverUrl()): WebSocket {
           rel: m.rel ?? [], offer: m.offer ?? [], allyOffer: m.allyOffer ?? [],
           phase: m.phase ?? 1, phaseEndsIn: m.phaseEndsIn ?? -1,
           capitals: m.capitals ?? [],
-          names: m.names, colors: m.colors,
+          names: m.names, colors: m.colors, attacks: m.attacks,
         });
         break;
       }

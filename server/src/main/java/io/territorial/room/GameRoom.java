@@ -53,6 +53,7 @@ public class GameRoom {
 
     private GameState state;
     private Sim sim;
+    private int[] lastAttacks = new int[0];   // this tick's PvP attacks [attacker,target,...] for battle arrows
     private long matchSeed = 1L;
     private int winner = -1;
     private int holdTicks = 0;
@@ -118,6 +119,7 @@ public class GameRoom {
         lastOwner = null;
         humanActions.clear();
         humanDiplo.clear();
+        lastAttacks = new int[0];
     }
 
     private void safeStep() {
@@ -166,6 +168,12 @@ public class GameRoom {
                 }
                 if (a != null) actions.add(a);
             }
+            // Record this tick's PvP attacks (attacker,target,...) for the client's battle arrows.
+            int na = 0;
+            for (Action a : actions) if (a.targetOwner() >= 0 && a.targetOwner() != a.attackerId()) na++;
+            int[] atk = new int[na * 2]; int ka = 0;
+            for (Action a : actions) if (a.targetOwner() >= 0 && a.targetOwner() != a.attackerId()) { atk[ka++] = a.attackerId(); atk[ka++] = a.targetOwner(); }
+            lastAttacks = atk;
             sim.tick(actions);
             expireDisconnects();
             sim.recomputeDerived();
@@ -389,6 +397,7 @@ public class GameRoom {
         m.put("winner", winner);
         m.put("capitals", state.capitalCell.clone());
         m.put("phase", state.phase);
+        m.put("attacks", lastAttacks);
         int endsIn = state.phase == GameState.PEACE ? Config.PEACE_PHASE_TICKS - state.tick : -1;
         m.put("phaseEndsIn", Math.max(-1, endsIn));
         // Diplomacy matrices (byte[][] -> int[][] so Jackson emits arrays, not base64).

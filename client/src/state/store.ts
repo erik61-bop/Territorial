@@ -29,6 +29,7 @@ export interface Snapshot {
   capitals: number[];  // per-player capital cell (reflects chosen spawn)
   names?: string[];    // per-player display name
   colors?: number[];   // per-player colour index into PLAYER_COLORS
+  attacks?: number[];  // this tick's PvP attacks, flat [attacker, target, ...] (battle arrows)
 }
 
 /** Colour index for a player (uses the server's colour permutation, falls back to slot). */

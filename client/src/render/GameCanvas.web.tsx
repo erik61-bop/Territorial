@@ -29,6 +29,8 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
   const prevOwner = useRef<number[] | null>(null);
   const heat = useRef<Float32Array | null>(null);
   const heights = useRef<{ w: number; h: number; arr: Float32Array } | null>(null);
+  const arrows = useRef<Map<number, number>>(new Map());   // key=attacker*1000+target -> strength
+  const arrowsTick = useRef<number>(-1);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -165,6 +167,48 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
     }
     prevOwner.current = snap.owner;
 
+    // Projected centroid per nation (for battle arrows + labels).
+    const cenX = new Float64Array(np), cenY = new Float64Array(np);
+    const hasC = new Uint8Array(np);
+    for (let p = 0; p < np; p++) {
+      if (!snap.alive[p] || cnt[p] < 8) continue;
+      cenX[p] = projX(sumX[p] / cnt[p] + 0.5, sumY[p] / cnt[p] + 0.5, cam);
+      cenY[p] = projY(sumX[p] / cnt[p] + 0.5, sumY[p] / cnt[p] + 0.5, 0.4, cam);
+      hasC[p] = 1;
+    }
+
+    // Battle arrows: who is attacking whom this tick. Decay once per game-tick so they pulse, not flicker.
+    const am = arrows.current;
+    if (snap.tick !== arrowsTick.current) {
+      arrowsTick.current = snap.tick;
+      for (const k of [...am.keys()]) { const v = am.get(k)! * 0.5; if (v < 0.06) am.delete(k); else am.set(k, v); }
+      const at = snap.attacks ?? [];
+      for (let i = 0; i + 1 < at.length; i += 2) am.set(at[i] * 1000 + at[i + 1], 1);
+    }
+    for (const [key, str] of am) {
+      const a = (key / 1000) | 0, t = key % 1000;
+      if (!hasC[a] || !hasC[t]) continue;
+      const x1 = cenX[a], y1 = cenY[a], x2 = cenX[t], y2 = cenY[t];
+      const dxx = x2 - x1, dyy = y2 - y1; const len = Math.hypot(dxx, dyy) || 1;
+      const ux = dxx / len, uy = dyy / len;
+      // colour: gold = my attack, red = someone attacking me, else faint white.
+      const mine = a === myId, threat = t === myId;
+      const col = mine ? '255,213,74' : threat ? '255,90,80' : '230,235,247';
+      const alpha = (mine || threat ? 0.85 : 0.4) * Math.min(1, str);
+      const tipX = x2 - ux * (cam.scale * 0.6), tipY = y2 - uy * (cam.scale * 0.6);
+      ctx.strokeStyle = `rgba(${col},${alpha})`;
+      ctx.lineWidth = mine || threat ? 3 : 1.6;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(tipX, tipY); ctx.stroke();
+      // arrowhead
+      const ah = Math.max(6, cam.scale * 0.7), pa = 0.5;
+      ctx.fillStyle = `rgba(${col},${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(tipX + ux * ah, tipY + uy * ah);
+      ctx.lineTo(tipX - uy * ah * pa, tipY + ux * ah * pa);
+      ctx.lineTo(tipX + uy * ah * pa, tipY - ux * ah * pa);
+      ctx.closePath(); ctx.fill();
+    }
+
     // Capitals: a crown floating above the capital cell.
     const caps = snap.capitals?.length ? snap.capitals : map.capitals;
     const relRow = snap.rel?.[myId] ?? [];
@@ -191,10 +235,8 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
     // Nation army labels at each territory's centroid, coloured by relation.
     const rel = snap.rel?.[myId] ?? [];
     for (let p = 0; p < np; p++) {
-      if (!snap.alive[p] || cnt[p] < 8) continue;
-      const mx = sumX[p] / cnt[p], myc = sumY[p] / cnt[p];
-      const lx = projX(mx + 0.5, myc + 0.5, cam);
-      const ly = projY(mx + 0.5, myc + 0.5, 0.4, cam);
+      if (!hasC[p]) continue;
+      const lx = cenX[p], ly = cenY[p];
       if (lx < -40 || lx > screenW + 40 || ly < -20 || ly > screenH + 20) continue;
       const me = p === myId;
       const col = me ? '#ffd54a' : rel[p] === 2 ? '#8affb0' : rel[p] === 1 ? '#86d6ff' : '#ffffff';

@@ -146,6 +146,16 @@ not scattered), or a brand-new room if all are full. A new room only spins up on
 their 12 human slots. Rooms whose humans have all left are reaped, so resource use tracks the player
 count. The match number is shown in the HUD.
 
+**Bot personalities.** Each slot gets one of 5 styles (deterministically hashed from the match seed
+in `GameFactory`, so maps/spawns are unchanged and only behaviour varies): Balanced, Aggressor,
+Turtle, Expander, Backstabber. Style tunes attack fraction, expand reserve, break margin, gang-up
+chance, whether it defends, and betrayal rate; difficulty (`Bot.level`) layers competence on top.
+Bot names show the style ("Bot 3 · Aggressor").
+
+**Battle arrows.** Each tick the server broadcasts the PvP attacks as a flat `[attacker,target,...]`
+list; the client draws fading arrows between nation centroids (gold = your attacks, red = attacks on
+you, faint white = others) so the war is legible at a glance.
+
 **Rendering — 2.5D isometric (Canvas2D, no WebGL).** The board is drawn as a tilted isometric grid
 of raised tiles: terrain sets each cell's height (mountains/cities up, water/rivers sunken) and
 shaded left/right side-faces form real cliffs, via painter's algorithm (back-to-front by `x+y`).
