@@ -2,10 +2,6 @@ package io.territorial.room;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.territorial.sim.*;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -17,8 +13,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * One authoritative match. A single scheduled thread advances the pure {@link Sim} at a fixed
  * tick rate, mixing human actions (one-shot, event-driven) with bot actions (every tick), and
  * broadcasts a JSON snapshot to all connected sessions. The sim is never touched off this thread.
+ * Instances are created and disposed by {@link RoomManager} (one per concurrent match).
  */
-@Component
 public class GameRoom {
 
     // Live-match shape (bigger, equal small spawns -> expansion is the early game).
@@ -63,26 +59,50 @@ public class GameRoom {
 
     private ScheduledExecutorService scheduler;
 
-    public GameRoom(ObjectMapper json, @Value("${territorial.tickMs:125}") int tickMs) {
+    private final int roomId;
+
+    public GameRoom(ObjectMapper json, int tickMs, int roomId) {
         this.json = json;
         this.tickMs = tickMs;
+        this.roomId = roomId;
     }
 
-    @PostConstruct
-    void start() {
+    public int roomId() { return roomId; }
+
+    /** Begin ticking (called by RoomManager when the room is created). */
+    public void start() {
         for (int p = 0; p < NUM_PLAYERS; p++) colorIdx[p] = p;   // default: one colour per slot
         newMatch();
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "game-tick");
+            Thread t = new Thread(r, "game-tick-" + roomId);
             t.setDaemon(true);
             return t;
         });
         scheduler.scheduleAtFixedRate(this::safeStep, tickMs, tickMs, TimeUnit.MILLISECONDS);
     }
 
-    @PreDestroy
-    void stop() {
+    /** Stop ticking and release the thread (called by RoomManager on disposal/shutdown). */
+    public void stop() {
         if (scheduler != null) scheduler.shutdownNow();
+    }
+
+    /** Number of human slots not currently claimed (free capacity for matchmaking). */
+    public int freeHumanSlots() {
+        lock.lock();
+        try {
+            int free = 0;
+            for (int p = 0; p < NUM_PLAYERS; p++) if (!human[p]) free++;
+            return free;
+        } finally { lock.unlock(); }
+    }
+
+    /** True when no human slot is occupied (all bots) — the room can be disposed. */
+    public boolean isAbandoned() {
+        lock.lock();
+        try {
+            for (int p = 0; p < NUM_PLAYERS; p++) if (human[p]) return false;
+            return true;
+        } finally { lock.unlock(); }
     }
 
     private void newMatch() {
@@ -316,6 +336,7 @@ public class GameRoom {
         Map<String, Object> m = new HashMap<>();
         m.put("type", "welcome");
         m.put("playerId", p == null ? -1 : p);
+        m.put("room", roomId);
         return m;
     }
 

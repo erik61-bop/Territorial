@@ -3,6 +3,7 @@ package io.territorial.net;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.territorial.room.GameRoom;
+import io.territorial.room.RoomManager;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -10,23 +11,25 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 /**
- * Bridges WebSocket sessions to the {@link GameRoom}. Inbound: {@code {"type":"action",
- * "targetOwner":N,"fraction":0.5}}. Outbound (from the room): welcome, map, state.
+ * Bridges WebSocket sessions to a {@link GameRoom}, chosen by the {@link RoomManager} (matchmaking
+ * across concurrent matches). Inbound: {@code {"type":"action","targetOwner":N,"fraction":0.5}}.
+ * Outbound (from the room): welcome, map, state.
  */
 @Component
 public class GameHandler extends TextWebSocketHandler {
 
-    private final GameRoom room;
+    private final RoomManager manager;
     private final ObjectMapper json;
 
-    public GameHandler(GameRoom room, ObjectMapper json) {
-        this.room = room;
+    public GameHandler(RoomManager manager, ObjectMapper json) {
+        this.manager = manager;
         this.json = json;
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        room.addHuman(session, tokenOf(session));
+        GameRoom room = manager.assign(session, tokenOf(session));
+        if (room == null) return;   // server at capacity
         room.send(session, room.welcomeFor(session));
         room.send(session, room.mapMessage());
     }
@@ -47,6 +50,8 @@ public class GameHandler extends TextWebSocketHandler {
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        GameRoom room = manager.roomOf(session);
+        if (room == null) return;
         JsonNode n = json.readTree(message.getPayload());
         String type = n.path("type").asText("");
         switch (type) {
@@ -74,6 +79,6 @@ public class GameHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        room.removeHuman(session);
+        manager.onClose(session);
     }
 }

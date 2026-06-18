@@ -129,6 +129,18 @@ standing order keeps the army flowing there) and **Hold** (stop the order, defen
 slider sets how much of the pool flows per tick. (The old Move/Split modes were just UI re-skins of
 expand / smaller-attack and were removed.)
 
+**Identity.** Each player picks a display name and colour on the menu (sent as `type:"profile"`).
+The server keeps colour a permutation across the 12 slots — picking a colour swaps with whoever held
+it — so every empire stays visually distinct. Names + colours ride in every snapshot and label the
+map, leaderboard, inspect panel, and chat. Bots are "Bot N".
+
+**Matchmaking (multiple concurrent matches).** A `RoomManager` runs many `GameRoom` matches at once.
+A joining player reconnects to their previous match (by token) if it still exists; otherwise they
+join the *most-populated* room that still has a free slot (players are packed into shared matches,
+not scattered), or a brand-new room if all are full. A new room only spins up once the others fill
+their 12 human slots. Rooms whose humans have all left are reaped, so resource use tracks the player
+count. The match number is shown in the HUD.
+
 **Fog of war (Peace only).** During the opening PEACE phase you see only your territory plus a
 vision radius around it; rivals beyond that are hidden (the map dims, enemy colours/labels/crowns
 and the minimap conceal them). The instant WAR begins the fog lifts and the whole board is revealed.

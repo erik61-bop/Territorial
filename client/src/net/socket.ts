@@ -45,6 +45,7 @@ export function connect(url = serverUrl()): WebSocket {
     switch (m.type) {
       case 'welcome':
         s.setPlayerId(m.playerId);
+        s.setMatchId(m.room ?? -1);
         break;
       case 'map':
         s.setMap({

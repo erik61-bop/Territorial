@@ -51,6 +51,7 @@ export interface ChatMsg {
 interface GameStore {
   connected: boolean;
   playerId: number;
+  matchId: number;     // which concurrent match this client is in
   map?: MapInfo;
   snap?: Snapshot;
   fraction: number;    // per-tick army rate for a standing order
@@ -66,6 +67,7 @@ interface GameStore {
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
+  setMatchId: (n: number) => void;
   setMap: (m: MapInfo) => void;
   setSnap: (s: Snapshot) => void;
   setFraction: (f: number) => void;
@@ -82,6 +84,7 @@ interface GameStore {
 export const useGame = create<GameStore>((set) => ({
   connected: false,
   playerId: -1,
+  matchId: -1,
   fraction: 0.35,
   chat: [],
   started: false,
@@ -94,6 +97,7 @@ export const useGame = create<GameStore>((set) => ({
   selected: null,
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
+  setMatchId: (n) => set({ matchId: n }),
   setMap: (m) => set({ map: m }),
   setSnap: (s) => set({ snap: s }),
   setFraction: (f) => set({ fraction: f }),

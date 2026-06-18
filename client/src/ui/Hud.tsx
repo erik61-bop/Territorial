@@ -22,6 +22,7 @@ const ACTIONS: { mode: Mode; label: string; icon: string; color: string; hint: s
 export default function Hud() {
   const connected = useGame((s) => s.connected);
   const playerId = useGame((s) => s.playerId);
+  const matchId = useGame((s) => s.matchId);
   const snap = useGame((s) => s.snap);
   const map = useGame((s) => s.map);
   const fraction = useGame((s) => s.fraction);
@@ -120,6 +121,7 @@ export default function Hud() {
         <View style={styles.statusHead}>
           <View style={[styles.shield, { backgroundColor: playerId >= 0 ? cssPlayer(colorIndexOf(snap, playerId)) : '#666' }]} />
           <Text style={styles.statusTitle}>{playerId >= 0 ? (useGame.getState().myName || nameOf(snap, playerId, playerId)) : 'Spectating'}</Text>
+          {matchId > 0 && <Text style={styles.matchTag}>Match #{matchId}</Text>}
         </View>
         <Text style={styles.statusLine}>Land <Text style={styles.statusVal}>{myLand}</Text>    Army <Text style={styles.statusVal}>{Math.round(myArmy)}</Text></Text>
         <Text style={styles.statusLine}>Income <Text style={[styles.statusVal, { color: '#7CFC9B' }]}>+{myIncome}/s</Text>    Morale <Text style={[styles.statusVal, { color: moraleColor }]}>{(myMorale / 100).toFixed(2)}</Text></Text>
@@ -218,6 +220,7 @@ const styles = StyleSheet.create({
   statusHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   shield: { width: 20, height: 22, borderRadius: 4 },
   statusTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  matchTag: { color: '#8aa0c8', fontSize: 11, fontWeight: '700', marginLeft: 'auto' },
   statusLine: { color: '#cdd6f4', fontSize: 13, marginVertical: 1 },
   statusVal: { color: '#fff', fontWeight: '800' },
   barTrack: { height: 8, borderRadius: 4, backgroundColor: '#2a3145', marginTop: 8, overflow: 'hidden' },
