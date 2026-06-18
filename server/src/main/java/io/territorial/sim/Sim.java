@@ -190,6 +190,11 @@ public final class Sim {
                 if (old != GameState.NEUTRAL) {
                     lost[old]++;
                     s.army[old] = Math.max(0, s.army[old] - Config.GARRISON_KILL * baseDef);
+                    if (c == s.capitalCell[old]) {                 // capital snipe = decapitation
+                        s.army[old] *= Config.CAPITAL_STRIKE_ARMY; // army thrown into chaos
+                        s.momentum[old] = Config.MOMENTUM_MIN;     // morale collapses
+                        s.capitalCell[old] = -1;                   // capital lost (relocated next recompute)
+                    }
                 }
             }
             s.army[x] += wave * Config.REFLUX;

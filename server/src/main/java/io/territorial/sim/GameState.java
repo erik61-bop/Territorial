@@ -120,6 +120,12 @@ public final class GameState {
             }
         }
         for (int p = 0; p < numPlayers; p++) alive[p] = land[p] > 0;
+        // Relocate a lost/invalid capital to a surviving cell (after a capital snipe).
+        for (int p = 0; p < numPlayers; p++) {
+            if (!alive[p]) continue;
+            if (capitalCell[p] >= 0 && owner[capitalCell[p]] == p) continue;
+            for (int c = 0; c < cellCount; c++) if (owner[c] == p) { capitalCell[p] = c; break; }
+        }
     }
 
     public double density(int p)        { return army[p] / Math.max(1, land[p]); }

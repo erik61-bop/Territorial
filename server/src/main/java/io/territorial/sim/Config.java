@@ -23,8 +23,9 @@ public final class Config {
     public static final double SUPPLY_MIN         = 0.50;
 
     // Capital
-    public static final double CAPITAL_DEF        = 1.8;
-    public static final double CAPITAL_INCOME     = 1.15;
+    public static final double CAPITAL_DEF         = 1.8;
+    public static final double CAPITAL_INCOME      = 1.15;
+    public static final double CAPITAL_STRIKE_ARMY = 0.5;  // losing your capital halves your army (chaos)
 
     // Momentum
     public static final double MOMENTUM_MIN       = 0.60;

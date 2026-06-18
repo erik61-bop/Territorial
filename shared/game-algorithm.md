@@ -155,6 +155,12 @@ the peace-opening length. Re-run run-balance.sh after ANY terrain/combat change.
 Fully deterministic; also passes run-fuzz.sh (400 chaotic games, invariants hold).
 ```
 
+## Capital strike (decapitation)
+
+Capturing a player's capital cell (`CAPITAL_DEF`=1.8× cost) is a decapitation: the victim's army is
+halved (`CAPITAL_STRIKE_ARMY`), morale drops to the floor, and the capital relocates to a surviving
+cell (income bonus lost until then). Sniping the crown can break a larger empire — the "Capital Snipe".
+
 ## Robustness
 
 The sim is authoritative and treats client input as hostile: attack target must be NEUTRAL or a
