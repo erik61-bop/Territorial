@@ -382,7 +382,8 @@ public class GameRoom {
         m.put("human", human.clone());
         String[] nm = new String[state.numPlayers];
         for (int p = 0; p < state.numPlayers; p++)
-            nm[p] = human[p] ? (names[p] != null ? names[p] : "Player " + (p + 1)) : "Bot " + (p + 1);
+            nm[p] = human[p] ? (names[p] != null ? names[p] : "Player " + (p + 1))
+                             : "Bot " + (p + 1) + " · " + Bot.STYLES[state.botStyle[p] % Bot.STYLES.length].name;
         m.put("names", nm);
         m.put("colors", colorIdx.clone());
         m.put("winner", winner);

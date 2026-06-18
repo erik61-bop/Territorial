@@ -27,6 +27,11 @@ public final class GameFactory {
         s.recompute(); // fill land/border/alive once
         for (int p = 0; p < numPlayers; p++) {
             s.army[p] = s.land[p] * Config.START_ARMY_PER_LAND;
+            // Deterministic AI personality per slot, hashed from the seed (NOT s.rng, so map/spawns
+            // stay byte-identical and only bot behaviour varies between styles).
+            long m = (seed + 0x9E3779B97F4A7C15L) * (p + 0xBF58476D1CE4E5B9L);
+            m ^= (m >>> 30); m *= 0xBF58476D1CE4E5B9L; m ^= (m >>> 27);
+            s.botStyle[p] = (byte) Math.floorMod(m, Bot.STYLES.length);
         }
         return s;
     }

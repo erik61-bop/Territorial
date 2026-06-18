@@ -27,6 +27,7 @@ public final class GameState {
     public final double[] army;
     public final double[] momentum;
     public final int[] capitalCell;
+    public final byte[] botStyle;        // AI personality per slot (see Bot.STYLES); 0 = Balanced
 
     // Derived each tick by Sim.recomputeDerived
     public final int[] land;
@@ -62,6 +63,7 @@ public final class GameState {
         this.army = new double[numPlayers];
         this.momentum = new double[numPlayers];
         this.capitalCell = new int[numPlayers];
+        this.botStyle = new byte[numPlayers];   // all Balanced until GameFactory assigns
         java.util.Arrays.fill(momentum, 1.0);
         java.util.Arrays.fill(capitalCell, -1);
 

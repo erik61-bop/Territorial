@@ -22,6 +22,33 @@ public final class Bot {
     static final double GANG_UP_CHANCE     = 0.80;
     static final double MISPLAY_CHANCE     = 0.02;
 
+    /**
+     * AI PERSONALITY. Each slot gets one (assigned deterministically in GameFactory), so every match
+     * has a mix of play-styles and feels different — aggressors blitz, turtles dig in, expanders race
+     * for land, backstabbers betray. Difficulty ({@link #level}) layers competence on top of style.
+     */
+    public static final class Style {
+        public final String name;
+        final double attackFraction, expandFraction, expandMinDensity, breakMargin, gangChance, betrayMul;
+        final boolean defends;
+        Style(String name, double atk, double exp, double minDens, double brk, double gang, double betray, boolean defends) {
+            this.name = name; this.attackFraction = atk; this.expandFraction = exp; this.expandMinDensity = minDens;
+            this.breakMargin = brk; this.gangChance = gang; this.betrayMul = betray; this.defends = defends;
+        }
+    }
+    public static final Style[] STYLES = {
+        //        name           atkF  expF  minDens brkM  gang  betray defends
+        new Style("Balanced",    0.60, 0.45, 1.30,   1.25, 0.80, 1.0,   true),
+        new Style("Aggressor",   0.74, 0.40, 1.00,   1.10, 0.90, 1.4,   false),  // blitz, little reserve
+        new Style("Turtle",      0.54, 0.40, 1.75,   1.42, 0.55, 0.6,   true),   // big reserve, cautious hits
+        new Style("Expander",    0.58, 0.55, 1.00,   1.35, 0.70, 0.9,   true),   // races for neutral land
+        new Style("Backstabber", 0.64, 0.45, 1.25,   1.18, 0.85, 2.2,   true),   // befriends then betrays
+    };
+    static Style styleOf(GameState s, int p) {
+        byte b = (s.botStyle != null && p < s.botStyle.length) ? s.botStyle[p] : 0;
+        return STYLES[(b & 0xFF) % STYLES.length];
+    }
+
     // Diplomacy tunables (AI behaviour, not game rules).
     static final double DIPLO_INIT_CHANCE = 0.04;  // chance/tick a bot considers initiating
     static final int    BETRAY_AFTER_WAR  = 500;   // ticks into war before betrayal is on the table
@@ -72,7 +99,7 @@ public final class Bot {
                 boolean breakIt = endgame || obsolete || (warDragged && s.land[q] < s.land[p] * BETRAY_RATIO);
                 if (breakIt && s.land[q] < preyLand) { preyLand = s.land[q]; prey = q; }
             }
-            double chance = (endgame || obsolete) ? 0.30 : DIPLO_INIT_CHANCE;
+            double chance = ((endgame || obsolete) ? 0.30 : DIPLO_INIT_CHANCE) * styleOf(s, p).betrayMul;
             if (prey >= 0 && s.rng.nextDouble() < chance) {
                 return new Diplo(p, prey, s.rel[p][prey] == 2 ? Diplo.Kind.BREAK_ALLY : Diplo.Kind.BREAK_PEACE);
             }
@@ -142,58 +169,59 @@ public final class Bot {
             }
         }
 
+        Style st = styleOf(s, p);                                // personality
         double misplayChance = level == 2 ? 0.0 : level == 0 ? 0.12 : MISPLAY_CHANCE;
-        double breakMargin = level == 2 ? 1.05 : BREAK_MARGIN;   // Hard bots commit more readily
-        boolean defends = level >= 1;                            // Easy bots never hold -> overextend
+        double breakMargin = st.breakMargin * (level == 2 ? 0.88 : 1.0);   // Hard bots commit more readily
+        boolean defends = st.defends && level >= 1;              // Aggressors/Easy never hold -> overextend
         boolean misplay = s.rng.nextDouble() < misplayChance;
         double myDef = s.defensePerCell(p);
         double esc = Config.warEscalation(s.tick);
-        double wave = s.army[p] * ATTACK_FRACTION * s.momentum[p] * esc;     // war exhaustion
+        double wave = s.army[p] * st.attackFraction * s.momentum[p] * esc;   // war exhaustion
         boolean warDragging = esc > 1.6;                                     // late war -> all-out aggression
         int expandTarget = cityTarget >= 0 ? cityTarget : neutralTarget;   // prefer cities
         // Only expand if the wave can actually capture neutral land; otherwise HOLD and let income
         // build the army up (expanding with too little army just wastes it and starves you).
         boolean canExpand = neutralAdjacent
-                && (s.density(p) > EXPAND_MIN_DENSITY || warDragging)          // keep a reserve, but in
+                && (s.density(p) > st.expandMinDensity || warDragging)         // keep a reserve, but in
                                                                               // late war push to close gaps
-                && s.army[p] * EXPAND_FRACTION * s.momentum[p] > Config.NEUTRAL_COST;
+                && s.army[p] * st.expandFraction * s.momentum[p] > Config.NEUTRAL_COST;
 
         // Opening Peace phase: no PvP — grab land (toward a city) when able, else accumulate.
         if (s.phase == GameState.PEACE) {
-            return canExpand ? new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget) : null;
+            return canExpand ? new Action(p, GameState.NEUTRAL, st.expandFraction, expandTarget) : null;
         }
 
         // GROW FIRST: claim free neutral land (cheap and always effective) before assaulting forts.
         // A smart player banks economy from empty land rather than bleeding on fortified borders.
         if (canExpand && !misplay) {
-            return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget);
+            return new Action(p, GameState.NEUTRAL, st.expandFraction, expandTarget);
         }
 
         // Gang up on a runaway leader: commit hard and drive at its capital.
         if (!misplay && leaderDominant && biggestNeighbour == leader && biggestNeighbour != p
-                && biggestNeighbourLand > s.land[p] * LEADER_RATIO && s.rng.nextDouble() < GANG_UP_CHANCE) {
+                && biggestNeighbourLand > s.land[p] * LEADER_RATIO && s.rng.nextDouble() < st.gangChance) {
             return new Action(p, leader, GANG_FRACTION, s.capitalCell[leader]);
         }
 
         // Otherwise attack the weakest front my concentrated wave can break — even a bigger empire
         // (its defence is spread thin per cell; I mass on one point). Keeps the army WORKING.
         if (weakestEnemy >= 0 && wave > weakestDef * breakMargin) {
-            return new Action(p, weakestEnemy, warDragging ? 0.85 : ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
+            return new Action(p, weakestEnemy, warDragging ? 0.85 : st.attackFraction, s.capitalCell[weakestEnemy]);
         }
 
         // Occasional probe so it stays beatable / unpredictable.
         if (misplay && weakestEnemy >= 0) {
-            return new Action(p, weakestEnemy, ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
+            return new Action(p, weakestEnemy, st.attackFraction, s.capitalCell[weakestEnemy]);
         }
 
         // A strong neighbour can break me and I have no good move -> HOLD and regrow (defend),
-        // keeping density high. Easy bots don't defend (they overextend and die). Otherwise grab land.
+        // keeping density high. Aggressors/Easy don't defend (they overextend). Otherwise grab land.
         boolean threatened = defends && !warDragging && strongestEnemy >= 0 && strongestDef > myDef;
         if (!threatened && canExpand) {
-            return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget);
+            return new Action(p, GameState.NEUTRAL, st.expandFraction, expandTarget);
         }
-        if (!defends && weakestEnemy >= 0) {                      // Easy: keep poking even when weak
-            return new Action(p, weakestEnemy, ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
+        if (!defends && weakestEnemy >= 0) {                      // Aggressor: keep poking even when weak
+            return new Action(p, weakestEnemy, st.attackFraction, s.capitalCell[weakestEnemy]);
         }
         return null;   // hold and regrow
     }
