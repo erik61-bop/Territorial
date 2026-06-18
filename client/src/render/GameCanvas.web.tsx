@@ -87,18 +87,29 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
     const { scale, tx, ty } = camera;
     ctx.drawImage(off, 0, 0, width, height, tx, ty, width * scale, height * scale);
 
-    // Capital rings (snapshot capitals reflect chosen spawns).
+    // Capitals: a crown, ringed in your relation colour (gold=you, green=ally, blue=peace, white=enemy).
     const caps = snap.capitals?.length ? snap.capitals : map.capitals;
+    const relRow = snap.rel?.[myId] ?? [];
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     for (let pid = 0; pid < caps.length; pid++) {
       const cell = caps[pid];
       if (!snap.alive[pid] || cell == null || cell < 0) continue;
       const cx = tx + (cell % width) * scale + scale / 2;
       const cy = ty + Math.floor(cell / width) * scale + scale / 2;
+      const me = pid === myId;
+      const col = me ? '#ffd54a' : relRow[pid] === 2 ? '#8affb0' : relRow[pid] === 1 ? '#86d6ff' : '#ffffff';
       ctx.beginPath();
-      ctx.arc(cx, cy, Math.max(3, scale * (pid === myId ? 1.4 : 0.9)), 0, Math.PI * 2);
-      ctx.lineWidth = pid === myId ? 2.5 : 1.5;
-      ctx.strokeStyle = pid === myId ? '#fff' : 'rgba(255,255,255,0.8)';
+      ctx.arc(cx, cy, Math.max(4, scale * (me ? 1.5 : 1.0)), 0, Math.PI * 2);
+      ctx.lineWidth = me ? 2.5 : 1.5;
+      ctx.strokeStyle = col;
       ctx.stroke();
+      const cs = Math.max(11, scale * (me ? 2.4 : 1.8));
+      ctx.font = `${cs}px serif`;
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+      ctx.strokeText('♛', cx, cy - cs * 0.05);
+      ctx.fillStyle = col;
+      ctx.fillText('♛', cx, cy - cs * 0.05);
     }
 
     // Nation army labels at each territory's centroid, coloured by your relation to them, so the

@@ -33,6 +33,9 @@ export default function Hud() {
   const mode = useGame((s) => s.mode);
   const setMode = useGame((s) => s.setMode);
   const order = useGame((s) => s.order);
+  const underAttackAt = useGame((s) => s.underAttackAt);
+  const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const underAttack = nowMs - underAttackAt < 1500;
 
   const aliveCount = snap ? snap.alive.filter(Boolean).length : 0;
   const eliminated = snap ? snap.alive.length - aliveCount : 0;
@@ -82,6 +85,13 @@ export default function Hud() {
           <Text style={[styles.phaseName, { color: phase.color }]}>{phase.name}</Text>
           {phaseSecs >= 0 && <Text style={styles.phaseTimer}>{mmss(phaseSecs)}</Text>}
           {phaseSecs >= 0 && <Text style={styles.dim}>{phase.next} starts in {mmss(phaseSecs)}</Text>}
+        </View>
+      )}
+
+      {/* threat cue */}
+      {underAttack && !won && (
+        <View style={[styles.card, styles.threat]} pointerEvents="none">
+          <Text style={styles.threatTxt}>⚠ UNDER ATTACK</Text>
         </View>
       )}
 
@@ -187,6 +197,8 @@ const styles = StyleSheet.create({
   statBig: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
   phaseBar: { top: 12, alignSelf: 'center', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 22, minWidth: 220 },
+  threat: { top: 92, alignSelf: 'center', backgroundColor: 'rgba(120,20,20,0.92)', borderColor: '#ff5b5b', paddingVertical: 6, paddingHorizontal: 16 },
+  threatTxt: { color: '#ffd1d1', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
   phaseName: { fontWeight: '900', fontSize: 16, letterSpacing: 1 },
   phaseTimer: { color: '#fff', fontSize: 26, fontWeight: '900', lineHeight: 30 },
 

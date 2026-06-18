@@ -47,6 +47,7 @@ interface GameStore {
   muted: boolean;
   mode: Mode;          // current action mode (from the bottom action bar)
   order: number | null; // current standing-order target (playerId, -1 = expand, null = none)
+  underAttackAt: number; // performance.now() of the last time we lost land (for the threat cue)
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
@@ -58,6 +59,7 @@ interface GameStore {
   toggleMuted: () => void;
   setMode: (m: Mode) => void;
   setOrder: (o: number | null) => void;
+  flagUnderAttack: () => void;
 }
 
 export const useGame = create<GameStore>((set) => ({
@@ -69,6 +71,7 @@ export const useGame = create<GameStore>((set) => ({
   muted: false,
   mode: 'attack',
   order: null,
+  underAttackAt: 0,
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
   setMap: (m) => set({ map: m }),
@@ -79,6 +82,7 @@ export const useGame = create<GameStore>((set) => ({
   toggleMuted: () => set((st) => ({ muted: !st.muted })),
   setMode: (m) => set({ mode: m }),
   setOrder: (o) => set({ order: o }),
+  flagUnderAttack: () => set({ underAttackAt: typeof performance !== 'undefined' ? performance.now() : Date.now() }),
 }));
 
 // Expose the store on web for debugging / automated end-to-end checks.

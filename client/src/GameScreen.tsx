@@ -55,9 +55,11 @@ export default function GameScreen() {
     const { muted } = useGame.getState();
     const land = snap.land[playerId] ?? 0;
     const now = typeof performance !== 'undefined' ? performance.now() : 0;
-    if (!muted && prevLand.current != null && now - lastSfxAt.current > 320) {
-      if (land - prevLand.current >= 1) { sfx.capture(); lastSfxAt.current = now; }
-      else if (prevLand.current - land >= 1) { sfx.loss(); lastSfxAt.current = now; }
+    if (prevLand.current != null && prevLand.current - land >= 1) {
+      useGame.getState().flagUnderAttack();                       // losing land -> threat cue
+      if (!muted && now - lastSfxAt.current > 320) { sfx.loss(); lastSfxAt.current = now; }
+    } else if (!muted && prevLand.current != null && land - prevLand.current >= 1 && now - lastSfxAt.current > 320) {
+      sfx.capture(); lastSfxAt.current = now;
     }
     prevLand.current = land;
 
