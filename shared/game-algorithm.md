@@ -102,19 +102,19 @@ START_ARMY_PER_LAND=3.0  WIN_FRACTION=0.65  TICK_RATE=8/s
 PEACE_TICKS=480  PEACE_PHASE_TICKS=120  FINAL_WAR_TICK=1200
 ```
 
-## Phases (implemented)
+## Phases & winning (pure conquest)
 
-A match runs PEACE → WAR → FINAL_WAR by tick count:
-- **PEACE** (first `PEACE_PHASE_TICKS`): no PvP — players may only expand into neutral land.
-  This opening land-grab is a big equaliser (see balance note).
-- **WAR**: normal play; peace/alliance treaties are honoured.
-- **FINAL_WAR** (from `FINAL_WAR_TICK`): all treaties void, offence surges (`FINAL_WAR_ATTACK`),
-  and rebellion pauses — so the map consolidates and the game resolves decisively. Bots only
-  expand during PEACE.
+A match runs PEACE → WAR (no Final War phase):
+- **PEACE** (first `PEACE_PHASE_TICKS`): no PvP — players may only expand into neutral land. This
+  opening land-grab is a big equaliser.
+- **WAR**: fight until one side remains.
 
-**Win = % of the whole map.** You win by being last standing, by alliance victory, or by controlling
-`WIN_FRACTION` of the whole ownable map (not just occupied land) — true domination. Final War is the
-forcing function that makes this reachable.
+**Win = last player (or alliance) standing.** There is no domination/% shortcut.
+
+**War exhaustion** keeps wars from stalemating: the longer the war lasts, attacks grow stronger
+(`warEscalation`) and the penetration penalty fades, so empires can be overrun and games end by real
+conquest. **Safety only:** if a war drags `WAR_DEADLINE` ticks past the opening (rare pathological
+stalemate), the largest power wins so the live server can never hang — most games end by conquest first.
 
 **Territorial rebellion.** A badly overextended empire (`density < REBEL_DENSITY`) sheds far-flung
 border cells (`supplyMult <= REBEL_SUPPLY`) back to neutral at `REBEL_CHANCE`/cell/tick — an

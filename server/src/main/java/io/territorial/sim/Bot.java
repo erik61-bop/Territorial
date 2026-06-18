@@ -87,8 +87,9 @@ public final class Bot {
         boolean defends = level >= 1;                            // Easy bots never hold -> overextend
         boolean misplay = s.rng.nextDouble() < misplayChance;
         double myDef = s.defensePerCell(p);
-        double surge = s.phase == GameState.FINAL_WAR ? Config.FINAL_WAR_ATTACK : 1.0;
-        double wave = s.army[p] * ATTACK_FRACTION * s.momentum[p] * surge;  // include Final War surge
+        double esc = Config.warEscalation(s.tick);
+        double wave = s.army[p] * ATTACK_FRACTION * s.momentum[p] * esc;     // war exhaustion
+        boolean warDragging = esc > 1.6;                                     // late war -> all-out aggression
         int expandTarget = cityTarget >= 0 ? cityTarget : neutralTarget;   // prefer cities
         // Only expand if the wave can actually capture neutral land; otherwise HOLD and let income
         // build the army up (expanding with too little army just wastes it and starves you).
@@ -101,12 +102,6 @@ public final class Bot {
             return canExpand ? new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget) : null;
         }
 
-        // Final War: gloves off — crush the weakest neighbour if the wave can break it (defender
-        // morale is off in Final War, so weakestDef is the bar). Avoids pointless suicide waves.
-        if (s.phase == GameState.FINAL_WAR && weakestEnemy >= 0 && (wave > weakestDef || misplay)) {
-            return new Action(p, weakestEnemy, 0.9, s.capitalCell[weakestEnemy]);
-        }
-
         // Gang up on a runaway leader: commit hard and drive at its capital.
         if (!misplay && leaderDominant && biggestNeighbour == leader && biggestNeighbour != p
                 && biggestNeighbourLand > s.land[p] * LEADER_RATIO && s.rng.nextDouble() < GANG_UP_CHANCE) {
@@ -115,8 +110,11 @@ public final class Bot {
 
         // Attack the weakest attackable neighbour — but only if (a) it isn't much stronger per cell
         // and (b) my wave can actually break its defence. Drive the wave at its capital.
-        if (weakestEnemy >= 0 && weakestDef < myDef * AGGRO_MARGIN && wave > weakestDef * breakMargin) {
-            return new Action(p, weakestEnemy, ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
+        // Attack the weakest neighbour my wave can break (against the war-crumbled defence). Early
+        // war: only if it's not stronger than me (cautious). Late war: attack anything breakable.
+        if (weakestEnemy >= 0 && wave > weakestDef * breakMargin
+                && (warDragging || weakestDef < myDef * AGGRO_MARGIN)) {
+            return new Action(p, weakestEnemy, warDragging ? 0.85 : ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
         }
 
         // Expand into empty land when the army can capture it (toward a city if possible).
@@ -131,7 +129,7 @@ public final class Bot {
 
         // A strong neighbour can break me and I have no good move -> HOLD and regrow (defend),
         // keeping density high. Easy bots don't defend (they overextend and die). Otherwise grab land.
-        boolean threatened = defends && strongestEnemy >= 0 && strongestDef > myDef;
+        boolean threatened = defends && !warDragging && strongestEnemy >= 0 && strongestDef > myDef;
         if (!threatened && canExpand) {
             return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget);
         }

@@ -82,9 +82,7 @@ public final class Sim {
     /** Advance the world one tick. Actions are applied in ascending attackerId order. */
     public void tick(List<Action> actions) {
         recomputeDerived();
-        s.phase = s.tick < Config.PEACE_PHASE_TICKS ? GameState.PEACE
-                : s.tick >= Config.FINAL_WAR_TICK ? GameState.FINAL_WAR
-                : GameState.WAR;
+        s.phase = s.tick < Config.PEACE_PHASE_TICKS ? GameState.PEACE : GameState.WAR;
         java.util.Arrays.fill(captured, 0);
         java.util.Arrays.fill(lost, 0);
         java.util.Arrays.fill(attacked, false);
@@ -156,14 +154,15 @@ public final class Sim {
             double sent = s.army[x] * f;
             if (sent <= 0) continue;
             s.army[x] -= sent;
-            double wave = sent * s.momentum[x];
-            if (s.phase == GameState.FINAL_WAR) wave *= Config.FINAL_WAR_ATTACK; // gloves off
+            // War exhaustion: attacks grow stronger AND can blitz deeper (penetration fades) the
+            // longer the war lasts (vs players only), so empires can be overrun and the war ends.
+            double esc = (t != GameState.NEUTRAL) ? Config.warEscalation(s.tick) : 1.0;
+            double wave = sent * s.momentum[x] * esc;
 
-            // Defender morale hardens defence (turtle that keeps winning gets tougher) — but in
-            // Final War defences crumble (morale ignored) so the map resolves decisively.
+            // Defender morale hardens defence (a turtle that keeps winning gets tougher).
             double baseDef = (t == GameState.NEUTRAL)
                     ? Config.NEUTRAL_COST
-                    : s.defensePerCell(t) * (s.phase == GameState.FINAL_WAR ? 1.0 : s.momentum[t]);
+                    : s.defensePerCell(t) * s.momentum[t];
 
             // Cost per frontier cell. Order the wave: toward the directed cell if given
             // (reinforcement direction), else cheapest-first.
@@ -180,7 +179,7 @@ public final class Sim {
             for (int k = 0; k < frontier.length && wave > 0; k++) {
                 int c = frontier[k];
                 // Each successive cell costs more: you can chip a border, not blitz a nation.
-                double effCost = cost[k] * (1.0 + takenThisWave * Config.PENETRATION_PENALTY);
+                double effCost = cost[k] * (1.0 + takenThisWave * Config.PENETRATION_PENALTY / esc);
                 if (wave < effCost) break;
                 int old = s.owner[c];
                 s.owner[c] = x;
@@ -251,7 +250,6 @@ public final class Sim {
 
     /** Overextended empires (army spread too thin) shed far-flung border cells back to neutral. */
     private void applyRebellion() {
-        if (s.phase == GameState.FINAL_WAR) return;   // gloves off: empires consolidate, no rebellion
         for (int p = 0; p < s.numPlayers; p++) {
             if (!s.alive[p] || s.density(p) >= Config.REBEL_DENSITY) continue;
             int cap = s.capitalCell[p];
@@ -290,20 +288,17 @@ public final class Sim {
         }
         if (aliveCount == 0) return -1;
         if (aliveCount == 1) return last;
-        // Domination: control the required fraction of the whole map. In Final War the requirement
-        // ramps down to a floor so the match always resolves (no endless stalemate / live hang).
-        double frac = Config.WIN_FRACTION;
-        if (s.phase == GameState.FINAL_WAR) {
-            frac = Math.max(Config.WIN_FLOOR, Config.WIN_FRACTION - (s.tick - Config.FINAL_WAR_TICK) * Config.WIN_DECAY_PER_TICK);
-        }
-        if (s.ownableCells > 0 && (double) biggestLand / s.ownableCells >= frac) return biggest;
-        // Sudden death: deep into Final War, the largest survivor simply wins (guaranteed end).
-        if (s.phase == GameState.FINAL_WAR && s.tick - Config.FINAL_WAR_TICK > Config.FINAL_WAR_SUDDEN_DEATH) return biggest;
-        // Alliance victory: while alliances hold (not Final War), if every survivor is mutually
-        // allied the war is over — they share the win (represented by the lowest-id survivor).
-        if (s.phase != GameState.FINAL_WAR && allSurvivorsAllied()) {
-            for (int p = 0; p < s.numPlayers; p++) if (s.alive[p]) return p;
-        }
+        // Pure conquest: the war ends when one side remains. An all-allied set of survivors shares
+        // the win (nobody left to fight).
+        if (allSurvivorsAllied()) return last >= 0 ? firstAlive() : -1;
+        // Safety: a war that drags far past the opening (rare stalemate) is decided by the largest
+        // power, so the live match can never hang. In practice conquest ends games well before this.
+        if (s.tick - Config.PEACE_PHASE_TICKS > Config.WAR_DEADLINE) return biggest;
+        return -1;
+    }
+
+    private int firstAlive() {
+        for (int p = 0; p < s.numPlayers; p++) if (s.alive[p]) return p;
         return -1;
     }
 

@@ -337,8 +337,7 @@ public class GameRoom {
         m.put("winner", winner);
         m.put("capitals", state.capitalCell.clone());
         m.put("phase", state.phase);
-        int endsIn = state.phase == GameState.PEACE ? Config.PEACE_PHASE_TICKS - state.tick
-                : state.phase == GameState.WAR ? Config.FINAL_WAR_TICK - state.tick : -1;
+        int endsIn = state.phase == GameState.PEACE ? Config.PEACE_PHASE_TICKS - state.tick : -1;
         m.put("phaseEndsIn", Math.max(-1, endsIn));
         // Diplomacy matrices (byte[][] -> int[][] so Jackson emits arrays, not base64).
         int[][] rel = new int[state.numPlayers][state.numPlayers];

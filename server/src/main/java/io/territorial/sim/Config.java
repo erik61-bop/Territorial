@@ -38,12 +38,18 @@ public final class Config {
     // Setup
     public static final double START_ARMY_PER_LAND = 3.0;
 
-    // Win — fraction of the whole (ownable) map you must control to dominate. During Final War this
-    // threshold ramps DOWN to a floor, guaranteeing the game (and the live match) always resolves.
-    public static final double WIN_FRACTION       = 0.30;
-    public static final double WIN_FLOOR          = 0.15;
-    public static final double WIN_DECAY_PER_TICK = 0.0004;  // ~tick 1275: threshold reaches the floor
-    public static final int FINAL_WAR_SUDDEN_DEATH = 500;    // ticks into Final War: largest simply wins
+    // Win — pure conquest: a match ends only when one side remains (last player / alliance standing).
+    // "War exhaustion": the longer the war drags, the stronger attacks get, so defences eventually
+    // crumble and the war always concludes (no phases / no domination shortcut).
+    public static final double WAR_ESCALATION_PER_TICK = 0.0025;
+    // Safety only: if a war drags this many ticks past the opening (rare pathological stalemate),
+    // the largest power wins so the live server can never hang. Most games end by true conquest first.
+    public static final int WAR_DEADLINE = 1800;
+
+    /** Attack-strength multiplier that grows the longer the war has lasted (1.0 at war start). */
+    public static double warEscalation(int tick) {
+        return 1.0 + Math.max(0, tick - PEACE_PHASE_TICKS) * WAR_ESCALATION_PER_TICK;
+    }
 
     // Territorial rebellion: badly overextended empires lose far-flung border cells to neutral.
     public static final double REBEL_DENSITY      = 0.6;   // army/land below this = overextended
@@ -54,8 +60,6 @@ public final class Config {
     public static final int PEACE_TICKS           = 480;   // a peace lasts ~60s at 8/s
     public static final double BOT_ACCEPT_RATIO   = 0.80;  // bots accept peace unless target is much weaker
 
-    // Phases (ticks; 8/s). PEACE opening: expand into neutral only, no PvP. FINAL_WAR: peace void.
+    // Phase (ticks; 8/s). PEACE opening: expand into neutral only, no PvP. Then WAR until one remains.
     public static final int PEACE_PHASE_TICKS     = 200;   // ~25s opening land-grab, no PvP
-    public static final int FINAL_WAR_TICK        = 900;   // ~110s in, all treaties void -> forced finish
-    public static final double FINAL_WAR_ATTACK   = 1.6;   // offence surges so the map resolves
 }
