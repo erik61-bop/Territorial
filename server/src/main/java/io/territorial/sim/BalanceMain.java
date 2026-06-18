@@ -17,6 +17,7 @@ public final class BalanceMain {
     static final int MEDIAN_START = 30;  // winner with initial land <= this counts as "small"
 
     public static void main(String[] args) {
+        Bot.level = Integer.getInteger("level", 1);   // -Dlevel=0 Easy, 1 Normal, 2 Hard
         int smallWins = 0, biggestStarterWins = 0, draws = 0;
         int timeouts = 0;
         long totalTicks = 0, winnerStartLandSum = 0;

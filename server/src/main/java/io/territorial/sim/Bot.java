@@ -7,6 +7,9 @@ package io.territorial.sim;
 public final class Bot {
     private Bot() {}
 
+    // Difficulty: 0 Easy, 1 Normal, 2 Hard. Default Normal (so the balance harness is unaffected).
+    public static volatile int level = 1;
+
     // Tunables for bot behaviour (kept here, not in Config, since they are AI not game rules).
     static final double EXPAND_MIN_DENSITY = 2.0;  // only expand if army-per-land is healthy
     static final double EXPAND_FRACTION    = 0.35;
@@ -79,7 +82,10 @@ public final class Bot {
             }
         }
 
-        boolean misplay = s.rng.nextDouble() < MISPLAY_CHANCE;
+        double misplayChance = level == 2 ? 0.0 : level == 0 ? 0.12 : MISPLAY_CHANCE;
+        double breakMargin = level == 2 ? 1.05 : BREAK_MARGIN;   // Hard bots commit more readily
+        boolean defends = level >= 1;                            // Easy bots never hold -> overextend
+        boolean misplay = s.rng.nextDouble() < misplayChance;
         double myDef = s.defensePerCell(p);
         double surge = s.phase == GameState.FINAL_WAR ? Config.FINAL_WAR_ATTACK : 1.0;
         double wave = s.army[p] * ATTACK_FRACTION * s.momentum[p] * surge;  // include Final War surge
@@ -104,7 +110,7 @@ public final class Bot {
 
         // Attack the weakest attackable neighbour — but only if (a) it isn't much stronger per cell
         // and (b) my wave can actually break its defence. Drive the wave at its capital.
-        if (weakestEnemy >= 0 && weakestDef < myDef * AGGRO_MARGIN && wave > weakestDef * BREAK_MARGIN) {
+        if (weakestEnemy >= 0 && weakestDef < myDef * AGGRO_MARGIN && wave > weakestDef * breakMargin) {
             return new Action(p, weakestEnemy, ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
         }
 
@@ -119,10 +125,13 @@ public final class Bot {
         }
 
         // A strong neighbour can break me and I have no good move -> HOLD and regrow (defend),
-        // keeping density high. Otherwise grab neutral land if any remains.
-        boolean threatened = strongestEnemy >= 0 && strongestDef > myDef;
+        // keeping density high. Easy bots don't defend (they overextend and die). Otherwise grab land.
+        boolean threatened = defends && strongestEnemy >= 0 && strongestDef > myDef;
         if (!threatened && neutralAdjacent) {
             return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget);
+        }
+        if (!defends && weakestEnemy >= 0) {                      // Easy: keep poking even when weak
+            return new Action(p, weakestEnemy, ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
         }
         return null;   // hold and regrow
     }

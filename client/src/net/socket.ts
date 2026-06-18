@@ -105,6 +105,11 @@ export function sendStop(): void {
   useGame.getState().setOrder(null);
 }
 
+/** Set bot difficulty for the match (0 Easy, 1 Normal, 2 Hard). */
+export function sendDifficulty(level: number): void {
+  send({ type: 'difficulty', level });
+}
+
 /** Send a quick-chat message; target is a playerId or -1. "peace_request" also requests peace. */
 export function sendChat(templateId: string, target: number): void {
   send({ type: 'chat', templateId, target });

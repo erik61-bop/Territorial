@@ -247,6 +247,11 @@ public class GameRoom {
         if (p != null) humanActions.remove(p);
     }
 
+    /** Set bot difficulty for the match (0 Easy, 1 Normal, 2 Hard). Match-global; latest wins. */
+    public void setDifficulty(int level) {
+        if (level >= 0 && level <= 2) Bot.level = level;
+    }
+
     /** Queue a human's diplomacy order (peace request/accept/break) for the next tick. */
     public void submitDiplo(WebSocketSession session, String kind, int target) {
         Integer p = sessionToPlayer.get(session.getId());
