@@ -152,6 +152,14 @@ Turtle, Expander, Backstabber. Style tunes attack fraction, expand reserve, brea
 chance, whether it defends, and betrayal rate; difficulty (`Bot.level`) layers competence on top.
 Bot names show the style ("Bot 3 · Aggressor").
 
+**Polish / UX.** First-run **how-to-play** overlay (re-openable via the "?" button); **post-game
+summary** (server tracks peak land + elimination order → final placing "You finished #N of M");
+**map variety** (each match rotates board size/shape, terrain varies by seed); **bot takeover** (a
+disconnected human's empire keeps playing as a bot instead of dissolving); **spectate** option for
+eliminated/idle players; **callouts** for eliminations and capitals falling; **audio** = ambient
+war-drone pad + synthesized SFX (capture/loss/attack/eliminate/capital/win), all under the mute
+toggle; your captured cells flash **red**.
+
 **Battle arrows.** Each tick the server broadcasts the PvP attacks as a flat `[attacker,target,...]`
 list; the client draws fading arrows between nation centroids (gold = your attacks, red = attacks on
 you, faint white = others) so the war is legible at a glance.

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, useWindowDimensions, PanResponder, Platform, StyleSheet } from 'react-native';
-import { useGame } from './state/store';
+import { View, Text, Pressable, useWindowDimensions, PanResponder, Platform, StyleSheet } from 'react-native';
+import { useGame, nameOf } from './state/store';
 import { connect, sendAction, sendSpawn, sendDifficulty, sendProfile } from './net/socket';
 import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
 import { unprojectH, centerOn, terrainHeight, BASE_H } from './render/iso';
@@ -9,6 +9,7 @@ import QuickChat from './ui/QuickChat';
 import Minimap from './ui/Minimap';
 import Inspect from './ui/Inspect';
 import Menu from './ui/Menu';
+import Help from './ui/Help';
 import { sfx } from './audio/sfx';
 
 const MIN_SCALE = 2;
@@ -28,6 +29,14 @@ export default function GameScreen() {
   cameraRef.current = camera;
 
   const [tap, setTap] = useState<TapMark | null>(null);
+  const [callouts, setCallouts] = useState<{ key: number; text: string }[]>([]);
+  const calloutKey = useRef(0);
+  const pushCallout = useCallback((text: string) => {
+    const key = ++calloutKey.current;
+    setCallouts((cs) => [...cs, { key, text }].slice(-3));
+    setTimeout(() => setCallouts((cs) => cs.filter((c) => c.key !== key)), 3500);
+  }, []);
+  const spectating = useGame((s) => s.spectating);
   const tapTimer = useRef<any>(null);
   const centeredCapital = useRef<number>(-1);
   const containerRef = useRef<any>(null);
@@ -61,6 +70,8 @@ export default function GameScreen() {
   // Sound cues derived from snapshot deltas (throttled so expansion doesn't chatter).
   const prevLand = useRef<number | null>(null);
   const prevPhase = useRef<number | null>(null);
+  const prevAlive = useRef<boolean[] | null>(null);
+  const prevCaps = useRef<number[] | null>(null);
   const lastSfxAt = useRef<number>(0);
   useEffect(() => {
     if (!snap || playerId < 0) return;
@@ -84,10 +95,48 @@ export default function GameScreen() {
       if (now - lastSfxAt.current > 1000) { sfx.win(); lastSfxAt.current = now; }
     }
 
+    // Eliminations + capitals falling -> dramatic callouts.
+    const pa = prevAlive.current;
+    if (pa) for (let p = 0; p < snap.alive.length; p++) {
+      if (pa[p] && !snap.alive[p] && (snap.peakLand?.[p] ?? 0) > 0) {
+        pushCallout(`${nameOf(snap, p, playerId)} was eliminated`);
+        if (!muted) sfx.eliminate();
+      }
+    }
+    prevAlive.current = snap.alive.slice();
+    const pc = prevCaps.current;
+    if (pc) for (let p = 0; p < snap.alive.length; p++) {
+      const old = pc[p];
+      if (snap.alive[p] && old != null && old >= 0 && snap.owner[old] !== p && snap.owner[old] !== -2) {
+        pushCallout(`${nameOf(snap, p, playerId)}'s capital fell!`);
+        if (!muted) sfx.capitalFell();
+      }
+    }
+    prevCaps.current = (snap.capitals ?? []).slice();
+
     // Clear the standing-order indicator once its target is eliminated (server already stopped it).
     const ord = useGame.getState().order;
     if (ord != null && ord >= 0 && !snap.alive[ord]) useGame.getState().setOrder(null);
   }, [snap, playerId]);
+
+  // Show the How-to-play overlay on a player's first ever game.
+  useEffect(() => {
+    if (!started) return;
+    try {
+      if (!localStorage.getItem('territorial_help_seen')) {
+        useGame.getState().setShowHelp(true);
+        localStorage.setItem('territorial_help_seen', '1');
+      }
+    } catch { /* ignore */ }
+  }, [started]);
+
+  // Ambient war-drone while playing (respects mute).
+  const muted = useGame((s) => s.muted);
+  useEffect(() => {
+    if (!started || muted) { sfx.ambientStop(); return; }
+    sfx.ambientStart();
+    return () => sfx.ambientStop();
+  }, [started, muted]);
 
   const showTap = useCallback((x: number, y: number, kind: TapMark['kind']) => {
     setTap({ x, y, kind });
@@ -115,6 +164,7 @@ export default function GameScreen() {
 
     const inSpawn = pid >= 0 && s.land[pid] === 0 && s.winner < 0;
     if (inSpawn) {
+      if (st.spectating) return;            // watching, not playing — tap Respawn to re-enter
       if (target === -1) { showTap(screenX, screenY, 'spawn'); sendSpawn(cell); } // must choose empty land
       return;
     }
@@ -129,6 +179,7 @@ export default function GameScreen() {
     // enemy land -> attack (the standing order keeps the army flowing there)
     showTap(screenX, screenY, 'attack');
     sendAction(target, st.fraction, cell);
+    if (!st.muted) sfx.attack();
   }, [showTap]);
 
   const lastPan = useRef<{ x: number; y: number } | null>(null);
@@ -224,16 +275,36 @@ export default function GameScreen() {
       ) : (
         <Text style={styles.waiting}>joining match…</Text>
       )}
-      {spawnMode && (
-        <View style={styles.spawnBanner} pointerEvents="none">
+      {spawnMode && !spectating && (
+        <View style={styles.spawnBanner} pointerEvents="box-none">
           <Text style={styles.spawnTitle}>Choose your spawn</Text>
           <Text style={styles.spawnSub}>tap an empty (light) area of the map</Text>
+          <Pressable style={styles.spectateBtn} onPress={() => useGame.getState().setSpectating(true)}>
+            <Text style={styles.spectateTxt}>👁  Spectate instead</Text>
+          </Pressable>
+        </View>
+      )}
+      {spawnMode && spectating && (
+        <View style={styles.spectateBar} pointerEvents="box-none">
+          <Text style={styles.spectateLabel}>👁  Spectating</Text>
+          <Pressable style={styles.respawnBtn} onPress={() => useGame.getState().setSpectating(false)}>
+            <Text style={styles.spectateTxt}>↩  Respawn</Text>
+          </Pressable>
+        </View>
+      )}
+      {callouts.length > 0 && (
+        <View style={styles.callouts} pointerEvents="none">
+          {callouts.map((c) => <Text key={c.key} style={styles.callout}>{c.text}</Text>)}
         </View>
       )}
       <Hud />
       <QuickChat />
       <Inspect />
       {map && snap && <Minimap camera={camera} screenW={winW} screenH={winH} onJump={jumpTo} />}
+      <Pressable style={styles.helpBtn} onPress={() => useGame.getState().setShowHelp(true)}>
+        <Text style={styles.helpTxt}>?</Text>
+      </Pressable>
+      <Help />
     </View>
   );
 }
@@ -247,4 +318,23 @@ const styles = StyleSheet.create({
   },
   spawnTitle: { color: '#fff', fontSize: 24, fontWeight: '800' },
   spawnSub: { color: '#bcd', fontSize: 14, marginTop: 4 },
+  spectateBtn: { marginTop: 12, backgroundColor: '#2a3145', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10 },
+  spectateTxt: { color: '#cdd6f4', fontSize: 14, fontWeight: '700' },
+  spectateBar: {
+    position: 'absolute', top: 12, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(20,20,28,0.85)', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12,
+  },
+  spectateLabel: { color: '#cdd6f4', fontSize: 15, fontWeight: '800' },
+  respawnBtn: { backgroundColor: '#4c7dff', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 9 },
+  callouts: { position: 'absolute', top: '22%', alignSelf: 'center', alignItems: 'center', gap: 4 },
+  callout: {
+    color: '#ffe08a', fontSize: 16, fontWeight: '800',
+    textShadowColor: 'rgba(0,0,0,0.9)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 },
+  },
+  helpBtn: {
+    position: 'absolute', top: 12, right: 12, width: 34, height: 34, borderRadius: 17,
+    backgroundColor: 'rgba(20,24,36,0.92)', borderWidth: 1, borderColor: '#2a3145',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  helpTxt: { color: '#8aa0c8', fontSize: 19, fontWeight: '900' },
 });

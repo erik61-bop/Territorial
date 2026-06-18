@@ -171,6 +171,12 @@ export default function Hud() {
             {snap!.winner === playerId ? 'You win! 🏆'
               : `${nameOf(snap, snap!.winner, playerId)} wins 🏆`}
           </Text>
+          {playerId >= 0 && snap!.place?.[playerId] ? (
+            <Text style={styles.summary}>
+              You finished #{snap!.place[playerId]} of {snap!.place.filter((x) => x > 0).length}
+              {snap!.peakLand?.[playerId] ? `  ·  peak land ${snap!.peakLand[playerId]}` : ''}
+            </Text>
+          ) : null}
           <Text style={styles.dim}>new match starting…</Text>
         </View>
       )}
@@ -242,4 +248,5 @@ const styles = StyleSheet.create({
   dot: { width: 12, height: 12, borderRadius: 6 },
   bannerWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   banner: { color: '#fff', fontSize: 40, fontWeight: '900', textShadowColor: '#000', textShadowRadius: 8 },
+  summary: { color: '#ffe08a', fontSize: 18, fontWeight: '800', marginTop: 6, textShadowColor: '#000', textShadowRadius: 6 },
 });

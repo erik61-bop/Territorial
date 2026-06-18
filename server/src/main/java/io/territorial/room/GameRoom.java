@@ -54,6 +54,9 @@ public class GameRoom {
     private GameState state;
     private Sim sim;
     private int[] lastAttacks = new int[0];   // this tick's PvP attacks [attacker,target,...] for battle arrows
+    private final int[] peakLand = new int[NUM_PLAYERS];  // post-game summary: max land each player held
+    private final int[] deathSeq = new int[NUM_PLAYERS];  // elimination order (0 = still alive / never played)
+    private int deathCount = 0;
     private long matchSeed = 1L;
     private int winner = -1;
     private int holdTicks = 0;
@@ -106,10 +109,18 @@ public class GameRoom {
         } finally { lock.unlock(); }
     }
 
+    // Map variety: rotate the board size/shape per match so games feel different (terrain already
+    // varies by seed). The client handles any dimensions, so this is safe.
+    private static final int[][] MAP_DIMS = { {96, 96}, {120, 120}, {150, 120}, {120, 150}, {140, 140} };
+
     private void newMatch() {
         int[] sizes = new int[NUM_PLAYERS];
         Arrays.fill(sizes, START_SIZE);
-        state = GameFactory.create(WIDTH, HEIGHT, sizes, matchSeed++);
+        int[] d = MAP_DIMS[(int) Math.floorMod(matchSeed, MAP_DIMS.length)];
+        state = GameFactory.create(d[0], d[1], sizes, matchSeed++);
+        Arrays.fill(peakLand, 0);
+        Arrays.fill(deathSeq, 0);
+        deathCount = 0;
         // Connected humans don't inherit a bot empire — they re-pick a spawn each match.
         for (int p = 0; p < NUM_PLAYERS; p++) if (human[p]) state.clearPlayer(p);
         sim = new Sim(state);
@@ -177,6 +188,10 @@ public class GameRoom {
             sim.tick(actions);
             expireDisconnects();
             sim.recomputeDerived();
+            for (int p = 0; p < NUM_PLAYERS; p++) {       // post-game stats
+                if (state.land[p] > peakLand[p]) peakLand[p] = state.land[p];
+                if (!state.alive[p] && deathSeq[p] == 0 && peakLand[p] > 0) deathSeq[p] = ++deathCount;
+            }
             winner = sim.winner();
             broadcastState();
         } finally {
@@ -236,12 +251,12 @@ public class GameRoom {
         }
     }
 
-    /** Free slots whose player disconnected and never came back within the grace period. */
+    /** Hand a disconnected (grace-expired) player's empire to a BOT instead of dissolving it, so the
+     *  map stays intact and the war continues (named-bot replacement). The slot is free to reclaim. */
     private void expireDisconnects() {
         for (int p = 0; p < NUM_PLAYERS; p++) {
             if (human[p] && !connected[p] && state.tick - disconnectTick[p] > RECONNECT_GRACE_TICKS) {
-                state.clearPlayer(p);          // dissolve the abandoned empire
-                human[p] = false;
+                human[p] = false;              // a bot now plays the empire (no clearPlayer)
                 names[p] = null;               // back to a "Bot N" identity
                 humanActions.remove(p);
                 if (slotToken[p] != null) { tokenToSlot.remove(slotToken[p]); slotToken[p] = null; }
@@ -370,6 +385,22 @@ public class GameRoom {
     }
 
     /** Everything except the cell ownership (which is sent full as "owner" or diffed as "changed"). */
+    /** Final ranking: alive players by land, then dead by reverse elimination order. 0 = never played. */
+    private int[] computePlaces() {
+        int n = state.numPlayers;
+        Integer[] ids = new Integer[n];
+        for (int i = 0; i < n; i++) ids[i] = i;
+        java.util.Arrays.sort(ids, (a, b) -> {
+            if (state.alive[a] != state.alive[b]) return state.alive[a] ? -1 : 1;   // alive above dead
+            if (state.alive[a]) return Integer.compare(state.land[b], state.land[a]); // more land = better
+            return Integer.compare(deathSeq[b], deathSeq[a]);                         // later death = better
+        });
+        int[] place = new int[n];
+        int rank = 1;
+        for (int id : ids) if (peakLand[id] > 0) place[id] = rank++;
+        return place;
+    }
+
     private Map<String, Object> buildCommon() {
         int[] army = new int[state.numPlayers];
         int[] morale = new int[state.numPlayers]; // momentum x100, so the client avoids float noise
@@ -395,6 +426,8 @@ public class GameRoom {
         m.put("names", nm);
         m.put("colors", colorIdx.clone());
         m.put("winner", winner);
+        m.put("peakLand", peakLand.clone());
+        if (winner >= 0) m.put("place", computePlaces());   // final ranking for the summary screen
         m.put("capitals", state.capitalCell.clone());
         m.put("phase", state.phase);
         m.put("attacks", lastAttacks);

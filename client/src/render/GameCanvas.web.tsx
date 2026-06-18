@@ -91,6 +91,7 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
     const sumX = new Float64Array(np), sumY = new Float64Array(np), cnt = new Int32Array(np);
     const margin = cam.scale * (ISO_V + 4);
     const drawSides = cam.scale > 5;   // cliffs are invisible when zoomed far out — skip for speed
+    const borderDetail = cam.scale > 4;   // nation-border rim only matters when zoomed in
 
     // Reusable quad fill.
     const quad = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, x4: number, y4: number, css: string) => {
@@ -125,17 +126,26 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
           r = base[0] * k; g = base[1] * k; b = base[2] * k;
           const x = i % width, y = (i / width) | 0;
           sumX[o] += x; sumY[o] += y; cnt[o]++;
-          const edge =
-            (x > 0 && snap.owner[i - 1] !== o) || (x < width - 1 && snap.owner[i + 1] !== o) ||
-            (y > 0 && snap.owner[i - width] !== o) || (y < height - 1 && snap.owner[i + width] !== o);
-          if (edge) { r *= 0.62; g *= 0.62; b *= 0.62; }      // nation border rim
+          if (borderDetail) {                                  // skip the 4 edge reads when zoomed far out
+            const edge =
+              (x > 0 && snap.owner[i - 1] !== o) || (x < width - 1 && snap.owner[i + 1] !== o) ||
+              (y > 0 && snap.owner[i - width] !== o) || (y < height - 1 && snap.owner[i + width] !== o);
+            if (edge) { r *= 0.62; g *= 0.62; b *= 0.62; }    // nation border rim
+          }
         } else {
           const c = TERRAIN_COLORS[t] ?? TERRAIN_COLORS[0];
           r = c[0]; g = c[1]; b = c[2];
         }
         if (!hidden) {
-          if (!reset && prev![i] !== o) hh[i] = 1; else hh[i] *= 0.45;
-          if (hh[i] > 0.05) { const f = Math.min(1, hh[i]) * 0.6; r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; }
+          // Capture flash: white pop normally, RED pop when one of YOUR cells was just taken.
+          if (!reset && prev![i] !== o) hh[i] = (prev![i] === myId && o !== myId) ? -1 : 1;
+          else hh[i] *= 0.45;
+          const fa = Math.min(1, Math.abs(hh[i]));
+          if (fa > 0.05) {
+            const f = fa * 0.6;
+            if (hh[i] > 0) { r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; }
+            else { r += (255 - r) * f; g -= g * f * 0.6; b -= b * f * 0.6; }
+          }
         } else {
           r *= 0.4; g *= 0.4; b *= 0.42;                       // fog
         }

@@ -30,6 +30,8 @@ export interface Snapshot {
   names?: string[];    // per-player display name
   colors?: number[];   // per-player colour index into PLAYER_COLORS
   attacks?: number[];  // this tick's PvP attacks, flat [attacker, target, ...] (battle arrows)
+  peakLand?: number[]; // post-game summary: max land each player ever held
+  place?: number[];    // final ranking (1 = winner), present once the match ends; 0 = never played
 }
 
 /** Colour index for a player (uses the server's colour permutation, falls back to slot). */
@@ -65,6 +67,8 @@ interface GameStore {
   order: number | null; // current standing-order target (playerId, -1 = expand, null = none)
   underAttackAt: number; // performance.now() of the last time we lost land (for the threat cue)
   selected: number | null; // nation currently inspected (playerId), or null
+  spectating: boolean;   // eliminated/idle player chose to watch instead of respawning
+  showHelp: boolean;     // the How-to-play overlay is open
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
@@ -80,6 +84,8 @@ interface GameStore {
   setOrder: (o: number | null) => void;
   flagUnderAttack: () => void;
   setSelected: (id: number | null) => void;
+  setSpectating: (b: boolean) => void;
+  setShowHelp: (b: boolean) => void;
 }
 
 export const useGame = create<GameStore>((set) => ({
@@ -96,6 +102,8 @@ export const useGame = create<GameStore>((set) => ({
   order: null,
   underAttackAt: 0,
   selected: null,
+  spectating: false,
+  showHelp: false,
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
   setMatchId: (n) => set({ matchId: n }),
@@ -110,6 +118,8 @@ export const useGame = create<GameStore>((set) => ({
   setOrder: (o) => set({ order: o }),
   flagUnderAttack: () => set({ underAttackAt: typeof performance !== 'undefined' ? performance.now() : Date.now() }),
   setSelected: (id) => set({ selected: id }),
+  setSpectating: (b) => set({ spectating: b }),
+  setShowHelp: (b) => set({ showHelp: b }),
 }));
 
 // Expose the store on web for debugging / automated end-to-end checks.
