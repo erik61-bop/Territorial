@@ -110,7 +110,9 @@ public final class Sim {
             double capMult = s.ownsCapital(p) ? Config.CAPITAL_INCOME : 1.0;
             double income = Math.pow(s.incomeUnits[p], Config.LAND_INCOME_EXP)
                     * Config.INCOME_RATE * stability * capMult;
-            double cap = s.incomeUnits[p] * Config.ARMY_CAP_PER_LAND;  // terrain-weighted, like income
+            // Cap MUST match the per-tick clamp (land*cap), else cities push "income" the clamp then
+            // removes -> army shows +income/s but never actually grows.
+            double cap = s.land[p] * Config.ARMY_CAP_PER_LAND;
             double before = s.army[p];
             s.army[p] = Math.min(s.army[p] + income, cap);
             s.lastIncome[p] = s.army[p] - before;
