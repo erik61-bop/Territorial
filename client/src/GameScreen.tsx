@@ -3,6 +3,7 @@ import { View, Text, useWindowDimensions, PanResponder, Platform, StyleSheet } f
 import { useGame } from './state/store';
 import { connect, sendAction, sendSpawn, sendDifficulty, sendProfile } from './net/socket';
 import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
+import { unproject, centerOn, terrainHeight } from './render/iso';
 import Hud from './ui/Hud';
 import QuickChat from './ui/QuickChat';
 import Minimap from './ui/Minimap';
@@ -36,14 +37,24 @@ export default function GameScreen() {
   const spawnMode = started && playerId >= 0 && !!snap && myLand === 0 && snap.winner < 0;
   const myCapital = snap?.capitals?.[playerId] ?? map?.capitals?.[playerId] ?? -1;
 
-  // Center on my capital whenever it changes (i.e. after I spawn).
+  // Fit the whole isometric board on screen when it first loads (so you can see it to pick a spawn).
+  const fitted = useRef(false);
+  useEffect(() => {
+    if (!map || fitted.current) return;
+    const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, (winW / (map.width + map.height)) * 0.92));
+    setCamera(centerOn(map.width / 2, map.height / 2, 0, scale, winW / 2, winH / 2));
+    fitted.current = true;
+  }, [map, winW, winH]);
+
+  // Zoom in and centre on my capital whenever it changes (i.e. after I spawn).
   useEffect(() => {
     if (!map || myLand <= 0 || myCapital < 0) return;
     if (centeredCapital.current === myCapital) return;
-    const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.floor(Math.min(winW / map.width, winH / map.height)) || 8));
+    const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, 11));
     const cx = myCapital % map.width;
     const cy = Math.floor(myCapital / map.width);
-    setCamera({ scale, tx: winW / 2 - (cx + 0.5) * scale, ty: winH / 2 - (cy + 0.5) * scale });
+    const h = terrainHeight(map.terrain[myCapital] ?? 0);
+    setCamera(centerOn(cx, cy, h, scale, winW / 2, winH / 2));
     centeredCapital.current = myCapital;
   }, [map, myCapital, myLand, winW, winH]);
 
@@ -92,8 +103,9 @@ export default function GameScreen() {
     const pid = st.playerId;
     const cam = cameraRef.current;
     if (!m || !s) return;
-    const cx = Math.floor((screenX - cam.tx) / cam.scale);
-    const cy = Math.floor((screenY - cam.ty) / cam.scale);
+    const u = unproject(screenX, screenY, cam);
+    const cx = Math.floor(u.x);
+    const cy = Math.floor(u.y);
     if (cx < 0 || cy < 0 || cx >= m.width || cy >= m.height) return;
     const cell = cy * m.width + cx;
     const target = s.owner[cell];

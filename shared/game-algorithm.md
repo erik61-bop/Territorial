@@ -141,6 +141,14 @@ not scattered), or a brand-new room if all are full. A new room only spins up on
 their 12 human slots. Rooms whose humans have all left are reaped, so resource use tracks the player
 count. The match number is shown in the HUD.
 
+**Rendering — 2.5D isometric (Canvas2D, no WebGL).** The board is drawn as a tilted isometric grid
+of raised tiles: terrain sets each cell's height (mountains/cities up, water/rivers sunken) and
+shaded left/right side-faces form real cliffs, via painter's algorithm (back-to-front by `x+y`).
+Deliberately NOT WebGL/3D — the target environment is a GPU-less VM where WebGL can't create a
+context; Canvas2D runs smoothly. `render/iso.ts` holds the projection (`projX/projY`, flat
+`unproject` for picking, `centerOn`); the renderer culls off-screen cells and drops side-faces when
+zoomed far out. Picking inverts the flat projection (height ignored — close enough for cells).
+
 **Fog of war (Peace only).** During the opening PEACE phase you see only your territory plus a
 vision radius around it; rivals beyond that are hidden (the map dims, enemy colours/labels/crowns
 and the minimap conceal them). The instant WAR begins the fog lifts and the whole board is revealed.

@@ -1,14 +1,18 @@
 import React, { useRef, useEffect } from 'react';
 import { PLAYER_COLORS, TERRAIN_COLORS, TERRAIN_SHADE } from './colors';
+import { terrainHeight, projX, projY, BASE_H, ISO_V } from './iso';
 import type { MapInfo, Snapshot } from '../state/store';
 
-// Web renderer using a plain Canvas2D context — no WebGL, no WASM. The board is a width x height
-// pixel image (owner colour shaded by terrain, with a capture-flash) scaled up, plus capital rings
-// and a tap marker. Same props/interface as the native Skia GameCanvas.
+// Web renderer — 2.5D ISOMETRIC on plain Canvas2D (no WebGL). The board is drawn as a tilted grid of
+// raised tiles: terrain sets each cell's height (mountains/cities up, water/rivers sunken), with
+// shaded left/right side-faces giving real cliffs and depth. Painter's algorithm (back-to-front by
+// x+y). Same props/interface as the native Skia GameCanvas.
 export interface Camera { scale: number; tx: number; ty: number; }
 export interface TapMark { x: number; y: number; kind: 'attack' | 'expand' | 'spawn'; }
 
 const TAP_COLOR = { attack: 'rgba(255,80,80,0.95)', expand: 'rgba(255,255,255,0.9)', spawn: 'rgba(120,255,150,0.95)' };
+const RIGHT_FACE = 0.60;   // +x side face brightness (in light)
+const FRONT_FACE = 0.44;   // +y side face brightness (in shade)
 
 interface Props {
   map: MapInfo;
@@ -22,9 +26,9 @@ interface Props {
 
 export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, myId }: Props) {
   const canvasRef = useRef<any>(null);
-  const offRef = useRef<any>(null);
   const prevOwner = useRef<number[] | null>(null);
   const heat = useRef<Float32Array | null>(null);
+  const heights = useRef<{ w: number; h: number; arr: Float32Array } | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -34,27 +38,27 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
 
     const { width, height, terrain } = map;
     const n = width * height;
+    const cam = camera;
 
-    // Offscreen 1px-per-cell image.
-    if (!offRef.current) offRef.current = document.createElement('canvas');
-    const off = offRef.current;
-    off.width = width; off.height = height;
-    const octx = off.getContext('2d');
-    const img = octx.createImageData(width, height);
-    const px = img.data;
+    // Cache terrain heights for this map.
+    if (!heights.current || heights.current.w !== width || heights.current.h !== height) {
+      const arr = new Float32Array(n);
+      for (let i = 0; i < n; i++) arr[i] = terrainHeight(terrain[i] ?? 0);
+      heights.current = { w: width, h: height, arr };
+    }
+    const hgt = heights.current.arr;
+    const heightAt = (x: number, y: number) =>
+      (x < 0 || y < 0 || x >= width || y >= height) ? BASE_H : hgt[y * width + x];
 
+    // Capture-flash heat.
     if (!heat.current || heat.current.length !== n) heat.current = new Float32Array(n);
-    const h = heat.current;
+    const hh = heat.current;
     const prev = prevOwner.current;
     let changed = 0;
     if (prev && prev.length === n) for (let i = 0; i < n; i++) if (prev[i] !== snap.owner[i]) changed++;
     const reset = !prev || prev.length !== n || changed > n * 0.2;
 
-    const np = snap.army.length;
-    const sumX = new Float64Array(np), sumY = new Float64Array(np), cnt = new Int32Array(np);
-
-    // Fog of war during PEACE only: you see your territory + a radius around it; rivals beyond that
-    // are hidden. War lifts the fog. (Pre-spawn you see everything so you can pick a spawn.)
+    // Fog of war during PEACE only (your territory + a vision radius; rivals hidden).
     const VISION = 11;
     const fog = snap.phase === 0 && myId >= 0 && (snap.land?.[myId] ?? 0) > 0;
     let visible: Uint8Array | null = null;
@@ -75,47 +79,93 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
       }
     }
 
-    for (let i = 0; i < n; i++) {
-      const o = snap.owner[i];
-      const t = terrain[i] ?? 0;
-      const hidden = !!visible && visible[i] === 0;   // outside vision during PEACE -> fogged
-      let r: number, g: number, b: number;
-      if (o >= 0 && !hidden) {
-        const base = PLAYER_COLORS[(snap.colors?.[o] ?? o) % PLAYER_COLORS.length];
-        const k = TERRAIN_SHADE[t] ?? 1;
-        r = base[0] * k; g = base[1] * k; b = base[2] * k;
-        // Nation border: darken the rim where this cell meets a different owner.
-        const x = i % width, y = (i / width) | 0;
-        sumX[o] += x; sumY[o] += y; cnt[o]++;        // only visible cells -> fogged nations get no label
-        const edge =
-          (x > 0 && snap.owner[i - 1] !== o) || (x < width - 1 && snap.owner[i + 1] !== o) ||
-          (y > 0 && snap.owner[i - width] !== o) || (y < height - 1 && snap.owner[i + width] !== o);
-        if (edge) { r *= 0.5; g *= 0.5; b *= 0.5; }
-      } else {
-        // Neutral, or a fogged cell: show only the terrain (ownership concealed).
-        const c = TERRAIN_COLORS[t] ?? TERRAIN_COLORS[0];
-        r = c[0]; g = c[1]; b = c[2];
+    // Sky/ground backdrop.
+    const bg = ctx.createLinearGradient(0, 0, 0, screenH);
+    bg.addColorStop(0, '#0b1018'); bg.addColorStop(1, '#05070b');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, screenW, screenH);
+
+    const np = snap.army.length;
+    const sumX = new Float64Array(np), sumY = new Float64Array(np), cnt = new Int32Array(np);
+    const margin = cam.scale * (ISO_V + 4);
+    const drawSides = cam.scale > 5;   // cliffs are invisible when zoomed far out — skip for speed
+
+    // Reusable quad fill.
+    const quad = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, x4: number, y4: number, css: string) => {
+      ctx.fillStyle = css;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.lineTo(x4, y4); ctx.closePath();
+      ctx.fill();
+    };
+
+    // Painter's order: back-to-front along diagonals of constant (x+y).
+    for (let d = 0; d <= (width - 1) + (height - 1); d++) {
+      const cxLo = Math.max(0, d - (height - 1));
+      const cxHi = Math.min(width - 1, d);
+      for (let cx = cxLo; cx <= cxHi; cx++) {
+        const cy = d - cx;
+        const i = cy * width + cx;
+
+        const h = hgt[i];
+        // Cull off-screen cells (cheap top-centre test).
+        const scx = projX(cx + 0.5, cy + 0.5, cam);
+        const scy = projY(cx + 0.5, cy + 0.5, h, cam);
+        if (scx < -margin || scx > screenW + margin || scy < -margin || scy > screenH + margin) continue;
+
+        const o = snap.owner[i];
+        const t = terrain[i] ?? 0;
+        const hidden = !!visible && visible[i] === 0;
+
+        let r: number, g: number, b: number;
+        if (o >= 0 && !hidden) {
+          const base = PLAYER_COLORS[(snap.colors?.[o] ?? o) % PLAYER_COLORS.length];
+          const k = TERRAIN_SHADE[t] ?? 1;
+          r = base[0] * k; g = base[1] * k; b = base[2] * k;
+          const x = i % width, y = (i / width) | 0;
+          sumX[o] += x; sumY[o] += y; cnt[o]++;
+          const edge =
+            (x > 0 && snap.owner[i - 1] !== o) || (x < width - 1 && snap.owner[i + 1] !== o) ||
+            (y > 0 && snap.owner[i - width] !== o) || (y < height - 1 && snap.owner[i + width] !== o);
+          if (edge) { r *= 0.62; g *= 0.62; b *= 0.62; }      // nation border rim
+        } else {
+          const c = TERRAIN_COLORS[t] ?? TERRAIN_COLORS[0];
+          r = c[0]; g = c[1]; b = c[2];
+        }
+        if (!hidden) {
+          if (!reset && prev![i] !== o) hh[i] = 1; else hh[i] *= 0.45;
+          if (hh[i] > 0.05) { const f = Math.min(1, hh[i]) * 0.6; r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; }
+        } else {
+          r *= 0.4; g *= 0.4; b *= 0.42;                       // fog
+        }
+        const topLight = 1 + h * 0.12;                         // higher ground reads a touch brighter
+        r = Math.min(255, r * topLight); g = Math.min(255, g * topLight); b = Math.min(255, b * topLight);
+
+        // Vertices of the top face (at this cell's height).
+        const ax = projX(cx, cy, cam),       ay = projY(cx, cy, h, cam);          // back
+        const bx = projX(cx + 1, cy, cam),   by = projY(cx + 1, cy, h, cam);      // right
+        const dx = projX(cx + 1, cy + 1, cam), dy = projY(cx + 1, cy + 1, h, cam); // front
+        const ex = projX(cx, cy + 1, cam),   ey = projY(cx, cy + 1, h, cam);      // left
+
+        // Side faces (cliffs) down to the lower neighbour — drawn before the top so the top overlays.
+        if (drawSides) {
+          const hR = heightAt(cx + 1, cy);   // +x neighbour
+          if (hR < h) {
+            const byb = projY(cx + 1, cy, hR, cam), dyb = projY(cx + 1, cy + 1, hR, cam);
+            quad(bx, by, dx, dy, dx, dyb, bx, byb, `rgb(${(r * RIGHT_FACE) | 0},${(g * RIGHT_FACE) | 0},${(b * RIGHT_FACE) | 0})`);
+          }
+          const hF = heightAt(cx, cy + 1);   // +y neighbour
+          if (hF < h) {
+            const eyb = projY(cx, cy + 1, hF, cam), dyb = projY(cx + 1, cy + 1, hF, cam);
+            quad(ex, ey, dx, dy, dx, dyb, ex, eyb, `rgb(${(r * FRONT_FACE) | 0},${(g * FRONT_FACE) | 0},${(b * FRONT_FACE) | 0})`);
+          }
+        }
+        // Top face.
+        quad(ax, ay, bx, by, dx, dy, ex, ey, `rgb(${r | 0},${g | 0},${b | 0})`);
       }
-      if (!hidden) {
-        if (!reset && prev![i] !== o) h[i] = 1; else h[i] *= 0.45;
-        if (h[i] > 0.05) { const f = Math.min(1, h[i]) * 0.6; r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; }
-      } else {
-        r *= 0.4; g *= 0.4; b *= 0.42;               // fog of war: dim the unseen map
-      }
-      const j = i * 4;
-      px[j] = Math.min(255, r); px[j + 1] = Math.min(255, g); px[j + 2] = Math.min(255, b); px[j + 3] = 255;
     }
     prevOwner.current = snap.owner;
-    octx.putImageData(img, 0, 0);
 
-    // Composite to the visible canvas under the camera transform, crisp pixels.
-    ctx.fillStyle = '#0d0d12';
-    ctx.fillRect(0, 0, screenW, screenH);
-    ctx.imageSmoothingEnabled = false;
-    const { scale, tx, ty } = camera;
-    ctx.drawImage(off, 0, 0, width, height, tx, ty, width * scale, height * scale);
-
-    // Capitals: a crown, ringed in your relation colour (gold=you, green=ally, blue=peace, white=enemy).
+    // Capitals: a crown floating above the capital cell.
     const caps = snap.capitals?.length ? snap.capitals : map.capitals;
     const relRow = snap.rel?.[myId] ?? [];
     ctx.textAlign = 'center';
@@ -123,33 +173,28 @@ export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, m
     for (let pid = 0; pid < caps.length; pid++) {
       const cell = caps[pid];
       if (!snap.alive[pid] || cell == null || cell < 0) continue;
-      if (visible && visible[cell] === 0) continue;   // fogged capital -> hidden
-      const cx = tx + (cell % width) * scale + scale / 2;
-      const cy = ty + Math.floor(cell / width) * scale + scale / 2;
+      if (visible && visible[cell] === 0) continue;
+      const cxp = cell % width, cyp = (cell / width) | 0;
+      const h = hgt[cell];
+      const px = projX(cxp + 0.5, cyp + 0.5, cam);
+      const py = projY(cxp + 0.5, cyp + 0.5, h, cam) - cam.scale * 0.9;
       const me = pid === myId;
       const col = me ? '#ffd54a' : relRow[pid] === 2 ? '#8affb0' : relRow[pid] === 1 ? '#86d6ff' : '#ffffff';
-      ctx.beginPath();
-      ctx.arc(cx, cy, Math.max(4, scale * (me ? 1.5 : 1.0)), 0, Math.PI * 2);
-      ctx.lineWidth = me ? 2.5 : 1.5;
-      ctx.strokeStyle = col;
-      ctx.stroke();
-      const cs = Math.max(11, scale * (me ? 2.4 : 1.8));
+      const cs = Math.max(12, cam.scale * (me ? 2.2 : 1.7));
       ctx.font = `${cs}px serif`;
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.9)';
-      ctx.strokeText('♛', cx, cy - cs * 0.05);
+      ctx.strokeText('♛', px, py);
       ctx.fillStyle = col;
-      ctx.fillText('♛', cx, cy - cs * 0.05);
+      ctx.fillText('♛', px, py);
     }
 
-    // Nation army labels at each territory's centroid, coloured by your relation to them, so the
-    // strategy is readable: army vs land shows who's overextended; colour shows friend/foe.
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    // Nation army labels at each territory's centroid, coloured by relation.
     const rel = snap.rel?.[myId] ?? [];
     for (let p = 0; p < np; p++) {
       if (!snap.alive[p] || cnt[p] < 8) continue;
-      const lx = tx + (sumX[p] / cnt[p] + 0.5) * scale;
-      const ly = ty + (sumY[p] / cnt[p] + 0.5) * scale;
+      const mx = sumX[p] / cnt[p], myc = sumY[p] / cnt[p];
+      const lx = projX(mx + 0.5, myc + 0.5, cam);
+      const ly = projY(mx + 0.5, myc + 0.5, 0.4, cam);
       if (lx < -40 || lx > screenW + 40 || ly < -20 || ly > screenH + 20) continue;
       const me = p === myId;
       const col = me ? '#ffd54a' : rel[p] === 2 ? '#8affb0' : rel[p] === 1 ? '#86d6ff' : '#ffffff';

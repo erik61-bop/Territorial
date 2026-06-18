@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useGame } from '../state/store';
 import { PLAYER_COLORS, TERRAIN_COLORS } from '../render/colors';
+import { unproject } from '../render/iso';
 import type { Camera } from '../render/GameCanvas';
 
 const W = 196, H = 150;
@@ -38,13 +39,14 @@ export default function Minimap({ camera, screenW, screenH }: { camera: Camera; 
     ctx.fillStyle = '#0a0c12'; ctx.fillRect(0, 0, W, H);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(off, 0, 0, width, height, ox, oy, dw, dh);
-    // viewport rectangle (map cells currently on screen)
-    const vx0 = Math.max(0, -camera.tx / camera.scale);
-    const vy0 = Math.max(0, -camera.ty / camera.scale);
-    const vx1 = Math.min(width, (screenW - camera.tx) / camera.scale);
-    const vy1 = Math.min(height, (screenH - camera.ty) / camera.scale);
+    // viewport: the visible region is an iso diamond — show its bounding box on the top-down minimap.
+    const corners = [unproject(0, 0, camera), unproject(screenW, 0, camera),
+                     unproject(0, screenH, camera), unproject(screenW, screenH, camera)];
+    let vx0 = Infinity, vy0 = Infinity, vx1 = -Infinity, vy1 = -Infinity;
+    for (const c of corners) { vx0 = Math.min(vx0, c.x); vy0 = Math.min(vy0, c.y); vx1 = Math.max(vx1, c.x); vy1 = Math.max(vy1, c.y); }
+    vx0 = Math.max(0, vx0); vy0 = Math.max(0, vy0); vx1 = Math.min(width, vx1); vy1 = Math.min(height, vy1);
     ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 1.5;
-    ctx.strokeRect(ox + vx0 * scale, oy + vy0 * scale, (vx1 - vx0) * scale, (vy1 - vy0) * scale);
+    ctx.strokeRect(ox + vx0 * scale, oy + vy0 * scale, Math.max(0, vx1 - vx0) * scale, Math.max(0, vy1 - vy0) * scale);
   }, [map, snap, camera, screenW, screenH, myId]);
 
   return (
