@@ -11,8 +11,8 @@ public final class Bot {
     public static volatile int level = 1;
 
     // Tunables for bot behaviour (kept here, not in Config, since they are AI not game rules).
-    static final double EXPAND_MIN_DENSITY = 2.0;  // only expand if army-per-land is healthy
-    static final double EXPAND_FRACTION    = 0.35;
+    static final double EXPAND_MIN_DENSITY = 1.3;  // keep this much army/land in reserve to defend
+    static final double EXPAND_FRACTION    = 0.45;  // commit to claiming empty land
     static final double ATTACK_FRACTION    = 0.60;  // commit enough to actually break a front
     static final double GANG_FRACTION      = 0.72;  // throw more at a runaway leader
     static final double AGGRO_MARGIN       = 1.02;  // attack neighbours up to ~as strong as me
@@ -90,10 +90,15 @@ public final class Bot {
         double surge = s.phase == GameState.FINAL_WAR ? Config.FINAL_WAR_ATTACK : 1.0;
         double wave = s.army[p] * ATTACK_FRACTION * s.momentum[p] * surge;  // include Final War surge
         int expandTarget = cityTarget >= 0 ? cityTarget : neutralTarget;   // prefer cities
+        // Only expand if the wave can actually capture neutral land; otherwise HOLD and let income
+        // build the army up (expanding with too little army just wastes it and starves you).
+        boolean canExpand = neutralAdjacent
+                && s.density(p) > EXPAND_MIN_DENSITY                           // keep a defensive reserve
+                && s.army[p] * EXPAND_FRACTION * s.momentum[p] > Config.NEUTRAL_COST;
 
-        // Opening Peace phase: no PvP — grab land (toward a city if one is adjacent).
+        // Opening Peace phase: no PvP — grab land (toward a city) when able, else accumulate.
         if (s.phase == GameState.PEACE) {
-            return neutralAdjacent ? new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget) : null;
+            return canExpand ? new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget) : null;
         }
 
         // Final War: gloves off — throw almost everything at the weakest neighbour to crush and
@@ -114,8 +119,8 @@ public final class Bot {
             return new Action(p, weakestEnemy, ATTACK_FRACTION, s.capitalCell[weakestEnemy]);
         }
 
-        // Expand into empty land while the army can spare it (toward a city if possible).
-        if (neutralAdjacent && s.density(p) > EXPAND_MIN_DENSITY && !misplay) {
+        // Expand into empty land when the army can capture it (toward a city if possible).
+        if (canExpand && !misplay) {
             return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget);
         }
 
@@ -127,7 +132,7 @@ public final class Bot {
         // A strong neighbour can break me and I have no good move -> HOLD and regrow (defend),
         // keeping density high. Easy bots don't defend (they overextend and die). Otherwise grab land.
         boolean threatened = defends && strongestEnemy >= 0 && strongestDef > myDef;
-        if (!threatened && neutralAdjacent) {
+        if (!threatened && canExpand) {
             return new Action(p, GameState.NEUTRAL, EXPAND_FRACTION, expandTarget);
         }
         if (!defends && weakestEnemy >= 0) {                      // Easy: keep poking even when weak

@@ -12,7 +12,7 @@ public final class Config {
     public static final double STAB_MIN           = 0.30;
 
     // Combat / waves
-    public static final double NEUTRAL_COST        = 3.5;  // flat cost to eat a neutral cell
+    public static final double NEUTRAL_COST        = 2.3;  // claiming empty land is fairly cheap (fills the map)
     public static final double NAVAL_COST_MULT     = 2.5;  // amphibious (cross-water) capture is costlier
     public static final double GARRISON_KILL       = 1.5;  // defender army drained per captured cell
     public static final double REFLUX              = 0.25; // fraction of unused wave refunded
