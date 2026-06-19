@@ -180,9 +180,11 @@ blind land-grab, the war is open information.)
 
 **Naval / water.** `WATER` cells (owner sentinel `-2`, ~15% of the map in a few seas) are unownable
 and split the map; coastlines are SAFE borders (water neighbours don't count as border). You may
-cross a single water tile (a strait): a target cell reachable across one water cell from your coast
-is an amphibious frontier cell at `NAVAL_COST_MULT` cost. Wider seas need a bridgehead on the far
-coast first. `ownableCells = cellCount - water`, which is the win denominator.
+ship across open sea: a BFS through water from your coast (up to `NAVAL_RANGE` tiles) makes any land
+cell of the target touching reachable water an amphibious invasion target — so you can take **islands**
+and far coasts. Cost = `NAVAL_COST_MULT` plus `NAVAL_RANGE_PENALTY` per extra sea tile crossed (far
+invasions are dear). The client draws a little ship on attack arrows that cross water.
+`ownableCells = cellCount - water`, which is the win denominator.
 
 Two combat refinements that proved essential for fun + fairness:
 - **Penetration penalty** — each cell a single wave eats costs `×(1 + n·0.10)` more than the

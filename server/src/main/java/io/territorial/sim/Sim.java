@@ -142,19 +142,29 @@ public final class Sim {
             // Frontier: land cells of t adjacent to x, plus amphibious cells of t reachable
             // across a single water tile (strait) from x. naval[] marks the latter (extra cost).
             java.util.List<Integer> fl = new java.util.ArrayList<>();
-            java.util.List<Boolean> nv = new java.util.ArrayList<>();
+            java.util.List<Double> nv = new java.util.ArrayList<>();   // per-cell cost multiplier (1.0 land)
             java.util.HashSet<Integer> seen = new java.util.HashSet<>();
-            for (int c : frontierCells(x, t)) { if (seen.add(c)) { fl.add(c); nv.add(false); } }
+            for (int c : frontierCells(x, t)) { if (seen.add(c)) { fl.add(c); nv.add(1.0); } }
+            // Amphibious "ships": BFS through open water from X's coast up to NAVAL_RANGE tiles. Any
+            // land cell of t touching reachable water is an invasion target (islands + far coasts);
+            // cost rises with the sea distance crossed.
+            java.util.HashMap<Integer, Integer> wd = new java.util.HashMap<>();
+            java.util.ArrayDeque<Integer> wq = new java.util.ArrayDeque<>();
             for (int wcell : s.waterCells) {
-                boolean touchesX = false;
-                for (int nb : s.neighbours[wcell]) if (s.owner[nb] == x) { touchesX = true; break; }
-                if (!touchesX) continue;
-                for (int nb : s.neighbours[wcell]) if (s.owner[nb] == t && seen.add(nb)) { fl.add(nb); nv.add(true); }
+                for (int nb : s.neighbours[wcell]) if (s.owner[nb] == x) { if (wd.putIfAbsent(wcell, 1) == null) wq.add(wcell); break; }
+            }
+            while (!wq.isEmpty()) {
+                int w = wq.poll(); int d = wd.get(w);
+                double mult = Config.NAVAL_COST_MULT * (1.0 + (d - 1) * Config.NAVAL_RANGE_PENALTY);
+                for (int nb : s.neighbours[w]) if (s.owner[nb] == t && seen.add(nb)) { fl.add(nb); nv.add(mult); }
+                if (d < Config.NAVAL_RANGE) for (int nb : s.neighbours[w]) {
+                    if (s.owner[nb] == GameState.WATER && wd.putIfAbsent(nb, d + 1) == null) wq.add(nb);
+                }
             }
             if (fl.isEmpty()) continue;
             int[] frontier = new int[fl.size()];
-            boolean[] naval = new boolean[fl.size()];
-            for (int k = 0; k < frontier.length; k++) { frontier[k] = fl.get(k); naval[k] = nv.get(k); }
+            double[] navalMult = new double[fl.size()];
+            for (int k = 0; k < frontier.length; k++) { frontier[k] = fl.get(k); navalMult[k] = nv.get(k); }
             if (t != GameState.NEUTRAL) attacked[t] = true;
 
             double sent = s.army[x] * f;
@@ -176,7 +186,7 @@ public final class Sim {
             double[] key = new double[frontier.length];
             boolean directed = a.targetCell() >= 0 && a.targetCell() < s.cellCount;
             for (int k = 0; k < frontier.length; k++) {
-                cost[k] = cellCost(frontier[k], t, baseDef) * (naval[k] ? Config.NAVAL_COST_MULT : 1.0);
+                cost[k] = cellCost(frontier[k], t, baseDef) * navalMult[k];
                 key[k] = directed ? s.distance(frontier[k], a.targetCell()) : cost[k];
             }
             sortByKey(frontier, cost, key);

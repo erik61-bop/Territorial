@@ -8,6 +8,7 @@ const SECTIONS: { h: string; b: string }[] = [
   { h: '🌱  Grow, then fight', b: 'Tap empty (light) land to expand — it is cheap. Bank land and cities (cities give income) during the Peace opening, when rivals are hidden by fog. When War begins the fog lifts.' },
   { h: '🎯  Attack & Hold', b: 'Tap a country to keep attacking it (a standing order keeps your army flowing there); the arrow shows it. Press Hold to stop and defend. The slider sets how much of your pool flows per tick.' },
   { h: '🤝  Diplomacy', b: 'Make peace or alliances (tap a nation → Inspect, or Quick Chat). Allies can’t attack each other — gang up on the leader. But there is no shared win: betray and fight to be the LAST one standing.' },
+  { h: '⛵  Sea & islands', b: 'Coasts are safe (the sea guards them). But you can SHIP across open water: tap an island or a coast across the sea and your army invades by boat — costlier the farther it sails. Grab the little neutral islands for extra land.' },
   { h: '🗺️  Reading the map', b: 'Numbers are each nation’s army; crowns ♛ are capitals (take one to cripple its owner). Gold arrows are your attacks, red arrows are attacks on YOU. Move with drag / WASD / arrows; zoom with the wheel or +/−; click the minimap to jump.' },
 ];
 

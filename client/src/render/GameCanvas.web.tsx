@@ -276,6 +276,19 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
         ctx.lineTo(tipX - uy * ah * pa, tipY + ux * ah * pa);
         ctx.lineTo(tipX + uy * ah * pa, tipY - ux * ah * pa);
         ctx.closePath(); ctx.fill();
+        // If the arrow crosses open sea, it's a naval invasion — draw a little ship at the midpoint.
+        const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+        const ua = (mx - cam.tx) / cam.scale, ub = (my - cam.ty) / (cam.scale * 0.5);
+        const gx = Math.floor((ua + ub) / 2), gy = Math.floor((ub - ua) / 2);
+        if (gx >= 0 && gy >= 0 && gx < width && gy < height && snap.owner[gy * width + gx] === -2) {
+          const ss = Math.max(7, cam.scale * 0.8);
+          ctx.strokeStyle = 'rgba(50,38,20,0.95)'; ctx.lineWidth = Math.max(1, ss * 0.08);
+          ctx.beginPath(); ctx.moveTo(mx, my - ss * 0.7); ctx.lineTo(mx, my + ss * 0.05); ctx.stroke();   // mast
+          ctx.fillStyle = 'rgba(245,245,235,0.96)';                                                       // sail
+          ctx.beginPath(); ctx.moveTo(mx, my - ss * 0.7); ctx.lineTo(mx, my); ctx.lineTo(mx + ss * 0.5, my); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = 'rgba(96,62,34,0.97)';                                                          // hull
+          ctx.beginPath(); ctx.moveTo(mx - ss * 0.6, my); ctx.lineTo(mx + ss * 0.6, my); ctx.lineTo(mx + ss * 0.38, my + ss * 0.34); ctx.lineTo(mx - ss * 0.38, my + ss * 0.34); ctx.closePath(); ctx.fill();
+        }
       }
 
       const caps = snap.capitals?.length ? snap.capitals : map.capitals;
