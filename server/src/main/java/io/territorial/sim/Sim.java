@@ -81,6 +81,7 @@ public final class Sim {
 
     /** Advance the world one tick. Actions are applied in ascending attackerId order. */
     public void tick(List<Action> actions) {
+        for (int c = 0; c < s.cellCount; c++) if (s.settle[c] > 0) s.settle[c]--;   // captured land settles
         recomputeDerived();
         s.phase = s.tick < Config.PEACE_PHASE_TICKS ? GameState.PEACE : GameState.WAR;
         java.util.Arrays.fill(captured, 0);
@@ -200,6 +201,7 @@ public final class Sim {
                 if (wave < effCost) break;
                 int old = s.owner[c];
                 s.owner[c] = x;
+                s.settle[c] = Config.SETTLE_TICKS;   // freshly captured: integrates before it earns income
                 wave -= effCost;
                 takenThisWave++;
                 captured[x]++;

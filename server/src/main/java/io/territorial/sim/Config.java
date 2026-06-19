@@ -10,6 +10,7 @@ public final class Config {
     public static final double ARMY_CAP_PER_LAND  = 9.0;
     public static final double STABILITY_TARGET   = 6.0;   // target army-per-land for full income
     public static final double STAB_MIN           = 0.30;
+    public static final int    SETTLE_TICKS        = 40;   // ~5s before a freshly captured cell earns income
 
     // Combat / waves
     public static final double NEUTRAL_COST        = 2.3;  // claiming empty land is fairly cheap (fills the map)

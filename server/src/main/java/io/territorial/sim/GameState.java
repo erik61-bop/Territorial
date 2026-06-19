@@ -36,6 +36,8 @@ public final class GameState {
     public final boolean[] alive;
     public final double[] incomeUnits;   // sum of terrain income multipliers over owned cells
     public final double[] lastIncome;    // army/tick added last tick (for the UI income readout)
+    public final int[] developing;       // per-player count of just-captured cells not yet producing income
+    public final int[] settle;           // per-cell ticks until a captured cell starts producing income
 
     // Diplomacy (symmetric). rel: 0 none, 1 peace, 2 ally. offer[a][b] = a has offered b peace.
     public final byte[][] rel;
@@ -74,6 +76,8 @@ public final class GameState {
         this.alive = new boolean[numPlayers];
         this.incomeUnits = new double[numPlayers];
         this.lastIncome = new double[numPlayers];
+        this.developing = new int[numPlayers];
+        this.settle = new int[cellCount];
 
         this.rel = new byte[numPlayers][numPlayers];
         this.relUntil = new int[numPlayers][numPlayers];
@@ -113,11 +117,13 @@ public final class GameState {
         java.util.Arrays.fill(land, 0);
         java.util.Arrays.fill(border, 0);
         java.util.Arrays.fill(incomeUnits, 0);
+        java.util.Arrays.fill(developing, 0);
         for (int c = 0; c < cellCount; c++) {
             int o = owner[c];
             if (o < 0) continue;                       // neutral or water: unowned
             land[o]++;
-            incomeUnits[o] += terrain[c].incomeMult;   // cities (1.2x) etc. boost income
+            if (settle[c] > 0) developing[o]++;         // freshly captured: held but not yet productive
+            else incomeUnits[o] += terrain[c].incomeMult;   // settled land earns (cities 1.2x etc.)
             for (int nb : neighbours[c]) {
                 int no = owner[nb];
                 if (no != o && no != WATER) { border[o]++; break; }  // water is a safe edge
@@ -144,7 +150,7 @@ public final class GameState {
     /** Wipe a player's territory + army + treaties (used on join/leave/respawn). Returns cells freed. */
     public int clearPlayer(int p) {
         int n = 0;
-        for (int c = 0; c < cellCount; c++) if (owner[c] == p) { owner[c] = NEUTRAL; n++; }
+        for (int c = 0; c < cellCount; c++) if (owner[c] == p) { owner[c] = NEUTRAL; settle[c] = 0; n++; }
         army[p] = 0;
         for (int q = 0; q < numPlayers; q++) {
             rel[p][q] = 0; rel[q][p] = 0;

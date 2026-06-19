@@ -41,7 +41,10 @@ public final class CombatTest {
         System.out.println(title);
         System.out.printf("   defence %.2f/cell (army %.0f / border %d)%n", defPerCell, dA, dBorder);
         System.out.printf("   attacker: land %d->%d  army %.0f->%.0f%n", aL, count(s, 0), aA, s.army[0]);
-        System.out.printf("   defender: land %d->%d  army %.0f->%.0f   (cells lost: %d)%n%n",
+        System.out.printf("   defender: land %d->%d  army %.0f->%.0f   (cells lost: %d)%n",
                 dL, count(s, 1), dA, s.army[1], dL - count(s, 1));
+        int cap = dL - count(s, 1);
+        System.out.printf("   income-lag: attacker captured %d, now 'developing'=%d (no income yet); incomeUnits=%.0f (still ~original %d)%n%n",
+                cap, s.developing[0], s.incomeUnits[0], aL);
     }
 }

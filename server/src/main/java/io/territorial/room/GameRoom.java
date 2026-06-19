@@ -473,6 +473,7 @@ public class GameRoom {
         m.put("land", state.land.clone());
         m.put("border", state.border.clone());   // for the client's defence readout (army/border × morale)
         m.put("stance", state.stance.clone());    // 0 Normal, 1 Hold (+25% defence)
+        m.put("developing", state.developing.clone());   // just-captured cells not yet earning income
         m.put("events", lastEvents);              // this tick's events for the feed [type,a,b]
         m.put("alive", state.alive.clone());
         m.put("human", human.clone());

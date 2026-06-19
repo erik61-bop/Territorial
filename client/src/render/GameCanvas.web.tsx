@@ -44,6 +44,8 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
   const arrowsTick = useRef<number>(-1);
   const navalSnap = useRef<Snapshot | null>(null);   // cache: reachable-by-sea neutral islands
   const navalCells = useRef<number[]>([]);
+  const develop = useRef<Float32Array | null>(null); // per-cell "developing" countdown for MY new land
+  const developSnap = useRef<Snapshot | null>(null);
 
   // Latest props mirrored into refs so the rAF loop always reads current data without re-subscribing.
   const P = useRef({ map, snap, screenW, screenH, tap, myId });
@@ -78,6 +80,22 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
       let changed = 0;
       if (prev && prev.length === n) for (let i = 0; i < n; i++) if (prev[i] !== snap.owner[i]) changed++;
       const reset = !prev || prev.length !== n || changed > n * 0.2;
+
+      // "Developing" overlay: track MY freshly-captured cells (they hold but don't earn income yet),
+      // counting down ~5s, updated once per snapshot. Rendered as a fading amber tint below.
+      const SETTLE_SNAPS = 40;
+      if (snap !== developSnap.current) {
+        developSnap.current = snap;
+        if (!develop.current || develop.current.length !== n) develop.current = new Float32Array(n);
+        const d = develop.current;
+        for (let i = 0; i < n; i++) {
+          if (snap.owner[i] === myId) {
+            if (prev && prev.length === n && prev[i] !== myId) d[i] = SETTLE_SNAPS;   // just captured
+            else if (d[i] > 0) d[i]--;
+          } else if (d[i] !== 0) d[i] = 0;
+        }
+      }
+      const dv = develop.current;
 
       const VISION = 11;
       const fog = snap.phase === 0 && myId >= 0 && (snap.land?.[myId] ?? 0) > 0;
@@ -168,6 +186,10 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
             }
           } else {
             r *= 0.4; g *= 0.4; b *= 0.42;
+          }
+          if (dv && dv[i] > 0 && o === myId) {                   // freshly captured: amber "developing" tint
+            const f = (dv[i] / SETTLE_SNAPS) * 0.5;
+            r += (242 - r) * f; g += (196 - g) * f; b += (70 - b) * f;
           }
           const topLight = 1 + h * 0.12;
           r = Math.min(255, r * topLight); g = Math.min(255, g * topLight); b = Math.min(255, b * topLight);

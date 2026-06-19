@@ -137,6 +137,9 @@ export default function Hud() {
         {order != null && (
           <Text style={styles.orderNote}>↪ army is funding your order — it won't grow. Hold to bank it.</Text>
         )}
+        {(snap?.developing?.[playerId] ?? 0) > 0 && (
+          <Text style={styles.statusLine}>🏗 <Text style={[styles.statusVal, { color: '#ffd07a' }]}>{snap!.developing![playerId]}</Text> <Text style={styles.dim}>cells developing — no income yet</Text></Text>
+        )}
         <View style={styles.barTrack}><View style={[styles.barFill, { width: `${mapPct}%` }]} /></View>
         <Text style={styles.dim}>{mapPct}% of the map</Text>
       </View>

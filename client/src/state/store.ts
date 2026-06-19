@@ -20,6 +20,7 @@ export interface Snapshot {
   land: number[];
   border: number[];    // per-player border-cell count (for the defence readout)
   stance?: number[];   // per-player defence posture: 0 Normal, 1 Hold (+25% defence)
+  developing?: number[]; // per-player count of just-captured cells not yet producing income
   alive: boolean[];
   human: boolean[];
   winner: number;      // -1 while playing
