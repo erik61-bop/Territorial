@@ -96,6 +96,7 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
       const margin = cam.scale * (ISO_V + 4);
       const drawSides = cam.scale > 5;
       const borderDetail = cam.scale > 4;
+      const decor = cam.scale > 6.5;   // draw terrain icons (trees/peaks/castles) once zoomed in enough
 
       const quad = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, x4: number, y4: number, css: string) => {
         ctx.fillStyle = css;
@@ -169,6 +170,30 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
             }
           }
           quad(ax, ay, bx, by, dx, dy, ex, ey, `rgb(${r | 0},${g | 0},${b | 0})`);
+
+          // Terrain icons so cities/forests/mountains are legible (not just a brightness shade).
+          // Forest/mountain are regions, so only decorate ~half the cells (a stable checker) — enough
+          // to read the terrain without burying the owner colour; cities are sparse so always shown.
+          if (decor && !hidden && (t === 1 || t === 2 || t === 3)) {
+            const ccx = (ax + bx + dx + ex) / 4, ccy = (ay + by + dy + ey) / 4;
+            const s = cam.scale;
+            const sparse = ((cx + cy) & 1) === 0;
+            if (t === 2 && sparse) {                         // MOUNTAIN: grey peak with a snow cap
+              ctx.fillStyle = 'rgba(95,98,110,0.92)';
+              ctx.beginPath(); ctx.moveTo(ccx, ccy - s * 0.5); ctx.lineTo(ccx - s * 0.42, ccy + s * 0.22); ctx.lineTo(ccx + s * 0.42, ccy + s * 0.22); ctx.closePath(); ctx.fill();
+              ctx.fillStyle = 'rgba(238,242,250,0.92)';
+              ctx.beginPath(); ctx.moveTo(ccx, ccy - s * 0.5); ctx.lineTo(ccx - s * 0.13, ccy - s * 0.18); ctx.lineTo(ccx + s * 0.13, ccy - s * 0.18); ctx.closePath(); ctx.fill();
+            } else if (t === 1 && sparse) {                  // FOREST: a little pine
+              ctx.fillStyle = 'rgba(70,48,28,0.9)'; ctx.fillRect(ccx - s * 0.04, ccy + s * 0.06, s * 0.08, s * 0.18);
+              ctx.fillStyle = 'rgba(30,98,50,0.92)';
+              ctx.beginPath(); ctx.moveTo(ccx, ccy - s * 0.4); ctx.lineTo(ccx - s * 0.24, ccy + s * 0.1); ctx.lineTo(ccx + s * 0.24, ccy + s * 0.1); ctx.closePath(); ctx.fill();
+            } else if (t === 3) {                            // CITY: a pale keep with battlements (always)
+              ctx.fillStyle = 'rgba(235,220,180,0.98)';
+              ctx.fillRect(ccx - s * 0.32, ccy - s * 0.1, s * 0.64, s * 0.4);
+              for (let kk = -1; kk <= 1; kk++) ctx.fillRect(ccx + kk * s * 0.22 - s * 0.08, ccy - s * 0.26, s * 0.16, s * 0.18);
+              ctx.strokeStyle = 'rgba(70,52,28,0.85)'; ctx.lineWidth = 1; ctx.strokeRect(ccx - s * 0.32, ccy - s * 0.1, s * 0.64, s * 0.4);
+            }
+          }
         }
       }
       prevOwner.current = snap.owner;
