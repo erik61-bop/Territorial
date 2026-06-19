@@ -252,6 +252,25 @@ public class GameRoom {
         }
     }
 
+    /** Deliberate surrender (clicked "Leave match"): dissolve the empire NOW and free the slot — no
+     *  grace, no bot takeover. (An accidental disconnect goes through removeHuman + the grace timer.) */
+    public void leaveMatch(WebSocketSession session) {
+        Integer p = sessionToPlayer.remove(session.getId());
+        if (p == null) return;
+        lock.lock();
+        try {
+            state.clearPlayer(p);          // their land returns to neutral
+            human[p] = false;
+            connected[p] = false;
+            names[p] = null;
+            humanActions.remove(p);
+            if (slotToken[p] != null) { tokenToSlot.remove(slotToken[p]); slotToken[p] = null; }
+            sim.recomputeDerived();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /** Hand a disconnected (grace-expired) player's empire to a BOT instead of dissolving it, so the
      *  map stays intact and the war continues (named-bot replacement). The slot is free to reclaim. */
     private void expireDisconnects() {

@@ -91,10 +91,15 @@ export function connect(url = serverUrl()): WebSocket {
   return sock;
 }
 
-/** Leave the match: close the socket and stop auto-reconnect (back to the menu). */
+/** Leave the match: tell the server to surrender (dissolve the empire now), then close + stop
+ *  auto-reconnect. (An accidental drop instead keeps the empire for the reconnect grace.) */
 export function disconnect(): void {
   intentionalClose = true;
-  if (ws) { try { ws.close(); } catch { /* ignore */ } ws = null; }
+  const sock = ws; ws = null;
+  if (sock) {
+    try { if (sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify({ type: 'leave' })); } catch { /* ignore */ }
+    setTimeout(() => { try { sock.close(); } catch { /* ignore */ } }, 80);   // let the leave msg flush first
+  }
   useGame.getState().setConnected(false);
 }
 
