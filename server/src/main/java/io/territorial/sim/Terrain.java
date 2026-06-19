@@ -5,7 +5,7 @@ public enum Terrain {
     PLAIN   (1.00, 1.00),
     FOREST  (1.25, 1.00),
     MOUNTAIN(1.60, 1.00),
-    CITY    (1.00, 1.20),
+    CITY    (1.30, 1.20),   // cities are fortified: harder to take AND richer
     RIVER   (1.35, 1.00),
     WATER   (1.00, 0.00);   // unownable ocean; splits the map, crossable only by amphibious assault
 

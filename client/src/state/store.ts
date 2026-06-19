@@ -18,7 +18,8 @@ export interface Snapshot {
   morale: number[];    // per-player momentum x100 (e.g. 120 = 1.20)
   income: number[];    // per-player army/sec
   land: number[];
-  border: number[];    // per-player border-cell count (for the defence readout)
+  border: number[];    // per-player border-cell count (where battles happen)
+  defScore?: number[]; // per-player terrain/supply/morale/stance-aware defence per border cell
   stance?: number[];   // per-player defence posture: 0 Normal, 1 Hold (+25% defence)
   developing?: number[]; // per-player count of just-captured cells not yet producing income
   alive: boolean[];
@@ -41,10 +42,13 @@ export interface Snapshot {
 export function colorIndexOf(snap: Snapshot | undefined, id: number): number {
   return snap?.colors?.[id] ?? id;
 }
-/** Per-border-cell defence (concentration × morale) — how much wave it takes to crack a border cell.
- *  Kept to 1 decimal: it's often < 1 (an over-stretched empire has near-zero per-cell defence). */
+/** Defence score per border cell — the wave it takes to crack a typical border cell. Prefers the
+ *  server's terrain/supply/morale/stance-aware value (defScore); falls back to the crude army/border
+ *  average for older payloads. It's often < 1 (an over-stretched empire has near-zero defence). */
 export function defenseOf(snap: Snapshot | undefined, id: number): number {
   if (!snap) return 0;
+  const srv = snap.defScore?.[id];
+  if (srv != null) return Math.round(srv * 10) / 10;       // already terrain/supply/morale/stance-aware
   const army = snap.army?.[id] ?? 0;
   const border = Math.max(1, snap.border?.[id] ?? 1);
   const mom = (snap.morale?.[id] ?? 100) / 100;
