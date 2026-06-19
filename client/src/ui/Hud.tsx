@@ -128,6 +128,9 @@ export default function Hud() {
         {(() => { const d = defenseOf(snap, playerId); return (
           <Text style={styles.statusLine}>🛡 Defense <Text style={[styles.statusVal, { color: d < 1 ? '#ff9f8f' : '#86d6ff' }]}>{d.toFixed(1)}</Text> <Text style={styles.dim}>/border · {defenseTag(d)}</Text></Text>
         ); })()}
+        {order != null && (
+          <Text style={styles.orderNote}>↪ army is funding your order — it won't grow. Hold to bank it.</Text>
+        )}
         <View style={styles.barTrack}><View style={[styles.barFill, { width: `${mapPct}%` }]} /></View>
         <Text style={styles.dim}>{mapPct}% of the map</Text>
       </View>
@@ -144,7 +147,8 @@ export default function Hud() {
             <Pressable
               key={a.mode}
               onPress={() => { setMode(a.mode); if (a.mode === 'hold') sendStop(); }}
-              style={[styles.action, { borderColor: a.color }, mode === a.mode && { backgroundColor: a.color }]}
+              style={[styles.action, { borderColor: a.color }, mode === a.mode && { backgroundColor: a.color },
+                      order != null && a.mode === 'hold' && styles.holdAttention]}
             >
               <Text style={styles.actionIcon}>{a.icon}</Text>
               <Text style={[styles.actionTxt, mode === a.mode && { color: '#fff' }]}>{a.label}</Text>
@@ -153,7 +157,7 @@ export default function Hud() {
         </View>
         <Text style={styles.dim}>
           {order != null
-            ? (order === -1 ? '↗ expanding — keeps going (Hold to stop)' : `⚔ attacking P${order} — keeps going (Hold to stop)`)
+            ? (order === -1 ? '↗ expanding — keeps going (Hold to stop)' : `⚔ attacking ${nameOf(snap, order, playerId)} — keeps going (Hold to stop)`)
             : ACTIONS.find((a) => a.mode === mode)?.hint}
         </Text>
       </View>
@@ -232,6 +236,8 @@ const styles = StyleSheet.create({
   matchTag: { color: '#8aa0c8', fontSize: 11, fontWeight: '700', marginLeft: 'auto' },
   statusLine: { color: '#cdd6f4', fontSize: 13, marginVertical: 1 },
   statusVal: { color: '#fff', fontWeight: '800' },
+  orderNote: { color: '#ffd07a', fontSize: 11, fontWeight: '700', marginTop: 2 },
+  holdAttention: { borderColor: '#7CFC9B', backgroundColor: 'rgba(70,163,90,0.30)' },
   barTrack: { height: 8, borderRadius: 4, backgroundColor: '#2a3145', marginTop: 8, overflow: 'hidden' },
   barFill: { height: 8, borderRadius: 4, backgroundColor: '#4c7dff' },
 
