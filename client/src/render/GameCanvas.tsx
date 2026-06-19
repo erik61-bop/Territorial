@@ -13,7 +13,7 @@ const TAP_COLOR = { attack: 'rgba(255,80,80,0.95)', expand: 'rgba(255,255,255,0.
 interface Props {
   map: MapInfo;
   snap: Snapshot;
-  camera: Camera;
+  cameraRef: { current: Camera };
   screenW: number;
   screenH: number;
   tap: TapMark | null;
@@ -25,7 +25,8 @@ interface Props {
  * when neutral) drawn under a camera transform (translate + scale, nearest-neighbour). Capitals
  * are ringed; your own capital is highlighted; a tap leaves a brief marker.
  */
-export default function GameCanvas({ map, snap, camera, screenW, screenH, tap, myId }: Props) {
+export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap, myId }: Props) {
+  const camera = cameraRef.current;
   const { width, height, terrain } = map;
   const capitals = snap.capitals?.length ? snap.capitals : map.capitals; // chosen spawns override
 

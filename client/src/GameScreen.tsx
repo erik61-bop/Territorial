@@ -24,9 +24,19 @@ export default function GameScreen() {
   const snap = useGame((s) => s.snap);
   const playerId = useGame((s) => s.playerId);
 
-  const [camera, setCamera] = useState<Camera>({ scale: 8, tx: 0, ty: 0 });
-  const cameraRef = useRef(camera);
-  cameraRef.current = camera;
+  // cameraRef is the authoritative, LIVE camera (the renderer reads it every animation frame). React
+  // `camera` state is just a coalesced mirror (≤1/frame) so the minimap can show the viewport box —
+  // input never blocks on a React re-render, which keeps pan/zoom smooth.
+  const cameraRef = useRef<Camera>({ scale: 8, tx: 0, ty: 0 });
+  const [camera, setCamera] = useState<Camera>(cameraRef.current);
+  const camSync = useRef<number>(0);
+  const setCam = useCallback((next: Camera | ((c: Camera) => Camera)) => {
+    const v = typeof next === 'function' ? (next as (c: Camera) => Camera)(cameraRef.current) : next;
+    cameraRef.current = v;
+    if (!camSync.current && typeof requestAnimationFrame !== 'undefined') {
+      camSync.current = requestAnimationFrame(() => { camSync.current = 0; setCamera(cameraRef.current); });
+    }
+  }, []);
 
   const [tap, setTap] = useState<TapMark | null>(null);
   const [callouts, setCallouts] = useState<{ key: number; text: string }[]>([]);
@@ -51,7 +61,7 @@ export default function GameScreen() {
   useEffect(() => {
     if (!map || fitted.current) return;
     const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, (winW / (map.width + map.height)) * 0.92));
-    setCamera(centerOn(map.width / 2, map.height / 2, 0, scale, winW / 2, winH / 2));
+    setCam(centerOn(map.width / 2, map.height / 2, 0, scale, winW / 2, winH / 2));
     fitted.current = true;
   }, [map, winW, winH]);
 
@@ -63,7 +73,7 @@ export default function GameScreen() {
     const cx = myCapital % map.width;
     const cy = Math.floor(myCapital / map.width);
     const h = terrainHeight(map.terrain[myCapital] ?? 0);
-    setCamera(centerOn(cx, cy, h, scale, winW / 2, winH / 2));
+    setCam(centerOn(cx, cy, h, scale, winW / 2, winH / 2));
     centeredCapital.current = myCapital;
   }, [map, myCapital, myLand, winW, winH]);
 
@@ -201,7 +211,7 @@ export default function GameScreen() {
         const ddx = g.dx - prev.x;
         const ddy = g.dy - prev.y;
         lastPan.current = { x: g.dx, y: g.dy };
-        setCamera((c) => ({ ...c, tx: c.tx + ddx, ty: c.ty + ddy }));
+        setCam((c) => ({ ...c, tx: c.tx + ddx, ty: c.ty + ddy }));
       },
       onPanResponderRelease: (e, g) => {
         if (Math.hypot(g.dx, g.dy) <= DRAG_THRESHOLD) {
@@ -222,7 +232,7 @@ export default function GameScreen() {
       const rect = node.getBoundingClientRect();
       const mx = ev.clientX - rect.left;
       const my = ev.clientY - rect.top;
-      setCamera((c) => {
+      setCam((c) => {
         const factor = Math.exp(-ev.deltaY * 0.0015);
         const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, c.scale * factor));
         const k = next / c.scale;
@@ -249,7 +259,7 @@ export default function GameScreen() {
         default: return;
       }
       e.preventDefault();
-      setCamera((c) => {
+      setCam((c) => {
         if (zoom !== 1) {
           const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, c.scale * zoom));
           const k = next / c.scale, mx = winW / 2, my = winH / 2;
@@ -265,8 +275,25 @@ export default function GameScreen() {
   // Jump the camera to a map cell (used by minimap clicks).
   const jumpTo = useCallback((mapX: number, mapY: number) => {
     const c = cameraRef.current;
-    setCamera(centerOn(mapX, mapY, 0, c.scale, winW / 2, winH / 2));
-  }, [winW, winH]);
+    setCam(centerOn(mapX, mapY, 0, c.scale, winW / 2, winH / 2));
+  }, [winW, winH, setCam]);
+
+  // On-screen zoom (about screen centre) + recenter (on your capital, else the map).
+  const zoomBy = useCallback((f: number) => setCam((c) => {
+    const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, c.scale * f));
+    const k = next / c.scale, mx = winW / 2, my = winH / 2;
+    return { scale: next, tx: mx - (mx - c.tx) * k, ty: my - (my - c.ty) * k };
+  }), [winW, winH, setCam]);
+  const recenter = useCallback(() => {
+    const st = useGame.getState(); const m = st.map; const s = st.snap; const pid = st.playerId;
+    if (!m) return;
+    const cap = s?.capitals?.[pid] ?? -1;
+    if (pid >= 0 && s && s.land[pid] > 0 && cap >= 0) {
+      setCam(centerOn(cap % m.width, Math.floor(cap / m.width), terrainHeight(m.terrain[cap] ?? 0), Math.max(cameraRef.current.scale, 9), winW / 2, winH / 2));
+    } else {
+      setCam(centerOn(m.width / 2, m.height / 2, 0, cameraRef.current.scale, winW / 2, winH / 2));
+    }
+  }, [winW, winH, setCam]);
 
   if (!started) {
     return <Menu onPlay={(difficulty, name, color) => {
@@ -279,7 +306,7 @@ export default function GameScreen() {
   return (
     <View ref={containerRef} style={styles.root} {...panResponder.panHandlers}>
       {map && snap ? (
-        <GameCanvas map={map} snap={snap} camera={camera} screenW={winW} screenH={winH} tap={tap} myId={playerId} />
+        <GameCanvas map={map} snap={snap} cameraRef={cameraRef} screenW={winW} screenH={winH} tap={tap} myId={playerId} />
       ) : (
         <Text style={styles.waiting}>joining match…</Text>
       )}
@@ -312,6 +339,11 @@ export default function GameScreen() {
       <Pressable style={styles.helpBtn} onPress={() => useGame.getState().setShowHelp(true)}>
         <Text style={styles.helpTxt}>?</Text>
       </Pressable>
+      <View style={styles.zoomBar}>
+        <Pressable style={styles.zoomBtn} onPress={() => zoomBy(1.3)}><Text style={styles.zoomTxt}>＋</Text></Pressable>
+        <Pressable style={styles.zoomBtn} onPress={() => zoomBy(1 / 1.3)}><Text style={styles.zoomTxt}>－</Text></Pressable>
+        <Pressable style={styles.zoomBtn} onPress={recenter}><Text style={styles.zoomTxt}>⌖</Text></Pressable>
+      </View>
       <Help />
     </View>
   );
@@ -345,4 +377,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   helpTxt: { color: '#8aa0c8', fontSize: 19, fontWeight: '900' },
+  zoomBar: { position: 'absolute', left: 12, top: '40%', gap: 8 },
+  zoomBtn: {
+    width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(20,24,36,0.92)',
+    borderWidth: 1, borderColor: '#2a3145', alignItems: 'center', justifyContent: 'center',
+  },
+  zoomTxt: { color: '#cdd6f4', fontSize: 20, fontWeight: '900' },
 });

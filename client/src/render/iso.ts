@@ -43,7 +43,7 @@ export function unprojectH(sx: number, sy: number, cam: IsoCam, heightOf: (x: nu
   const a = (sx - cam.tx) / cam.scale;          // x - y (height-independent)
   const b0 = (sy - cam.ty) / (cam.scale * 0.5); // x + y at height 0
   let x = (a + b0) / 2, y = (b0 - a) / 2;
-  for (let iter = 0; iter < 3; iter++) {
+  for (let iter = 0; iter < 5; iter++) {
     const h = heightOf(Math.floor(x), Math.floor(y));
     const b = b0 + 2 * h * ISO_V;
     x = (a + b) / 2; y = (b - a) / 2;
