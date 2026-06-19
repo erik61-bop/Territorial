@@ -11,6 +11,7 @@ import Inspect from './ui/Inspect';
 import Menu from './ui/Menu';
 import Help from './ui/Help';
 import Settings from './ui/Settings';
+import EventFeed from './ui/EventFeed';
 import { sfx } from './audio/sfx';
 
 const MIN_SCALE = 2;
@@ -81,8 +82,6 @@ export default function GameScreen() {
   // Sound cues derived from snapshot deltas (throttled so expansion doesn't chatter).
   const prevLand = useRef<number | null>(null);
   const prevPhase = useRef<number | null>(null);
-  const prevAlive = useRef<boolean[] | null>(null);
-  const prevCaps = useRef<number[] | null>(null);
   const prevTick = useRef<number | null>(null);
   const seaHintShown = useRef(false);
   const lastSfxAt = useRef<number>(0);
@@ -92,7 +91,7 @@ export default function GameScreen() {
     // New match (tick reset): drop all baselines so we don't fire phantom losses/eliminations/
     // capital-falls against the previous match's state.
     if (prevTick.current != null && snap.tick < prevTick.current) {
-      prevLand.current = null; prevPhase.current = null; prevAlive.current = null; prevCaps.current = null;
+      prevLand.current = null; prevPhase.current = null;
       fitted.current = false; centeredCapital.current = -1;   // re-fit the camera for the new (maybe resized) map
     }
     prevTick.current = snap.tick;
@@ -115,24 +114,7 @@ export default function GameScreen() {
       if (now - lastSfxAt.current > 1000) { sfx.win(); lastSfxAt.current = now; }
     }
 
-    // Eliminations + capitals falling -> dramatic callouts.
-    const pa = prevAlive.current;
-    if (pa) for (let p = 0; p < snap.alive.length; p++) {
-      if (pa[p] && !snap.alive[p] && (snap.peakLand?.[p] ?? 0) > 0) {
-        pushCallout(`${nameOf(snap, p, playerId)} was eliminated`);
-        if (!muted) sfx.eliminate();
-      }
-    }
-    prevAlive.current = snap.alive.slice();
-    const pc = prevCaps.current;
-    if (pc) for (let p = 0; p < snap.alive.length; p++) {
-      const old = pc[p];
-      if (snap.alive[p] && old != null && old >= 0 && snap.owner[old] !== p && snap.owner[old] !== -2) {
-        pushCallout(`${nameOf(snap, p, playerId)}'s capital fell!`);
-        if (!muted) sfx.capitalFell();
-      }
-    }
-    prevCaps.current = (snap.capitals ?? []).slice();
+    // (Eliminations / capital captures / treaties are now announced server-side via the event feed.)
 
     // First time your territory touches the sea, tell the player ships are now possible.
     if (!seaHintShown.current && map && playerId >= 0 && (snap.land[playerId] ?? 0) > 0) {
@@ -358,6 +340,7 @@ export default function GameScreen() {
         </View>
       )}
       <Hud />
+      <EventFeed />
       <QuickChat />
       <Inspect />
       {map && snap && <Minimap camera={camera} screenW={winW} screenH={winH} onJump={jumpTo} />}

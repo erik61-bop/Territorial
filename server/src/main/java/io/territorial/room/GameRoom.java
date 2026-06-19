@@ -57,6 +57,9 @@ public class GameRoom {
     private final int[] peakLand = new int[NUM_PLAYERS];  // post-game summary: max land each player held
     private final int[] deathSeq = new int[NUM_PLAYERS];  // elimination order (0 = still alive / never played)
     private int deathCount = 0;
+    // Event feed: diff state each tick to surface eliminations, capital captures, diplomacy.
+    private boolean[] evAlive; private int[] evCap; private byte[][] evRel;
+    private int[][] lastEvents = new int[0][];   // [type,a,b]: 1 ELIM,2 CAPITAL,3 PEACE,4 ALLY,5 BREAK
     private long matchSeed = 1L;
     private int winner = -1;
     private int holdTicks = 0;
@@ -132,6 +135,8 @@ public class GameRoom {
         humanActions.clear();
         humanDiplo.clear();
         lastAttacks = new int[0];
+        lastEvents = new int[0][];
+        evAlive = null;                 // re-baseline event diffing for the new match (no spurious events)
     }
 
     private void safeStep() {
@@ -194,6 +199,7 @@ public class GameRoom {
                 if (state.land[p] > peakLand[p]) peakLand[p] = state.land[p];
                 if (!state.alive[p] && deathSeq[p] == 0 && peakLand[p] > 0) deathSeq[p] = ++deathCount;
             }
+            buildEvents();
             winner = sim.winner();
             broadcastState();
         } finally {
@@ -406,6 +412,33 @@ public class GameRoom {
     }
 
     /** Everything except the cell ownership (which is sent full as "owner" or diffed as "changed"). */
+    /** Diff state since last tick into events the client can announce (eliminations, capitals, treaties). */
+    private void buildEvents() {
+        java.util.List<int[]> ev = new java.util.ArrayList<>();
+        if (evAlive != null) {
+            for (int p = 0; p < NUM_PLAYERS; p++) {
+                if (evAlive[p] && !state.alive[p]) ev.add(new int[]{1, p, -1});                       // eliminated
+                else if (state.alive[p] && evCap[p] >= 0 && state.owner[evCap[p]] != p)               // capital fell
+                    ev.add(new int[]{2, p, state.owner[evCap[p]] >= 0 ? state.owner[evCap[p]] : -1});
+            }
+            for (int a = 0; a < NUM_PLAYERS; a++)
+                for (int b = a + 1; b < NUM_PLAYERS; b++) {
+                    int was = evRel[a][b], now = state.rel[a][b];
+                    if (was == now) continue;
+                    if (now == 1) ev.add(new int[]{3, a, b});       // peace
+                    else if (now == 2) ev.add(new int[]{4, a, b});  // alliance
+                    else if (now == 0) ev.add(new int[]{5, a, b});  // broke a treaty
+                }
+        } else {
+            evAlive = new boolean[NUM_PLAYERS]; evCap = new int[NUM_PLAYERS]; evRel = new byte[NUM_PLAYERS][NUM_PLAYERS];
+        }
+        lastEvents = ev.toArray(new int[0][]);
+        System.arraycopy(state.alive, 0, evAlive, 0, NUM_PLAYERS);
+        for (int p = 0; p < NUM_PLAYERS; p++) evCap[p] = state.capitalCell[p];
+        for (int a = 0; a < NUM_PLAYERS; a++)
+            for (int b = 0; b < NUM_PLAYERS; b++) evRel[a][b] = state.rel[a][b];
+    }
+
     /** Final ranking: alive players by land, then dead by reverse elimination order. 0 = never played. */
     private int[] computePlaces() {
         int n = state.numPlayers;
@@ -440,6 +473,7 @@ public class GameRoom {
         m.put("land", state.land.clone());
         m.put("border", state.border.clone());   // for the client's defence readout (army/border × morale)
         m.put("stance", state.stance.clone());    // 0 Normal, 1 Hold (+25% defence)
+        m.put("events", lastEvents);              // this tick's events for the feed [type,a,b]
         m.put("alive", state.alive.clone());
         m.put("human", human.clone());
         String[] nm = new String[state.numPlayers];

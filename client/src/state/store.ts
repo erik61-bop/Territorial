@@ -88,6 +88,7 @@ interface GameStore {
   order: number | null; // current standing-order target (playerId, -1 = expand, null = none)
   underAttackAt: number; // performance.now() of the last time we lost land (for the threat cue)
   selected: number | null; // nation currently inspected (playerId), or null
+  gameEvents: { key: number; text: string; color: string; t: number }[]; // event feed (recent)
   spectating: boolean;   // eliminated/idle player chose to watch instead of respawning
   showHelp: boolean;     // the How-to-play overlay is open
   showSettings: boolean; // the settings / pause panel is open
@@ -113,7 +114,10 @@ interface GameStore {
   setShowSettings: (b: boolean) => void;
   setDifficulty: (n: number) => void;
   setSinglePlayer: (b: boolean) => void;
+  pushGameEvent: (text: string, color: string) => void;
 }
+
+let evKey = 0;
 
 export const useGame = create<GameStore>((set) => ({
   connected: false,
@@ -129,6 +133,7 @@ export const useGame = create<GameStore>((set) => ({
   order: null,
   underAttackAt: 0,
   selected: null,
+  gameEvents: [],
   spectating: false,
   showHelp: false,
   showSettings: false,
@@ -153,6 +158,9 @@ export const useGame = create<GameStore>((set) => ({
   setShowSettings: (b) => set({ showSettings: b }),
   setDifficulty: (n) => set({ difficulty: n }),
   setSinglePlayer: (b) => set({ singlePlayer: b }),
+  pushGameEvent: (text, color) => set((st) => ({
+    gameEvents: [...st.gameEvents, { key: ++evKey, text, color, t: typeof performance !== 'undefined' ? performance.now() : Date.now() }].slice(-6),
+  })),
 }));
 
 // Expose the store on web for debugging / automated end-to-end checks.

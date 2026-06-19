@@ -1,4 +1,19 @@
 import { useGame } from '../state/store';
+import { sfx } from '../audio/sfx';
+
+/** Format a server event [type,a,b] into feed text (diplomacy only shown if it involves you). */
+function announceEvent(ev: number[], names: string[] | undefined, myId: number): { text: string; color: string; major: boolean } | null {
+  const [type, a, b] = ev;
+  const nm = (i: number) => (i === myId ? 'You' : names?.[i] ?? `P${i + 1}`);
+  switch (type) {
+    case 1: return { text: `💀 ${nm(a)} was eliminated`, color: '#ff9f8f', major: true };
+    case 2: return { text: `👑 ${nm(a)}'s capital fell${b >= 0 ? ` to ${nm(b)}` : ''}!`, color: '#ffd54a', major: true };
+    case 3: return a === myId || b === myId ? { text: `🤝 ${nm(a)} & ${nm(b)} made peace`, color: '#86d6ff', major: false } : null;
+    case 4: return a === myId || b === myId ? { text: `🛡️ ${nm(a)} & ${nm(b)} allied`, color: '#8affb0', major: false } : null;
+    case 5: return a === myId || b === myId ? { text: `⚔️ ${nm(a)} broke a treaty with ${nm(b)}`, color: '#ff9f8f', major: false } : null;
+    default: return null;
+  }
+}
 
 let ws: WebSocket | null = null;
 let chatKey = 1;
@@ -80,6 +95,16 @@ export function connect(url = serverUrl()): WebSocket {
           names: m.names, colors: m.colors, attacks: m.attacks,
           peakLand: m.peakLand, place: m.place,
         });
+        // Announce this tick's events (eliminations, capitals, your treaties) in the feed.
+        if (Array.isArray(m.events) && m.events.length) {
+          const myId = s.playerId; const muted = s.muted;
+          for (const ev of m.events) {
+            const a = announceEvent(ev, m.names, myId);
+            if (!a) continue;
+            s.pushGameEvent(a.text, a.color);
+            if (a.major && !muted) (ev[0] === 1 ? sfx.eliminate : sfx.capitalFell)();
+          }
+        }
         break;
       }
       case 'chat':
