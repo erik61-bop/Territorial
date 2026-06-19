@@ -93,7 +93,29 @@ public final class GameFactory {
                 }
             }
         }
-        // record water cells + ownable count
+        // Scatter a few tiny NEUTRAL islands in the open sea (1-3 cells), reachable only by amphibious
+        // assault — fills the empty ocean and adds out-of-the-way land to grab.
+        int islands = 4 + s.rng.nextInt(4);
+        for (int k = 0; k < islands; k++) {
+            int c = s.rng.nextInt(s.cellCount);
+            if (s.terrain[c] != Terrain.WATER) continue;
+            boolean deep = true;                          // sits in open water (all neighbours sea)
+            for (int nb : s.neighbours[c]) if (s.terrain[nb] != Terrain.WATER) { deep = false; break; }
+            if (!deep) continue;
+            s.terrain[c] = s.rng.nextDouble() < 0.4 ? Terrain.FOREST : Terrain.PLAIN;
+            s.owner[c] = GameState.NEUTRAL;
+            int extra = s.rng.nextInt(3);
+            for (int e = 0; e < extra; e++) {
+                int[] nbs = s.neighbours[c];
+                int nb = nbs[s.rng.nextInt(nbs.length)];
+                if (s.terrain[nb] == Terrain.WATER) {
+                    s.terrain[nb] = s.rng.nextDouble() < 0.3 ? Terrain.FOREST : Terrain.PLAIN;
+                    s.owner[nb] = GameState.NEUTRAL;
+                }
+            }
+        }
+
+        // record water cells + ownable count (islands above are land again, so counted correctly)
         int[] tmp = new int[placed];
         int w = 0;
         for (int c = 0; c < s.cellCount; c++) if (s.terrain[c] == Terrain.WATER) tmp[w++] = c;

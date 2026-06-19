@@ -345,6 +345,7 @@ export default function GameScreen() {
         <Pressable style={styles.zoomBtn} onPress={recenter}><Text style={styles.zoomTxt}>⌖</Text></Pressable>
       </View>
       <Help />
+      <View pointerEvents="none" style={styles.frame} />
     </View>
   );
 }
@@ -383,4 +384,8 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#2a3145', alignItems: 'center', justifyContent: 'center',
   },
   zoomTxt: { color: '#cdd6f4', fontSize: 20, fontWeight: '900' },
+  frame: {
+    position: 'absolute', left: 0, top: 0, right: 0, bottom: 0,
+    borderWidth: 5, borderColor: 'rgba(201,179,128,0.55)', borderRadius: 14,
+  },
 });

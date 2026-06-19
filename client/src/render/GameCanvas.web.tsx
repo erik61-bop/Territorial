@@ -223,6 +223,19 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
             ctx.strokeStyle = 'rgba(196,224,247,0.40)'; ctx.lineWidth = Math.max(1, s * 0.07);
             ctx.beginPath(); ctx.arc(ccx, ccy + s * 0.06, s * 0.26, Math.PI * 0.18, Math.PI * 0.82); ctx.stroke();
           }
+          // River ripple (smaller, bluer than sea).
+          if (decor && t === 4 && ((cx + cy) & 1) === 0) {
+            const ccx = (ax + bx + dx + ex) / 4, ccy = (ay + by + dy + ey) / 4, s = cam.scale;
+            ctx.strokeStyle = 'rgba(150,200,238,0.55)'; ctx.lineWidth = Math.max(1, s * 0.08);
+            ctx.beginPath(); ctx.arc(ccx, ccy, s * 0.2, Math.PI * 0.2, Math.PI * 0.8); ctx.stroke();
+          }
+          // Plain: faint grass flecks so flat land isn't a solid colour block.
+          if (decor && t === 0 && !hidden && ((cx * 2 + cy) % 3 === 0)) {
+            const ccx = (ax + bx + dx + ex) / 4, ccy = (ay + by + dy + ey) / 4, s = cam.scale;
+            ctx.fillStyle = 'rgba(110,135,72,0.26)';
+            ctx.fillRect(ccx - s * 0.16, ccy + s * 0.02, s * 0.1, s * 0.08);
+            ctx.fillRect(ccx + s * 0.05, ccy - s * 0.05, s * 0.08, s * 0.07);
+          }
         }
       }
       prevOwner.current = snap.owner;
@@ -284,6 +297,13 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
         ctx.strokeText('♛', px, py);
         ctx.fillStyle = col;
         ctx.fillText('♛', px, py);
+        // A pennant in the OWNER's colour, so you can tell whose capital it is at a glance.
+        const pc = PLAYER_COLORS[(snap.colors?.[pid] ?? pid) % PLAYER_COLORS.length];
+        const fx = px + cs * 0.42, ftop = py - cs * 0.62;
+        ctx.strokeStyle = 'rgba(40,30,15,0.9)'; ctx.lineWidth = Math.max(1, cs * 0.06);
+        ctx.beginPath(); ctx.moveTo(fx, ftop); ctx.lineTo(fx, ftop + cs * 0.62); ctx.stroke();
+        ctx.fillStyle = `rgb(${pc[0]},${pc[1]},${pc[2]})`;
+        ctx.beginPath(); ctx.moveTo(fx, ftop); ctx.lineTo(fx + cs * 0.46, ftop + cs * 0.12); ctx.lineTo(fx, ftop + cs * 0.26); ctx.closePath(); ctx.fill();
       }
 
       const rel = snap.rel?.[myId] ?? [];
