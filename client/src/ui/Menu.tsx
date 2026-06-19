@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, Platform } from 'react-native';
 import { PLAYER_COLORS } from '../render/colors';
 import { useGame } from '../state/store';
 import { refreshMe, logout } from '../net/socket';
+import Backdrop from './Backdrop';
 
 const MODES = [
   { v: true, label: '🤖 Single-player', sub: 'you vs bots, private' },
@@ -42,6 +43,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
 
   return (
     <View style={styles.root}>
+      <Backdrop />
       <Text style={styles.title}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>The Art of Conquest — one army is your sword and your shield.</Text>
 
@@ -90,7 +92,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
         value={name}
         onChangeText={(t) => setName(t.slice(0, 16))}
         placeholder="Commander"
-        placeholderTextColor="#566"
+        placeholderTextColor="#8a98b8"
         maxLength={16}
       />
 
@@ -127,8 +129,8 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0d0d12', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  title: { color: '#fff', fontSize: 56, fontWeight: '900', letterSpacing: 4 },
+  root: { flex: 1, backgroundColor: '#0b0d14', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  title: { color: '#fff', fontSize: 58, fontWeight: '900', letterSpacing: 5, textShadowColor: 'rgba(90,150,255,0.85)', textShadowRadius: 24 },
   subtitle: { color: '#9aa', fontSize: 15, marginTop: 8, marginBottom: 22, textAlign: 'center' },
   diffLabel: { color: '#8aa0c8', fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 8 },
   modeRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
@@ -138,13 +140,15 @@ const styles = StyleSheet.create({
   modeSub: { color: '#8aa0c8', fontSize: 11, marginTop: 2 },
   nameInput: {
     width: 260, color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center',
-    backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145', borderRadius: 10,
-    paddingVertical: 10, marginBottom: 20,
+    backgroundColor: '#222a3e', borderWidth: 1, borderColor: '#41507a', borderRadius: 10,
+    paddingVertical: 11, marginBottom: 20,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
   colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 320, marginBottom: 22 },
   swatch: { width: 30, height: 30, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
   swatchActive: { borderColor: '#fff' },
-  acctRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 },
+  acctRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18,
+    backgroundColor: 'rgba(20,24,36,0.6)', borderWidth: 1, borderColor: '#2a3145', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 },
   wallet: { color: '#ffd54a', fontSize: 16, fontWeight: '800' },
   acctName: { color: '#cdd6f4', fontSize: 14, fontWeight: '700' },
   logout: { color: '#8aa0c8', fontSize: 13, fontWeight: '700', textDecorationLine: 'underline', marginLeft: 4 },
@@ -157,7 +161,11 @@ const styles = StyleSheet.create({
   diffActive: { backgroundColor: '#2f6df0', borderColor: '#2f6df0' },
   diffTxt: { color: '#9fb0cf', fontSize: 14, fontWeight: '700' },
   diffTxtActive: { color: '#fff' },
-  play: { backgroundColor: '#4c7dff', paddingVertical: 14, paddingHorizontal: 48, borderRadius: 14 },
-  playTxt: { color: '#fff', fontSize: 22, fontWeight: '800' },
+  play: {
+    backgroundColor: '#4c7dff', paddingVertical: 15, paddingHorizontal: 56, borderRadius: 16,
+    shadowColor: '#4c7dff', shadowOpacity: 0.7, shadowRadius: 22, shadowOffset: { width: 0, height: 6 },
+    borderWidth: 1, borderColor: '#6f98ff',
+  },
+  playTxt: { color: '#fff', fontSize: 23, fontWeight: '900', letterSpacing: 1 },
   hint: { color: '#667', fontSize: 13, marginTop: 28, maxWidth: 440, textAlign: 'center', lineHeight: 19 },
 });

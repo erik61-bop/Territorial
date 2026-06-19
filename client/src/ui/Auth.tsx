@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { apiLogin, apiRegister } from '../net/socket';
+import Backdrop from './Backdrop';
 
 const ERRORS: Record<string, string> = {
   email_taken: 'That email is already registered — try signing in.',
@@ -30,6 +31,7 @@ export default function Auth() {
 
   return (
     <View style={styles.root}>
+      <Backdrop />
       <Text style={styles.title}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>Sign in to play, wager coins, and climb the ranks.</Text>
 
@@ -43,13 +45,13 @@ export default function Auth() {
       </View>
 
       <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Email"
-        placeholderTextColor="#667" autoCapitalize="none" keyboardType="email-address" inputMode="email" />
+        placeholderTextColor="#8a98b8" autoCapitalize="none" keyboardType="email-address" inputMode="email" />
       {register && (
         <TextInput style={styles.input} value={name} onChangeText={(t) => setName(t.slice(0, 24))}
-          placeholder="Display name" placeholderTextColor="#667" maxLength={24} />
+          placeholder="Display name" placeholderTextColor="#8a98b8" maxLength={24} />
       )}
       <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Password (min 6)"
-        placeholderTextColor="#667" secureTextEntry onSubmitEditing={submit} />
+        placeholderTextColor="#8a98b8" secureTextEntry onSubmitEditing={submit} />
 
       {err && <Text style={styles.err}>⚠ {err}</Text>}
 
@@ -63,8 +65,8 @@ export default function Auth() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0d0d12', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  title: { color: '#fff', fontSize: 52, fontWeight: '900', letterSpacing: 4 },
+  root: { flex: 1, backgroundColor: '#0b0d14', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  title: { color: '#fff', fontSize: 54, fontWeight: '900', letterSpacing: 5, textShadowColor: 'rgba(90,150,255,0.85)', textShadowRadius: 22 },
   subtitle: { color: '#9aa', fontSize: 15, marginTop: 8, marginBottom: 26, textAlign: 'center' },
   tabs: { flexDirection: 'row', gap: 8, marginBottom: 18 },
   tab: { paddingVertical: 9, paddingHorizontal: 20, borderRadius: 10, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },
@@ -72,8 +74,9 @@ const styles = StyleSheet.create({
   tabTxt: { color: '#9fb0cf', fontSize: 14, fontWeight: '800' },
   input: {
     width: 300, color: '#fff', fontSize: 16, fontWeight: '600',
-    backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145', borderRadius: 10,
-    paddingVertical: 11, paddingHorizontal: 14, marginBottom: 12,
+    backgroundColor: '#222a3e', borderWidth: 1, borderColor: '#41507a', borderRadius: 10,
+    paddingVertical: 12, paddingHorizontal: 14, marginBottom: 12,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
   err: { color: '#ff9f8f', fontSize: 13, fontWeight: '700', marginBottom: 10, maxWidth: 300, textAlign: 'center' },
   btn: { backgroundColor: '#4c7dff', paddingVertical: 13, paddingHorizontal: 44, borderRadius: 13, marginTop: 4, minWidth: 200, alignItems: 'center' },
