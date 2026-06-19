@@ -70,10 +70,23 @@ public final class GameFactory {
         }
     }
 
-    /** Carve a few water blobs (seas/lakes) that split the map; mark them unownable. */
+    /** True if any non-water (land) cell lies within Chebyshev distance r of cell. */
+    private static boolean landWithin(GameState s, int cell, int r) {
+        int W = s.width, H = s.height, x = cell % W, y = cell / W;
+        for (int dy = -r; dy <= r; dy++)
+            for (int dx = -r; dx <= r; dx++) {
+                int nx = x + dx, ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+                if (s.terrain[ny * W + nx] != Terrain.WATER) return true;
+            }
+        return false;
+    }
+
+    /** Carve several distributed seas (so coastlines are common — ships matter) and scatter islands
+     *  NEAR those coasts so they're actually reachable by an amphibious wave. */
     private static void carveWater(GameState s) {
-        int blobs = 3 + s.rng.nextInt(3);            // 3..5 bodies of water
-        int target = (int) (s.cellCount * 0.15);     // ~15% of the map is water
+        int blobs = 7 + s.rng.nextInt(5);            // 7..11 bodies of water -> lots of coastline
+        int target = (int) (s.cellCount * 0.16);     // ~16% of the map is water
         ArrayDeque<Integer> q = new ArrayDeque<>();
         int placed = 0;
         for (int bcount = 0; bcount < blobs && placed < target; bcount++) {
@@ -89,19 +102,19 @@ public final class GameFactory {
                 s.owner[c] = GameState.WATER;
                 n++; placed++;
                 for (int nb : s.neighbours[c]) {
-                    if (s.terrain[nb] != Terrain.WATER && s.rng.nextDouble() < 0.62) q.add(nb);
+                    if (s.terrain[nb] != Terrain.WATER && s.rng.nextDouble() < 0.60) q.add(nb);
                 }
             }
         }
-        // Scatter a few tiny NEUTRAL islands in the open sea (1-3 cells), reachable only by amphibious
-        // assault — fills the empty ocean and adds out-of-the-way land to grab.
-        int islands = 4 + s.rng.nextInt(4);
-        for (int k = 0; k < islands; k++) {
+        // Islands: a small NEUTRAL patch sitting just offshore (all-water neighbours) but with land
+        // within NAVAL_RANGE so a coastal empire can ship over and take it.
+        int islands = 5 + s.rng.nextInt(4), made = 0, tries = 0;
+        while (made < islands && tries++ < 400) {
             int c = s.rng.nextInt(s.cellCount);
             if (s.terrain[c] != Terrain.WATER) continue;
-            boolean deep = true;                          // sits in open water (all neighbours sea)
-            for (int nb : s.neighbours[c]) if (s.terrain[nb] != Terrain.WATER) { deep = false; break; }
-            if (!deep) continue;
+            boolean offshore = true;                      // looks like an island (open water around it)
+            for (int nb : s.neighbours[c]) if (s.terrain[nb] != Terrain.WATER) { offshore = false; break; }
+            if (!offshore || !landWithin(s, c, Config.NAVAL_RANGE - 1)) continue;   // must be reachable
             s.terrain[c] = s.rng.nextDouble() < 0.4 ? Terrain.FOREST : Terrain.PLAIN;
             s.owner[c] = GameState.NEUTRAL;
             int extra = s.rng.nextInt(3);
@@ -113,6 +126,7 @@ public final class GameFactory {
                     s.owner[nb] = GameState.NEUTRAL;
                 }
             }
+            made++;
         }
 
         // record water cells + ownable count (islands above are land again, so counted correctly)
