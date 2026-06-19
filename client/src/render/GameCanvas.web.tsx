@@ -108,6 +108,7 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
       const drawSides = cam.scale > 5;
       const borderDetail = cam.scale > 4;
       const decor = cam.scale > 6.5;   // draw terrain icons (trees/peaks/castles) once zoomed in enough
+      const coast = cam.scale > 5;     // sandy beach rim where land meets sea
 
       const quad = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, x4: number, y4: number, css: string) => {
         ctx.fillStyle = css;
@@ -147,6 +148,12 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
           } else {
             const c = TERRAIN_COLORS[t] ?? TERRAIN_COLORS[0];
             r = c[0]; g = c[1]; b = c[2];
+          }
+          // Beach: tint land/neutral cells that border the sea toward sand.
+          if (coast && !hidden && o !== -2 && t !== 5) {
+            const wn = (cx > 0 && snap.owner[i - 1] === -2) || (cx < width - 1 && snap.owner[i + 1] === -2) ||
+                       (cy > 0 && snap.owner[i - width] === -2) || (cy < height - 1 && snap.owner[i + width] === -2);
+            if (wn) { r += (228 - r) * 0.34; g += (210 - g) * 0.34; b += (162 - b) * 0.34; }
           }
           if (!hidden) {
             if (!reset && prev![i] !== o) hh[i] = (prev![i] === myId && o !== myId) ? -1 : 1;
@@ -209,6 +216,12 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
               for (let kk = -1; kk <= 1; kk++) ctx.fillRect(ccx + kk * s * 0.22 - s * 0.08, ccy - s * 0.26, s * 0.16, s * 0.18);
               ctx.strokeStyle = 'rgba(70,52,28,0.85)'; ctx.lineWidth = 1; ctx.strokeRect(ccx - s * 0.32, ccy - s * 0.1, s * 0.64, s * 0.4);
             }
+          }
+          // Water ripples so the sea isn't flat (sparse light arcs).
+          if (decor && t === 5 && ((cx * 3 + cy) % 3 === 0)) {
+            const ccx = (ax + bx + dx + ex) / 4, ccy = (ay + by + dy + ey) / 4, s = cam.scale;
+            ctx.strokeStyle = 'rgba(196,224,247,0.40)'; ctx.lineWidth = Math.max(1, s * 0.07);
+            ctx.beginPath(); ctx.arc(ccx, ccy + s * 0.06, s * 0.26, Math.PI * 0.18, Math.PI * 0.82); ctx.stroke();
           }
         }
       }
