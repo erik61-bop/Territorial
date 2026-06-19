@@ -22,7 +22,7 @@ public class RoomManager {
     static final long REAP_PERIOD_MS = 15_000;   // dispose abandoned (all-bot) rooms periodically
 
     private final ObjectMapper json;
-    private final Bank bank;
+    private final io.territorial.account.WalletService wallet;
     private final int tickMs;
     private final ReentrantLock lock = new ReentrantLock();
     private final List<GameRoom> rooms = new ArrayList<>();
@@ -31,9 +31,10 @@ public class RoomManager {
     private int nextRoomId = 1;
     private ScheduledExecutorService reaper;
 
-    public RoomManager(ObjectMapper json, Bank bank, @Value("${territorial.tickMs:125}") int tickMs) {
+    public RoomManager(ObjectMapper json, io.territorial.account.WalletService wallet,
+                       @Value("${territorial.tickMs:125}") int tickMs) {
         this.json = json;
-        this.bank = bank;
+        this.wallet = wallet;
         this.tickMs = tickMs;
     }
 
@@ -75,7 +76,7 @@ public class RoomManager {
                 }
                 // 3. Otherwise (solo, or no matching room with space) spin up a new match.
                 if (room == null && rooms.size() < MAX_ROOMS) {
-                    room = new GameRoom(json, bank, tickMs, nextRoomId++);
+                    room = new GameRoom(json, wallet, tickMs, nextRoomId++);
                     room.isPrivate = solo;
                     if (stake > 0) room.setPrize(stake);
                     room.start();

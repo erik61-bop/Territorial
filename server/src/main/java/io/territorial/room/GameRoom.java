@@ -67,7 +67,7 @@ public class GameRoom {
     private ScheduledExecutorService scheduler;
 
     private final int roomId;
-    private final Bank bank;
+    private final io.territorial.account.WalletService wallet;
     volatile boolean isPrivate = false;   // single-player room — matchmaking won't add others
 
     // Prize (wager) room: each joiner antes `stake` into `pot`; the winner takes the whole pot.
@@ -75,12 +75,20 @@ public class GameRoom {
     volatile long stake = 0;
     private long pot = 0;
     private boolean potPaid = false;
+    // slotToken[p] is now the account id (as a string); cache each seat's coin balance to avoid a
+    // DB read every tick (it only changes on ante/payout).
+    private final long[] slotCoins = new long[NUM_PLAYERS];
 
-    public GameRoom(ObjectMapper json, Bank bank, int tickMs, int roomId) {
+    public GameRoom(ObjectMapper json, io.territorial.account.WalletService wallet, int tickMs, int roomId) {
         this.json = json;
-        this.bank = bank;
+        this.wallet = wallet;
         this.tickMs = tickMs;
         this.roomId = roomId;
+    }
+
+    /** slotToken[p] holds the account id as a string; parse it (or -1). */
+    private static long acct(String token) {
+        try { return token == null ? -1 : Long.parseLong(token); } catch (NumberFormatException e) { return -1; }
     }
 
     public int roomId() { return roomId; }
@@ -247,12 +255,14 @@ public class GameRoom {
                     return existing;
                 }
             }
+            long account = acct(token);
             for (int p = 0; p < NUM_PLAYERS; p++) {
                 if (!human[p]) {
                     // Prize room: ante the stake into the pot before claiming the seat. If the player
-                    // can't afford it (or has no token), they don't get a seat.
+                    // can't afford it (or isn't authenticated), they don't get a seat.
                     if (isPrize) {
-                        if (token == null || !bank.tryDebit(token, stake)) return -1;
+                        if (account < 0 || !wallet.tryDebit(account, stake,
+                                io.territorial.account.LedgerEntry.Reason.PRIZE_ANTE, "room:" + roomId)) return -1;
                         pot += stake;
                     }
                     human[p] = true;
@@ -260,6 +270,7 @@ public class GameRoom {
                     sessionToPlayer.put(session.getId(), p);
                     state.clearPlayer(p);      // no inherited empire; player must choose a spawn
                     if (token != null) { slotToken[p] = token; tokenToSlot.put(token, p); }
+                    slotCoins[p] = account >= 0 ? wallet.balance(account) : 0;   // cache for the HUD
                     return p;
                 }
             }
@@ -310,11 +321,18 @@ public class GameRoom {
         if (potPaid) return;
         potPaid = true;
         if (pot <= 0) return;
-        if (winner >= 0 && human[winner] && slotToken[winner] != null) {
-            bank.credit(slotToken[winner], pot);
+        if (winner >= 0 && human[winner] && acct(slotToken[winner]) >= 0) {
+            long a = acct(slotToken[winner]);
+            wallet.credit(a, pot, io.territorial.account.LedgerEntry.Reason.PRIZE_PAYOUT, "room:" + roomId);
+            slotCoins[winner] = wallet.balance(a);
         } else {
-            for (int p = 0; p < NUM_PLAYERS; p++)
-                if (human[p] && slotToken[p] != null) bank.credit(slotToken[p], stake);
+            for (int p = 0; p < NUM_PLAYERS; p++) {
+                long a = acct(slotToken[p]);
+                if (human[p] && a >= 0) {
+                    wallet.credit(a, stake, io.territorial.account.LedgerEntry.Reason.PRIZE_REFUND, "room:" + roomId);
+                    slotCoins[p] = wallet.balance(a);
+                }
+            }
         }
     }
 
@@ -544,7 +562,7 @@ public class GameRoom {
         m.put("stake", stake);
         m.put("pot", pot);
         int[] coins = new int[state.numPlayers];
-        for (int p = 0; p < state.numPlayers; p++) coins[p] = slotToken[p] != null ? (int) bank.balance(slotToken[p]) : 0;
+        for (int p = 0; p < state.numPlayers; p++) coins[p] = (int) slotCoins[p];   // cached; updated on ante/payout
         m.put("coins", coins);
         return m;
     }

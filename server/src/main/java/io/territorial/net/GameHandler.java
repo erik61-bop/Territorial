@@ -20,26 +20,35 @@ public class GameHandler extends TextWebSocketHandler {
 
     private final RoomManager manager;
     private final ObjectMapper json;
-    private final io.territorial.room.Bank bank;
+    private final io.territorial.auth.JwtService jwt;
+    private final io.territorial.account.WalletService wallet;
 
-    public GameHandler(RoomManager manager, ObjectMapper json, io.territorial.room.Bank bank) {
+    public GameHandler(RoomManager manager, ObjectMapper json,
+                       io.territorial.auth.JwtService jwt, io.territorial.account.WalletService wallet) {
         this.manager = manager;
         this.json = json;
-        this.bank = bank;
+        this.jwt = jwt;
+        this.wallet = wallet;
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        String token = tokenOf(session);
-        long stake = stakeOf(session);
-        // Prize room: refuse up front if the player can't cover the ante (so we don't seat them).
-        if (stake > 0 && bank.balance(token) < stake) {
-            sendNow(session, java.util.Map.of("type", "joinError", "reason", "insufficient_coins",
-                    "coins", bank.balance(token), "stake", stake));
+        // Production: every connection must be an authenticated account (JWT in the ?jwt= query).
+        Long accountId = jwt.verify(queryParam(session, "jwt"));
+        if (accountId == null) {
+            sendNow(session, java.util.Map.of("type", "joinError", "reason", "auth_required"));
             try { session.close(); } catch (Exception ignored) {}
             return;
         }
-        GameRoom room = manager.assign(session, token, soloOf(session), stake);
+        long stake = stakeOf(session);
+        // Prize room: refuse up front if the player can't cover the ante (so we don't seat them).
+        if (stake > 0 && wallet.balance(accountId) < stake) {
+            sendNow(session, java.util.Map.of("type", "joinError", "reason", "insufficient_coins",
+                    "coins", wallet.balance(accountId), "stake", stake));
+            try { session.close(); } catch (Exception ignored) {}
+            return;
+        }
+        GameRoom room = manager.assign(session, String.valueOf(accountId), soloOf(session), stake);
         if (room == null) return;   // server at capacity
         room.send(session, room.welcomeFor(session));
         room.send(session, room.mapMessage());
@@ -73,15 +82,15 @@ public class GameHandler extends TextWebSocketHandler {
         return 0;
     }
 
-    /** Persistent client token from the ws URL query (?t=...), used for reconnection. */
-    private static String tokenOf(WebSocketSession session) {
+    /** Read a query parameter from the ws URL (URL-decoded), or null. */
+    private static String queryParam(WebSocketSession session, String name) {
         java.net.URI uri = session.getUri();
         if (uri == null || uri.getQuery() == null) return null;
         for (String kv : uri.getQuery().split("&")) {
             int i = kv.indexOf('=');
-            if (i > 0 && kv.substring(0, i).equals("t")) {
+            if (i > 0 && kv.substring(0, i).equals(name)) {
                 String v = kv.substring(i + 1);
-                return v.isEmpty() || v.length() > 64 ? null : v;
+                return v.isEmpty() ? null : java.net.URLDecoder.decode(v, java.nio.charset.StandardCharsets.UTF_8);
             }
         }
         return null;

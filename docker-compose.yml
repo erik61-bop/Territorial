@@ -1,0 +1,23 @@
+# Local/production Postgres for the Territorial server.
+# Dev:  docker compose up -d db
+# The server reads DB_URL / DB_USER / DB_PASSWORD (see server/src/main/resources/application.properties).
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: territorial-db
+    environment:
+      POSTGRES_DB: territorial
+      POSTGRES_USER: territorial
+      POSTGRES_PASSWORD: territorial
+    ports:
+      - "5432:5432"
+    volumes:
+      - territorial-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U territorial"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  territorial-pgdata:
