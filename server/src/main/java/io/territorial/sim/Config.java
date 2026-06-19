@@ -38,6 +38,8 @@ public final class Config {
     public static final double MOMENTUM_WIN       = 0.0;   // capturing is its own reward; no morale
     public static final double MOMENTUM_LOSS      = 0.02;  // per lost cell (softened death-spiral)
     public static final double MOMENTUM_DEFEND    = 0.06;  // attacked but lost nothing -> turtle hardens
+    public static final double MOMENTUM_HOLD      = 0.03;  // Hold stance steadily builds morale...
+    public static final double HOLD_MORALE_CAP    = 1.40;  // ...up to this cap (below MOMENTUM_MAX)
 
     // Setup
     public static final double START_ARMY_PER_LAND = 3.0;

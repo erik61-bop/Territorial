@@ -292,6 +292,9 @@ public final class Sim {
             // This stops a defender who loses a couple cells from spiralling.
             if (attacked[p] && lost[p] <= Math.max(1, s.land[p] / 25)) m += Config.MOMENTUM_DEFEND;
             m += (1.0 - m) * Config.MOMENTUM_DECAY;          // decay toward 1.0
+            // Holding (digging in) steadily builds morale, up to a cap — reward turtling + a stronger
+            // counter-strike when you finally break out.
+            if (s.stance[p] == 1 && m < Config.HOLD_MORALE_CAP) m = Math.min(Config.HOLD_MORALE_CAP, m + Config.MOMENTUM_HOLD);
             s.momentum[p] = clamp(m, Config.MOMENTUM_MIN, Config.MOMENTUM_MAX);
         }
     }
