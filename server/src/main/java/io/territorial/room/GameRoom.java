@@ -167,13 +167,9 @@ public class GameRoom {
                 if (!state.alive[p]) continue;
                 Action a;
                 if (human[p]) {
-                    a = humanActions.get(p);                       // STANDING order: persists each tick
-                    if (a != null && a.targetOwner() >= 0 && !state.alive[a.targetOwner()]) {
-                        humanActions.remove(p); a = null;          // target eliminated -> stop
-                    }
-                    if (a != null) {                               // cap per-tick so it flows, not dumps
-                        a = new Action(p, a.targetOwner(), Math.min(a.fraction(), SUSTAIN_CAP), a.targetCell());
-                    }
+                    a = humanActions.remove(p);                    // ONE-SHOT: fire the queued attack once
+                    if (a != null && a.targetOwner() >= 0 && !state.alive[a.targetOwner()]) a = null; // target gone
+                    // fires the chosen % in a single decisive battle (no per-tick streaming)
                 } else {
                     a = Bot.decide(state, p);
                 }

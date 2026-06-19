@@ -99,10 +99,12 @@ function send(obj: unknown): void {
  */
 export function sendAction(targetOwner: number, fraction: number, targetCell = -1): void {
   send({ type: 'action', targetOwner, fraction, targetCell });
-  useGame.getState().setOrder(targetOwner);   // remember the standing order for the UI
+  // One-shot: flash a brief "attack sent" confirmation, then clear (no persistent order).
+  useGame.getState().setOrder(targetOwner);
+  setTimeout(() => { if (useGame.getState().order === targetOwner) useGame.getState().setOrder(null); }, 1100);
 }
 
-/** Stop the standing order (Hold / defend). */
+/** Cancel any queued attack (Hold / defend). */
 export function sendStop(): void {
   send({ type: 'stop' });
   useGame.getState().setOrder(null);

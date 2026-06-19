@@ -15,7 +15,7 @@ const PHASES = [
 ];
 
 const ACTIONS: { mode: Mode; label: string; icon: string; color: string; hint: string }[] = [
-  { mode: 'attack', label: 'Attack', icon: '⚔️', color: '#e0473e', hint: 'tap empty land to expand, a country to conquer' },
+  { mode: 'attack', label: 'Attack', icon: '⚔️', color: '#e0473e', hint: 'tap a country to attack (sends your send% once) · empty land to expand' },
   { mode: 'hold', label: 'Hold', icon: '🛡️', color: '#46a35a', hint: 'stop attacking & dig in — +25% defence' },
 ];
 
@@ -133,9 +133,6 @@ export default function Hud() {
         {(() => { const d = defenseOf(snap, playerId); const hold = isHolding(snap, playerId); return (
           <Text style={styles.statusLine}>🛡 Defense <Text style={[styles.statusVal, { color: d < 1 ? '#ff9f8f' : '#86d6ff' }]}>{d.toFixed(1)}</Text> <Text style={styles.dim}>/border · {defenseTag(d)}{hold ? ' · 🛡Hold +25%' : ''}</Text></Text>
         ); })()}
-        {order != null && (
-          <Text style={styles.orderNote}>↪ army is funding your order — it won't grow. Hold to bank it.</Text>
-        )}
         <View style={styles.barTrack}><View style={[styles.barFill, { width: `${mapPct}%` }]} /></View>
         <Text style={styles.dim}>{mapPct}% of the map</Text>
       </View>
@@ -160,8 +157,7 @@ export default function Hud() {
             <Pressable
               key={a.mode}
               onPress={() => { setMode(a.mode); if (a.mode === 'hold') sendStop(); }}
-              style={[styles.action, { borderColor: a.color }, mode === a.mode && { backgroundColor: a.color },
-                      order != null && a.mode === 'hold' && styles.holdAttention]}
+              style={[styles.action, { borderColor: a.color }, mode === a.mode && { backgroundColor: a.color }]}
             >
               <Text style={styles.actionIcon}>{a.icon}</Text>
               <Text style={[styles.actionTxt, mode === a.mode && { color: '#fff' }]}>{a.label}</Text>
@@ -170,7 +166,7 @@ export default function Hud() {
         </View>
         <Text style={styles.dim}>
           {order != null
-            ? (order === -1 ? '↗ expanding — keeps going (Hold to stop)' : `⚔ attacking ${nameOf(snap, order, playerId)} — keeps going (Hold to stop)`)
+            ? (order === -1 ? '↗ wave sent' : `⚔ attack sent at ${nameOf(snap, order, playerId)} — tap again to keep hitting`)
             : ACTIONS.find((a) => a.mode === mode)?.hint}
         </Text>
       </View>
