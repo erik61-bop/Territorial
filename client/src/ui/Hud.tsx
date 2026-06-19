@@ -135,7 +135,7 @@ export default function Hud() {
           <Text style={styles.statusLine}>🛡 Defense <Text style={[styles.statusVal, { color: d < 1 ? '#ff9f8f' : '#86d6ff' }]}>{d.toFixed(1)}</Text> <Text style={styles.dim}>/border · {defenseTag(d)}{hold ? ' · 🛡Hold +25%' : ''}</Text></Text>
         ); })()}
         {order != null && (
-          <Text style={styles.orderNote}>↪ army is funding your order — it won't grow. Hold to bank it.</Text>
+          <Text style={styles.orderNote}>↪ You're attacking — your army is being spent, so it won't grow. Press 🛡 Hold to stop & build it up.</Text>
         )}
         {(snap?.developing?.[playerId] ?? 0) > 0 && (
           <Text style={styles.statusLine}>🏗 <Text style={[styles.statusVal, { color: '#ffd07a' }]}>{snap!.developing![playerId]}</Text> <Text style={styles.dim}>cells developing — no income yet</Text></Text>
