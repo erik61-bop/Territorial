@@ -98,7 +98,7 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
       }
 
       const bg = ctx.createLinearGradient(0, 0, 0, screenH);
-      bg.addColorStop(0, '#0b1018'); bg.addColorStop(1, '#05070b');
+      bg.addColorStop(0, '#16395c'); bg.addColorStop(1, '#0a2236');   // deep ocean (land sits in a sea)
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, screenW, screenH);
 
