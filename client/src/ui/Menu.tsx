@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
 import { PLAYER_COLORS } from '../render/colors';
 import { useGame } from '../state/store';
-import { fetchWallet } from '../net/socket';
+import { refreshMe, logout } from '../net/socket';
 
 const MODES = [
   { v: true, label: '🤖 Single-player', sub: 'you vs bots, private' },
@@ -21,18 +21,21 @@ const LEVELS = [
 const rgb = (c: number[]) => `rgb(${c[0]},${c[1]},${c[2]})`;
 
 export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: string, color: number) => void }) {
+  const account = useGame((s) => s.account);
   const [diff, setDiff] = useState(1);
   const [name, setName] = useState('');
   const [color, setColor] = useState(0);
-  const [coins, setCoins] = useState<number | null>(null);
+  const coins = account?.coins ?? null;
   const singlePlayer = useGame((s) => s.singlePlayer);
   const setSinglePlayer = useGame((s) => s.setSinglePlayer);
   const prizeStake = useGame((s) => s.prizeStake);
   const setPrizeStake = useGame((s) => s.setPrizeStake);
   const joinError = useGame((s) => s.joinError);
 
-  // Load the wallet for the prize tiers; refresh whenever we return to the menu.
-  useEffect(() => { fetchWallet().then(setCoins); }, []);
+  // Refresh the wallet (coins can change between games) whenever we land on the menu.
+  useEffect(() => { refreshMe(); }, []);
+  // Default the in-game display name to the account name.
+  useEffect(() => { if (account?.displayName && !name) setName(account.displayName); }, [account?.displayName]);
 
   // Switching to single-player clears any wager (prize rooms are multiplayer only).
   const pickMode = (v: boolean) => { setSinglePlayer(v); if (v) setPrizeStake(0); };
@@ -42,7 +45,11 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
       <Text style={styles.title}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>The Art of Conquest — one army is your sword and your shield.</Text>
 
-      <Text style={styles.wallet}>🪙 {coins == null ? '…' : coins} coins</Text>
+      <View style={styles.acctRow}>
+        <Text style={styles.wallet}>🪙 {coins == null ? '…' : coins}</Text>
+        {account && <Text style={styles.acctName}>· {account.displayName}</Text>}
+        <Pressable onPress={logout} hitSlop={8}><Text style={styles.logout}>Sign out</Text></Pressable>
+      </View>
 
       <Text style={styles.diffLabel}>Mode</Text>
       <View style={styles.modeRow}>
@@ -137,7 +144,10 @@ const styles = StyleSheet.create({
   colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 320, marginBottom: 22 },
   swatch: { width: 30, height: 30, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
   swatchActive: { borderColor: '#fff' },
-  wallet: { color: '#ffd54a', fontSize: 16, fontWeight: '800', marginBottom: 18 },
+  acctRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 },
+  wallet: { color: '#ffd54a', fontSize: 16, fontWeight: '800' },
+  acctName: { color: '#cdd6f4', fontSize: 14, fontWeight: '700' },
+  logout: { color: '#8aa0c8', fontSize: 13, fontWeight: '700', textDecorationLine: 'underline', marginLeft: 4 },
   stakeBtn: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },
   stakeBroke: { opacity: 0.45 },
   stakeNote: { color: '#8aa0c8', fontSize: 12, marginBottom: 20, marginTop: -6, textAlign: 'center' },

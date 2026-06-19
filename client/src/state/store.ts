@@ -105,6 +105,8 @@ interface GameStore {
   singlePlayer: boolean; // true = private match (you + bots); false = shared multiplayer room
   prizeStake: number;    // coins to wager for a prize room (0 = free room)
   joinError: string | null; // last failed-join reason (e.g. not enough coins)
+  authToken: string | null; // JWT for the logged-in account (null = logged out)
+  account: AccountInfo | null; // the logged-in account (id, email, displayName, coins)
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
@@ -127,7 +129,16 @@ interface GameStore {
   setSinglePlayer: (b: boolean) => void;
   setPrizeStake: (n: number) => void;
   setJoinError: (s: string | null) => void;
+  setAuth: (token: string | null, account: AccountInfo | null) => void;
+  setCoins: (coins: number) => void;
   pushGameEvent: (text: string, color: string) => void;
+}
+
+export interface AccountInfo { id: number; email: string; displayName: string; coins: number; }
+
+/** Restore a persisted JWT (web) so a refresh keeps you logged in. */
+function savedToken(): string | null {
+  try { return typeof localStorage !== 'undefined' ? localStorage.getItem('territorial_jwt') : null; } catch { return null; }
 }
 
 let evKey = 0;
@@ -154,6 +165,8 @@ export const useGame = create<GameStore>((set) => ({
   singlePlayer: true,
   prizeStake: 0,
   joinError: null,
+  authToken: savedToken(),
+  account: null,
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
   setMatchId: (n) => set({ matchId: n }),
@@ -175,6 +188,15 @@ export const useGame = create<GameStore>((set) => ({
   setSinglePlayer: (b) => set({ singlePlayer: b }),
   setPrizeStake: (n) => set({ prizeStake: n }),
   setJoinError: (s) => set({ joinError: s }),
+  setAuth: (token, account) => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        if (token) localStorage.setItem('territorial_jwt', token); else localStorage.removeItem('territorial_jwt');
+      }
+    } catch { /* ignore */ }
+    set({ authToken: token, account });
+  },
+  setCoins: (coins) => set((st) => ({ account: st.account ? { ...st.account, coins } : st.account })),
   pushGameEvent: (text, color) => set((st) => ({
     gameEvents: [...st.gameEvents, { key: ++evKey, text, color, t: typeof performance !== 'undefined' ? performance.now() : Date.now() }].slice(-6),
   })),

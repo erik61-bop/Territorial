@@ -19,30 +19,57 @@ let ws: WebSocket | null = null;
 let chatKey = 1;
 let intentionalClose = false;   // set when the player leaves, so we don't auto-reconnect
 
-/** A persistent client id so a reload/disconnect reconnects to the same empire. */
-function clientToken(): string {
-  try {
-    if (typeof localStorage !== 'undefined') {
-      let t = localStorage.getItem('territorial_token');
-      if (!t) { t = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('territorial_token', t); }
-      return t;
-    }
-  } catch { /* ignore */ }
-  return 'anon';
-}
-
 /** ws://<same-host>:8080/ws/game on web (same origin as the page); localhost otherwise. */
 export function serverUrl(): string {
-  const t = encodeURIComponent(clientToken());
   const st = useGame.getState();
+  const jwt = `jwt=${encodeURIComponent(st.authToken ?? '')}`;   // identity + auth (account)
   const solo = st.singlePlayer ? '&solo=1' : '';
   // Prize (wager) rooms are multiplayer only; stake = coins to ante.
   const stake = (!st.singlePlayer && st.prizeStake > 0) ? `&stake=${st.prizeStake}` : '';
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${proto}://${window.location.hostname}:8080/ws/game?t=${t}${solo}${stake}`;
+    const wsPort = window.location.port === '8080' ? '8080' : (window.location.port || '8080');
+    return `${proto}://${window.location.hostname}:${wsPort}/ws/game?${jwt}${solo}${stake}`;
   }
-  return `ws://localhost:8080/ws/game?t=${t}${solo}${stake}`;
+  return `ws://localhost:8080/ws/game?${jwt}${solo}${stake}`;
+}
+
+// ---- Auth + account REST API ----
+
+export async function apiRegister(email: string, password: string, displayName: string): Promise<{ ok: boolean; error?: string }> {
+  return authCall('/api/auth/register', { email, password, displayName });
+}
+export async function apiLogin(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  return authCall('/api/auth/login', { email, password });
+}
+
+async function authCall(path: string, body: object): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const r = await fetch(`${httpBase()}${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return { ok: false, error: j.error || (r.status === 401 ? 'bad_credentials' : `error_${r.status}`) };
+    useGame.getState().setAuth(j.token, j.account);
+    return { ok: true };
+  } catch { return { ok: false, error: 'network' }; }
+}
+
+/** Re-fetch the logged-in account (coins, name). Logs out if the token is rejected. */
+export async function refreshMe(): Promise<void> {
+  const token = useGame.getState().authToken;
+  if (!token) return;
+  try {
+    const r = await fetch(`${httpBase()}/api/me`, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.status === 401 || r.status === 403) { useGame.getState().setAuth(null, null); return; }
+    const j = await r.json();
+    useGame.getState().setAuth(token, j);
+  } catch { /* offline — keep cached */ }
+}
+
+export function logout(): void {
+  disconnect();
+  useGame.getState().setAuth(null, null);
 }
 
 /** Same host as the page, port 8080 (http(s)). */
@@ -52,15 +79,6 @@ function httpBase(): string {
     return `${proto}://${window.location.hostname}:8080`;
   }
   return 'http://localhost:8080';
-}
-
-/** Fetch this client's coin balance (for the menu wallet display, before joining a room). */
-export async function fetchWallet(): Promise<number> {
-  try {
-    const r = await fetch(`${httpBase()}/api/wallet?t=${encodeURIComponent(clientToken())}`);
-    const j = await r.json();
-    return typeof j.coins === 'number' ? j.coins : 0;
-  } catch { return 0; }
 }
 
 export function connect(url = serverUrl()): WebSocket {
@@ -89,10 +107,11 @@ export function connect(url = serverUrl()): WebSocket {
         break;
       case 'joinError':
         intentionalClose = true;   // server will close; don't auto-reconnect into the same refusal
-        s.setJoinError(m.reason === 'insufficient_coins'
+        if (m.reason === 'auth_required') { s.setAuth(null, null); s.setJoinError('Please sign in to play.'); }
+        else s.setJoinError(m.reason === 'insufficient_coins'
           ? `Not enough coins — you have ${m.coins}, need ${m.stake}.`
           : 'Could not join that room.');
-        s.setStarted(false);       // bounce back to the menu
+        s.setStarted(false);       // bounce back to the menu / auth
         break;
       case 'map':
         s.setMap({

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, Pressable, useWindowDimensions, PanResponder, Platform, StyleSheet } from 'react-native';
 import { useGame, nameOf } from './state/store';
-import { connect, disconnect, sendAction, sendSpawn, sendDifficulty, sendProfile, sendStop } from './net/socket';
+import { connect, disconnect, sendAction, sendSpawn, sendDifficulty, sendProfile, sendStop, refreshMe } from './net/socket';
 import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
 import { unprojectH, centerOn, terrainHeight, BASE_H } from './render/iso';
 import Hud from './ui/Hud';
@@ -9,6 +9,7 @@ import QuickChat from './ui/QuickChat';
 import Minimap from './ui/Minimap';
 import Inspect from './ui/Inspect';
 import Menu from './ui/Menu';
+import Auth from './ui/Auth';
 import Help from './ui/Help';
 import Settings from './ui/Settings';
 import EventFeed from './ui/EventFeed';
@@ -25,6 +26,10 @@ export default function GameScreen() {
   const map = useGame((s) => s.map);
   const snap = useGame((s) => s.snap);
   const playerId = useGame((s) => s.playerId);
+  const authToken = useGame((s) => s.authToken);
+
+  // With a saved token, refresh the account (name + coins) on load / after login.
+  useEffect(() => { if (authToken) refreshMe(); }, [authToken]);
 
   // cameraRef is the authoritative, LIVE camera (the renderer reads it every animation frame). React
   // `camera` state is just a coalesced mirror (≤1/frame) so the minimap can show the viewport box —
@@ -302,6 +307,8 @@ export default function GameScreen() {
       setCam(centerOn(m.width / 2, m.height / 2, 0, cameraRef.current.scale, winW / 2, winH / 2));
     }
   }, [winW, winH, setCam]);
+
+  if (!authToken) return <Auth />;
 
   if (!started) {
     return <Menu onPlay={(difficulty, name, color) => {
