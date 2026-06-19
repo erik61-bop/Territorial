@@ -175,6 +175,7 @@ public final class Sim {
             // longer the war lasts (vs players only), so empires can be overrun and the war ends.
             double esc = (t != GameState.NEUTRAL) ? Config.warEscalation(s.tick) : 1.0;
             double wave = sent * s.momentum[x] * esc;
+            final double wave0 = wave;                       // initial wave, for proportional reflux
 
             // Defender morale hardens defence (a turtle that keeps winning gets tougher); a defender
             // in the HOLD stance (not attacking this tick) digs in for +25%.
@@ -215,7 +216,9 @@ public final class Sim {
                     }
                 }
             }
-            s.army[x] += wave * Config.REFLUX;
+            // Refund the UNSPENT portion of the wave, in real-army terms (not escalated) so an
+            // attack can never mint army: refund <= sent * REFLUX, i.e. attacking always costs you.
+            s.army[x] += (wave0 > 0 ? wave / wave0 : 1.0) * sent * Config.REFLUX;
         }
     }
 
