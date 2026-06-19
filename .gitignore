@@ -19,3 +19,9 @@ Thumbs.db
 # runtime prize-room wallet (server-side balances)
 territorial-wallet.json
 server/territorial-wallet.json
+
+# build artifacts
+server/target/
+client/dist/
+client/.expo/
+**/node_modules/
