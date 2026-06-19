@@ -60,7 +60,8 @@ export default function GameScreen() {
 
   // Spawn mode: in play, connected, but holding no land (fresh join, respawn, or wiped out).
   const myLand = snap && playerId >= 0 ? snap.land[playerId] : 0;
-  const spawnMode = started && playerId >= 0 && !!snap && myLand === 0 && snap.winner < 0;
+  const inLobby = !!snap?.lobby;
+  const spawnMode = started && playerId >= 0 && !!snap && myLand === 0 && snap.winner < 0 && !inLobby;
   const myCapital = snap?.capitals?.[playerId] ?? map?.capitals?.[playerId] ?? -1;
 
   // Fit the whole isometric board on screen when it first loads (so you can see it to pick a spawn).
@@ -326,6 +327,13 @@ export default function GameScreen() {
       ) : (
         <Text style={styles.waiting}>joining match…</Text>
       )}
+      {inLobby && (
+        <View style={styles.lobbyBanner} pointerEvents="none">
+          <Text style={styles.lobbyTitle}>⏳ Waiting for players…</Text>
+          <Text style={styles.lobbyCount}>starts in {snap?.lobbyLeft ?? 0}s</Text>
+          <Text style={styles.spawnSub}>{snap?.humans ?? 1} player{(snap?.humans ?? 1) === 1 ? '' : 's'} joined · bots fill the rest{snap?.isPrize ? ` · 🪙 pot ${snap?.pot ?? 0}` : ''}</Text>
+        </View>
+      )}
       {spawnMode && !spectating && (
         <View style={styles.spawnBanner} pointerEvents="box-none">
           <Text style={styles.spawnTitle}>Choose your spawn</Text>
@@ -380,6 +388,13 @@ const styles = StyleSheet.create({
   },
   spawnTitle: { color: '#fff', fontSize: 24, fontWeight: '800' },
   spawnSub: { color: '#bcd', fontSize: 14, marginTop: 4 },
+  lobbyBanner: {
+    position: 'absolute', top: '38%', alignSelf: 'center', alignItems: 'center',
+    backgroundColor: 'rgba(20,20,28,0.9)', paddingVertical: 18, paddingHorizontal: 32, borderRadius: 16,
+    borderWidth: 1, borderColor: '#2f6df0',
+  },
+  lobbyTitle: { color: '#fff', fontSize: 26, fontWeight: '900' },
+  lobbyCount: { color: '#ffd54a', fontSize: 20, fontWeight: '800', marginTop: 6 },
   spectateBtn: { marginTop: 12, backgroundColor: '#2a3145', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10 },
   spectateTxt: { color: '#cdd6f4', fontSize: 14, fontWeight: '700' },
   spectateBar: {

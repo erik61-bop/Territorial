@@ -40,6 +40,9 @@ export interface Snapshot {
   stake?: number;      // coins each player anted
   pot?: number;        // total prize pool for the winner
   coins?: number[];    // per-slot coin balance (0 for non-humans)
+  lobby?: boolean;     // pre-match lobby (waiting for players)
+  lobbyLeft?: number;  // seconds until the match starts
+  humans?: number;     // human players currently in the room
 }
 
 /** Colour index for a player (uses the server's colour permutation, falls back to slot). */

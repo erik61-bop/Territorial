@@ -21,6 +21,7 @@ public class GameRoom {
     static final int WIDTH = 120, HEIGHT = 120, NUM_PLAYERS = 12, START_SIZE = 30;
     static final int SPAWN_SIZE = 30;            // a human's starting blob when they pick a spawn
     static final int RESTART_AFTER_TICKS = 40;   // hold on the result, then new match
+    static final int LOBBY_TICKS = 64;           // ~8s pre-match lobby for multiplayer/prize rooms
 
     private final ObjectMapper json;
     private final int tickMs;
@@ -75,6 +76,9 @@ public class GameRoom {
     volatile long stake = 0;
     private long pot = 0;
     private boolean potPaid = false;
+    // Pre-match lobby (multiplayer/prize): wait a few seconds for players before the match begins.
+    volatile boolean inLobby = false;
+    private int lobbyTicksLeft = 0;
     // slotToken[p] is now the account id (as a string); cache each seat's coin balance to avoid a
     // DB read every tick (it only changes on ante/payout).
     private final long[] slotCoins = new long[NUM_PLAYERS];
@@ -96,18 +100,20 @@ public class GameRoom {
     /** Make this a prize (wager) room: each joiner antes {@code stake} into the pot; winner takes it. */
     public void setPrize(long stake) { this.isPrize = true; this.stake = stake; }
 
-    /** Prize rooms lock to new joiners once the peace opening ends (the roster is fixed for the wager).
-     *  Free rooms are always joinable. */
+    /** Free rooms are always joinable; a prize room only accepts joiners during its pre-match lobby
+     *  (the wager roster is fixed once the match begins). */
     public boolean joinable() {
         if (!isPrize) return true;
         lock.lock();
-        try { return winner == -1 && state.phase == GameState.PEACE; } finally { lock.unlock(); }
+        try { return inLobby; } finally { lock.unlock(); }
     }
 
     /** Begin ticking (called by RoomManager when the room is created). */
     public void start() {
         for (int p = 0; p < NUM_PLAYERS; p++) colorIdx[p] = p;   // default: one colour per slot
         newMatch();
+        // Multiplayer & prize rooms open with a short lobby so players can gather; solo starts at once.
+        if (!isPrivate) { inLobby = true; lobbyTicksLeft = LOBBY_TICKS; }
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "game-tick-" + roomId);
             t.setDaemon(true);
@@ -174,6 +180,13 @@ public class GameRoom {
     private void step() {
         lock.lock();
         try {
+            if (inLobby) {                            // pre-match: count down, don't advance the sim yet
+                int humans = 0; for (int p = 0; p < NUM_PLAYERS; p++) if (human[p]) humans++;
+                if (--lobbyTicksLeft <= 0 || humans >= NUM_PLAYERS) inLobby = false;   // start the match
+                broadcastState();
+                return;
+            }
+
             if (winner != -1) {                       // match over: hold, then restart (free rooms only)
                 if (!isPrize && ++holdTicks >= RESTART_AFTER_TICKS) {
                     newMatch();                       // prize rooms are single-match: stay on the result
@@ -564,6 +577,11 @@ public class GameRoom {
         int[] coins = new int[state.numPlayers];
         for (int p = 0; p < state.numPlayers; p++) coins[p] = (int) slotCoins[p];   // cached; updated on ante/payout
         m.put("coins", coins);
+        // Pre-match lobby: tell the client to show the "waiting for players" countdown.
+        m.put("lobby", inLobby);
+        m.put("lobbyLeft", inLobby ? (int) Math.ceil(lobbyTicksLeft / (1000.0 / tickMs)) : 0);
+        int humans = 0; for (int p = 0; p < state.numPlayers; p++) if (human[p]) humans++;
+        m.put("humans", humans);
         return m;
     }
 

@@ -143,6 +143,7 @@ export function connect(url = serverUrl()): WebSocket {
           names: m.names, colors: m.colors, attacks: m.attacks,
           peakLand: m.peakLand, place: m.place,
           isPrize: m.isPrize, stake: m.stake, pot: m.pot, coins: m.coins,
+          lobby: m.lobby, lobbyLeft: m.lobbyLeft, humans: m.humans,
         });
         // Announce this tick's events (eliminations, capitals, your treaties) in the feed.
         if (Array.isArray(m.events) && m.events.length) {

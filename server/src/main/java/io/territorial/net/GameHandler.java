@@ -96,8 +96,20 @@ public class GameHandler extends TextWebSocketHandler {
         return null;
     }
 
+    private static final int MAX_MSGS_PER_SEC = 40;   // generous for taps/chat; blocks floods
+
+    /** Per-session inbound rate limit (token-less fixed window/second). Protects the tick loop. */
+    private static boolean allow(WebSocketSession s) {
+        long sec = System.currentTimeMillis() / 1000;
+        long[] rl = (long[]) s.getAttributes().computeIfAbsent("rl", k -> new long[]{sec, 0});
+        if (rl[0] != sec) { rl[0] = sec; rl[1] = 0; }
+        return ++rl[1] <= MAX_MSGS_PER_SEC;
+    }
+
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        if (!allow(session)) return;                       // drop messages over the per-second cap
+        if (message.getPayloadLength() > 4096) return;     // ignore oversized payloads
         GameRoom room = manager.roomOf(session);
         if (room == null) return;
         JsonNode n = json.readTree(message.getPayload());
