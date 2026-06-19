@@ -28,6 +28,7 @@ export default function Hud() {
   const connected = useGame((s) => s.connected);
   const playerId = useGame((s) => s.playerId);
   const matchId = useGame((s) => s.matchId);
+  const singlePlayer = useGame((s) => s.singlePlayer);
   const snap = useGame((s) => s.snap);
   const map = useGame((s) => s.map);
   const fraction = useGame((s) => s.fraction);
@@ -126,7 +127,7 @@ export default function Hud() {
         <View style={styles.statusHead}>
           <View style={[styles.shield, { backgroundColor: playerId >= 0 ? cssPlayer(colorIndexOf(snap, playerId)) : '#666' }]} />
           <Text style={styles.statusTitle}>{playerId >= 0 ? (useGame.getState().myName || nameOf(snap, playerId, playerId)) : 'Spectating'}</Text>
-          {matchId > 0 && <Text style={styles.matchTag}>Match #{matchId}</Text>}
+          <Text style={styles.matchTag}>{singlePlayer ? 'Solo' : matchId > 0 ? `Match #${matchId}` : ''}</Text>
         </View>
         <Text style={styles.statusLine}>Land <Text style={styles.statusVal}>{myLand}</Text>    Army <Text style={styles.statusVal}>{Math.round(myArmy)}</Text></Text>
         <Text style={styles.statusLine}>Income <Text style={[styles.statusVal, { color: '#7CFC9B' }]}>+{myIncome}/s</Text>    Morale <Text style={[styles.statusVal, { color: moraleColor }]}>{(myMorale / 100).toFixed(2)}</Text></Text>

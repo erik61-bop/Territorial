@@ -19,11 +19,12 @@ function clientToken(): string {
 /** ws://<same-host>:8080/ws/game on web (same origin as the page); localhost otherwise. */
 export function serverUrl(): string {
   const t = encodeURIComponent(clientToken());
+  const solo = useGame.getState().singlePlayer ? '&solo=1' : '';
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${proto}://${window.location.hostname}:8080/ws/game?t=${t}`;
+    return `${proto}://${window.location.hostname}:8080/ws/game?t=${t}${solo}`;
   }
-  return `ws://localhost:8080/ws/game?t=${t}`;
+  return `ws://localhost:8080/ws/game?t=${t}${solo}`;
 }
 
 export function connect(url = serverUrl()): WebSocket {

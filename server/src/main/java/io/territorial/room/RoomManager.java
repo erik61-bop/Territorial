@@ -52,23 +52,28 @@ public class RoomManager {
         try { for (GameRoom r : rooms) r.stop(); rooms.clear(); } finally { lock.unlock(); }
     }
 
-    /** Pick (or create) a room for this connection, attach the session, and return it (or null if full). */
-    public GameRoom assign(WebSocketSession session, String token) {
+    /** Pick (or create) a room for this connection, attach the session, and return it (or null if full).
+     *  solo=true gives the player a PRIVATE room (you + bots) that matchmaking won't add others to. */
+    public GameRoom assign(WebSocketSession session, String token, boolean solo) {
         lock.lock();
         try {
             // 1. Reconnect to the same room if the token still owns a live one.
             GameRoom room = token != null ? tokenRoom.get(token) : null;
             if (room == null || !rooms.contains(room)) {
-                // 2. Most-populated room that still has space (pack players into shared matches).
                 room = null;
-                int best = Integer.MAX_VALUE;
-                for (GameRoom r : rooms) {
-                    int free = r.freeHumanSlots();
-                    if (free > 0 && free < best) { best = free; room = r; }
+                // 2. Multiplayer only: join the most-populated PUBLIC room that still has space.
+                if (!solo) {
+                    int best = Integer.MAX_VALUE;
+                    for (GameRoom r : rooms) {
+                        if (r.isPrivate) continue;
+                        int free = r.freeHumanSlots();
+                        if (free > 0 && free < best) { best = free; room = r; }
+                    }
                 }
-                // 3. Otherwise spin up a new match.
+                // 3. Otherwise (solo, or no public room with space) spin up a new match.
                 if (room == null && rooms.size() < MAX_ROOMS) {
                     room = new GameRoom(json, tickMs, nextRoomId++);
+                    room.isPrivate = solo;
                     room.start();
                     rooms.add(room);
                 }

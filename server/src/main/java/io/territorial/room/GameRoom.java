@@ -64,6 +64,7 @@ public class GameRoom {
     private ScheduledExecutorService scheduler;
 
     private final int roomId;
+    volatile boolean isPrivate = false;   // single-player room — matchmaking won't add others
 
     public GameRoom(ObjectMapper json, int tickMs, int roomId) {
         this.json = json;

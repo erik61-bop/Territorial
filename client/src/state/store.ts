@@ -92,6 +92,7 @@ interface GameStore {
   showHelp: boolean;     // the How-to-play overlay is open
   showSettings: boolean; // the settings / pause panel is open
   difficulty: number;    // chosen bot difficulty (0 Easy, 1 Normal, 2 Hard)
+  singlePlayer: boolean; // true = private match (you + bots); false = shared multiplayer room
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
@@ -111,6 +112,7 @@ interface GameStore {
   setShowHelp: (b: boolean) => void;
   setShowSettings: (b: boolean) => void;
   setDifficulty: (n: number) => void;
+  setSinglePlayer: (b: boolean) => void;
 }
 
 export const useGame = create<GameStore>((set) => ({
@@ -131,6 +133,7 @@ export const useGame = create<GameStore>((set) => ({
   showHelp: false,
   showSettings: false,
   difficulty: 1,
+  singlePlayer: true,
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
   setMatchId: (n) => set({ matchId: n }),
@@ -149,6 +152,7 @@ export const useGame = create<GameStore>((set) => ({
   setShowHelp: (b) => set({ showHelp: b }),
   setShowSettings: (b) => set({ showSettings: b }),
   setDifficulty: (n) => set({ difficulty: n }),
+  setSinglePlayer: (b) => set({ singlePlayer: b }),
 }));
 
 // Expose the store on web for debugging / automated end-to-end checks.

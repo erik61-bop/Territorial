@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
 import { PLAYER_COLORS } from '../render/colors';
+import { useGame } from '../state/store';
+
+const MODES = [
+  { v: true, label: '🤖 Single-player', sub: 'you vs bots, private' },
+  { v: false, label: '🌐 Multiplayer', sub: 'shared room with others' },
+];
 
 const LEVELS = [
   { v: 0, label: 'Easy' },
@@ -14,10 +20,23 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
   const [diff, setDiff] = useState(1);
   const [name, setName] = useState('');
   const [color, setColor] = useState(0);
+  const singlePlayer = useGame((s) => s.singlePlayer);
+  const setSinglePlayer = useGame((s) => s.setSinglePlayer);
   return (
     <View style={styles.root}>
       <Text style={styles.title}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>The Art of Conquest — one army is your sword and your shield.</Text>
+
+      <Text style={styles.diffLabel}>Mode</Text>
+      <View style={styles.modeRow}>
+        {MODES.map((m) => (
+          <Pressable key={m.label} onPress={() => setSinglePlayer(m.v)}
+            style={[styles.modeBtn, singlePlayer === m.v && styles.modeActive]}>
+            <Text style={[styles.modeTxt, singlePlayer === m.v && { color: '#fff' }]}>{m.label}</Text>
+            <Text style={[styles.modeSub, singlePlayer === m.v && { color: '#dbe6ff' }]}>{m.sub}</Text>
+          </Pressable>
+        ))}
+      </View>
 
       <Text style={styles.diffLabel}>Your name</Text>
       <TextInput
@@ -66,6 +85,11 @@ const styles = StyleSheet.create({
   title: { color: '#fff', fontSize: 56, fontWeight: '900', letterSpacing: 4 },
   subtitle: { color: '#9aa', fontSize: 15, marginTop: 8, marginBottom: 22, textAlign: 'center' },
   diffLabel: { color: '#8aa0c8', fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 8 },
+  modeRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  modeBtn: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 11, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145', alignItems: 'center' },
+  modeActive: { backgroundColor: '#2f6df0', borderColor: '#2f6df0' },
+  modeTxt: { color: '#cfe0ff', fontSize: 15, fontWeight: '800' },
+  modeSub: { color: '#8aa0c8', fontSize: 11, marginTop: 2 },
   nameInput: {
     width: 260, color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center',
     backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145', borderRadius: 10,

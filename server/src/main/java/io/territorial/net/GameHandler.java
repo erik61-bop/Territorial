@@ -28,10 +28,18 @@ public class GameHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        GameRoom room = manager.assign(session, tokenOf(session));
+        GameRoom room = manager.assign(session, tokenOf(session), soloOf(session));
         if (room == null) return;   // server at capacity
         room.send(session, room.welcomeFor(session));
         room.send(session, room.mapMessage());
+    }
+
+    /** Single-player flag from the ws URL query (&solo=1). */
+    private static boolean soloOf(WebSocketSession session) {
+        java.net.URI uri = session.getUri();
+        if (uri == null || uri.getQuery() == null) return false;
+        for (String kv : uri.getQuery().split("&")) if (kv.equals("solo=1")) return true;
+        return false;
     }
 
     /** Persistent client token from the ws URL query (?t=...), used for reconnection. */
