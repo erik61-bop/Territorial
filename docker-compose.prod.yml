@@ -1,0 +1,56 @@
+# Production stack: Postgres + the game server + Caddy (automatic HTTPS).
+# Set DOMAIN, JWT_SECRET and DB_PASSWORD in a .env file next to this, then:
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Caddy obtains/renews a real TLS cert for $DOMAIN automatically and proxies https+wss -> the app.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: territorial
+      POSTGRES_USER: territorial
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U territorial"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/territorial
+      DB_USER: territorial
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (>=32 chars)}
+      PORT: "8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN (e.g. play.example.com)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

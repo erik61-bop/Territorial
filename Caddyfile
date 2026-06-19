@@ -1,0 +1,6 @@
+# Automatic HTTPS for the game. Caddy fetches/renews a Let's Encrypt cert for {$DOMAIN} and
+# reverse-proxies both HTTPS and the WebSocket (wss://{$DOMAIN}/ws/game) to the app container.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8080
+}

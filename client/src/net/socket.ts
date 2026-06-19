@@ -26,10 +26,10 @@ export function serverUrl(): string {
   const solo = st.singlePlayer ? '&solo=1' : '';
   // Prize (wager) rooms are multiplayer only; stake = coins to ante.
   const stake = (!st.singlePlayer && st.prizeStake > 0) ? `&stake=${st.prizeStake}` : '';
-  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+  if (typeof window !== 'undefined' && window.location && window.location.host) {
+    // Same origin as the page: wss on https (prod behind the proxy), ws otherwise (dev on :8080).
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsPort = window.location.port === '8080' ? '8080' : (window.location.port || '8080');
-    return `${proto}://${window.location.hostname}:${wsPort}/ws/game?${jwt}${solo}${stake}`;
+    return `${proto}://${window.location.host}/ws/game?${jwt}${solo}${stake}`;
   }
   return `ws://localhost:8080/ws/game?${jwt}${solo}${stake}`;
 }
@@ -72,11 +72,10 @@ export function logout(): void {
   useGame.getState().setAuth(null, null);
 }
 
-/** Same host as the page, port 8080 (http(s)). */
+/** REST base = same origin as the page (dev: http://localhost:8080; prod: https://your-domain). */
 function httpBase(): string {
-  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-    const proto = window.location.protocol === 'https:' ? 'https' : 'http';
-    return `${proto}://${window.location.hostname}:8080`;
+  if (typeof window !== 'undefined' && window.location && window.location.origin) {
+    return window.location.origin;
   }
   return 'http://localhost:8080';
 }
