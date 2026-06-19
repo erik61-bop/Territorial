@@ -14,6 +14,17 @@ const TAP_COLOR = { attack: 'rgba(255,80,80,0.95)', expand: 'rgba(255,255,255,0.
 const RIGHT_FACE = 0.60;
 const FRONT_FACE = 0.44;
 
+// Terrain sprite icons (served from public/terrain/*.png). Lazily loaded once; returns the image
+// only when it's decoded, so the renderer falls back to vector shapes until then.
+const ICON_SRC: Record<string, string> = { forest: '/terrain/forest.png', mountain: '/terrain/mountain.png', city: '/terrain/city.png' };
+const iconCache: Record<string, HTMLImageElement | undefined> = {};
+function icon(name: string): HTMLImageElement | undefined {
+  if (typeof window === 'undefined' || typeof Image === 'undefined') return undefined;
+  if (!iconCache[name]) { const im = new Image(); im.src = ICON_SRC[name]; iconCache[name] = im; }
+  const im = iconCache[name];
+  return im && im.complete && im.naturalWidth > 0 ? im : undefined;
+}
+
 interface Props {
   map: MapInfo;
   snap: Snapshot;
@@ -178,7 +189,12 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
             const ccx = (ax + bx + dx + ex) / 4, ccy = (ay + by + dy + ey) / 4;
             const s = cam.scale;
             const sparse = ((cx + cy) & 1) === 0;
-            if (t === 2 && sparse) {                         // MOUNTAIN: grey peak with a snow cap
+            const img = (t === 3 || sparse) ? icon(t === 1 ? 'forest' : t === 2 ? 'mountain' : 'city') : undefined;
+            if (img) {                                       // sprite icon (preferred)
+              const sz = s * (t === 3 ? 1.9 : 1.5);
+              ctx.drawImage(img, ccx - sz * 0.5, ccy - sz * 0.82, sz, sz);
+            } else if (t === 2 && sparse) {                  // --- vector fallback while sprites load ---
+                                                             // MOUNTAIN: grey peak with a snow cap
               ctx.fillStyle = 'rgba(95,98,110,0.92)';
               ctx.beginPath(); ctx.moveTo(ccx, ccy - s * 0.5); ctx.lineTo(ccx - s * 0.42, ccy + s * 0.22); ctx.lineTo(ccx + s * 0.42, ccy + s * 0.22); ctx.closePath(); ctx.fill();
               ctx.fillStyle = 'rgba(238,242,250,0.92)';
