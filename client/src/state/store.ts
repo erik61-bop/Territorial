@@ -18,6 +18,7 @@ export interface Snapshot {
   morale: number[];    // per-player momentum x100 (e.g. 120 = 1.20)
   income: number[];    // per-player army/sec
   land: number[];
+  border: number[];    // per-player border-cell count (for the defence readout)
   alive: boolean[];
   human: boolean[];
   winner: number;      // -1 while playing
@@ -38,6 +39,15 @@ export interface Snapshot {
 export function colorIndexOf(snap: Snapshot | undefined, id: number): number {
   return snap?.colors?.[id] ?? id;
 }
+/** Per-border-cell defence (concentration × morale) — how much wave it takes to crack a border cell. */
+export function defenseOf(snap: Snapshot | undefined, id: number): number {
+  if (!snap) return 0;
+  const army = snap.army?.[id] ?? 0;
+  const border = Math.max(1, snap.border?.[id] ?? 1);
+  const mom = (snap.morale?.[id] ?? 100) / 100;
+  return Math.round((army / border) * mom);
+}
+
 /** Display name for a player ("You" for yourself). */
 export function nameOf(snap: Snapshot | undefined, id: number, me: number): string {
   if (id === me) return 'You';

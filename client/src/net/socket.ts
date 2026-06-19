@@ -69,7 +69,7 @@ export function connect(url = serverUrl()): WebSocket {
           for (let i = 0; i + 1 < ch.length; i += 2) owner[ch[i]] = ch[i + 1];
         }
         s.setSnap({
-          tick: m.tick, owner, army: m.army, morale: m.morale ?? [], income: m.income ?? [], land: m.land,
+          tick: m.tick, owner, army: m.army, morale: m.morale ?? [], income: m.income ?? [], land: m.land, border: m.border ?? [],
           alive: m.alive, human: m.human, winner: m.winner,
           rel: m.rel ?? [], offer: m.offer ?? [], allyOffer: m.allyOffer ?? [],
           phase: m.phase ?? 1, phaseEndsIn: m.phaseEndsIn ?? -1,

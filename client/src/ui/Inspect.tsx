@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { useGame, nameOf, colorIndexOf } from '../state/store';
+import { useGame, nameOf, colorIndexOf, defenseOf } from '../state/store';
 import { cssPlayer } from '../render/colors';
 import { sendChat, sendDiplo, sendAction } from '../net/socket';
 
@@ -22,6 +22,13 @@ export default function Inspect() {
   const army = Math.round(snap.army[sel] ?? 0);
   const land = snap.land[sel] ?? 0;
   const cap = snap.capitals?.[sel] ?? -1;
+  const theirDef = defenseOf(snap, sel);
+  // Can my current push crack one of their border cells? wave = my army × send% (capped 30%/tick) ×
+  // my morale; it must clear their per-cell defence by the break margin (~1.3). A teaching estimate.
+  const myArmy = snap.army?.[playerId] ?? 0;
+  const myMom = (snap.morale?.[playerId] ?? 100) / 100;
+  const wave = myArmy * Math.min(fraction, 0.30) * myMom;
+  const canBreak = wave > theirDef * 1.3;
 
   return (
     <View style={styles.card}>
@@ -31,7 +38,13 @@ export default function Inspect() {
         <Text style={[styles.rel, { color: relColor }]}>{relName}</Text>
         <Pressable onPress={() => setSelected(null)} hitSlop={8}><Text style={styles.close}>✕</Text></Pressable>
       </View>
-      <Text style={styles.stat}>army <Text style={styles.val}>{army}</Text>    land <Text style={styles.val}>{land}</Text></Text>
+      <Text style={styles.stat}>army <Text style={styles.val}>{army}</Text>    land <Text style={styles.val}>{land}</Text>    🛡 def <Text style={[styles.val, { color: '#86d6ff' }]}>{theirDef}</Text><Text style={styles.unit}>/cell</Text></Text>
+
+      {!me && (
+        <Text style={[styles.break, { color: canBreak ? '#8affb0' : '#ff9f8f' }]}>
+          {canBreak ? `⚔ Your push (~${Math.round(wave)}) can crack their line` : `✋ Too strong (push ~${Math.round(wave)} vs def ${theirDef}) — mass up`}
+        </Text>
+      )}
 
       {!me && (
         <View style={styles.actions}>
@@ -65,8 +78,10 @@ const styles = StyleSheet.create({
   title: { color: '#fff', fontSize: 15, fontWeight: '800' },
   rel: { fontSize: 13, fontWeight: '700', flex: 1 },
   close: { color: '#8aa0c8', fontSize: 16, fontWeight: '700' },
-  stat: { color: '#cdd6f4', fontSize: 14, marginBottom: 8 },
+  stat: { color: '#cdd6f4', fontSize: 14, marginBottom: 6 },
   val: { color: '#fff', fontWeight: '800' },
+  unit: { color: '#8aa0c8', fontSize: 11 },
+  break: { fontSize: 13, fontWeight: '700', marginBottom: 8 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   btn: { backgroundColor: '#262d40', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
   atk: { backgroundColor: '#7a2a26' },

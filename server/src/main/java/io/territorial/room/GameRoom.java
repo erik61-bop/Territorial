@@ -417,6 +417,7 @@ public class GameRoom {
         m.put("morale", morale);
         m.put("income", income);
         m.put("land", state.land.clone());
+        m.put("border", state.border.clone());   // for the client's defence readout (army/border × morale)
         m.put("alive", state.alive.clone());
         m.put("human", human.clone());
         String[] nm = new String[state.numPlayers];
