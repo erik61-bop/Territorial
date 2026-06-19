@@ -24,11 +24,13 @@ export default function Inspect() {
   const land = snap.land[sel] ?? 0;
   const cap = snap.capitals?.[sel] ?? -1;
   const theirDef = defenseOf(snap, sel);
-  // Can my current push crack one of their border cells? wave = my army × send% (capped 30%/tick) ×
-  // my morale; it must clear their per-cell defence by the break margin (~1.3). A teaching estimate.
+  // Can my current push crack one of their border cells? wave = my army × send% × my morale ×
+  // war-escalation (attacks grow stronger the longer the war runs — why a small army can break a big
+  // one late game). It must clear their per-cell defence by the break margin (~1.3). A teaching estimate.
   const myArmy = snap.army?.[playerId] ?? 0;
   const myMom = (snap.morale?.[playerId] ?? 100) / 100;
-  const wave = myArmy * Math.min(fraction, 0.30) * myMom;
+  const esc = snap.phase === 1 ? 1 + Math.max(0, (snap.tick ?? 0) - 200) * 0.005 : 1;
+  const wave = myArmy * fraction * myMom * esc;
   // Do I share a LAND border with them? If not, attacking is a naval invasion (≈NAVAL_COST_MULT dearer).
   let landAdjacent = false;
   if (map && !me) {
