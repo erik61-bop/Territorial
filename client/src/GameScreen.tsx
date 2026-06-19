@@ -72,10 +72,18 @@ export default function GameScreen() {
   const prevPhase = useRef<number | null>(null);
   const prevAlive = useRef<boolean[] | null>(null);
   const prevCaps = useRef<number[] | null>(null);
+  const prevTick = useRef<number | null>(null);
   const lastSfxAt = useRef<number>(0);
   useEffect(() => {
     if (!snap || playerId < 0) return;
     const { muted } = useGame.getState();
+    // New match (tick reset): drop all baselines so we don't fire phantom losses/eliminations/
+    // capital-falls against the previous match's state.
+    if (prevTick.current != null && snap.tick < prevTick.current) {
+      prevLand.current = null; prevPhase.current = null; prevAlive.current = null; prevCaps.current = null;
+      fitted.current = false; centeredCapital.current = -1;   // re-fit the camera for the new (maybe resized) map
+    }
+    prevTick.current = snap.tick;
     const land = snap.land[playerId] ?? 0;
     const now = typeof performance !== 'undefined' ? performance.now() : 0;
     if (prevLand.current != null && prevLand.current - land >= 1) {

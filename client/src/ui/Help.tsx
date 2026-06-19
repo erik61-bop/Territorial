@@ -16,8 +16,8 @@ export default function Help() {
   const setShow = useGame((s) => s.setShowHelp);
   if (!show) return null;
   return (
-    <View style={styles.scrim}>
-      <View style={styles.card}>
+    <Pressable style={styles.scrim} onPress={() => setShow(false)} onStartShouldSetResponder={() => true}>
+      <Pressable style={styles.card} onPress={() => { /* absorb taps on the card */ }}>
         <Text style={styles.title}>How to play</Text>
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
           {SECTIONS.map((s) => (
@@ -30,8 +30,8 @@ export default function Help() {
         <Pressable style={styles.btn} onPress={() => setShow(false)}>
           <Text style={styles.btnTxt}>Got it — play!</Text>
         </Pressable>
-      </View>
-    </View>
+      </Pressable>
+    </Pressable>
   );
 }
 
