@@ -14,9 +14,9 @@ const PHASES = [
   { name: 'FINAL WAR', color: '#FF6B6B', next: '' },
 ];
 
-const ACTIONS: { mode: Mode; label: string; icon: string; color: string; hint: string }[] = [
-  { mode: 'attack', label: 'Attack', icon: '⚔️', color: '#e0473e', hint: 'tap empty land to expand, a country to conquer' },
-  { mode: 'hold', label: 'Hold', icon: '🛡️', color: '#46a35a', hint: 'stop attacking & dig in — +25% defence' },
+const ACTIONS: { mode: Mode; label: string; icon: string; color: string; hint: string; hot: string }[] = [
+  { mode: 'attack', label: 'Attack', icon: '⚔️', color: '#e0473e', hint: 'tap empty land to expand, a country to conquer', hot: 'Q' },
+  { mode: 'hold', label: 'Hold', icon: '🛡️', color: '#46a35a', hint: 'stop attacking & dig in — +25% defence', hot: 'Space' },
 ];
 
 // Quick send-% presets (the slider still gives fine control).
@@ -169,6 +169,7 @@ export default function Hud() {
             >
               <Text style={styles.actionIcon}>{a.icon}</Text>
               <Text style={[styles.actionTxt, mode === a.mode && { color: '#fff' }]}>{a.label}</Text>
+              <Text style={[styles.actionKey, mode === a.mode && { color: '#dbe6ff' }]}>{a.hot}</Text>
             </Pressable>
           ))}
         </View>
@@ -269,6 +270,7 @@ const styles = StyleSheet.create({
   action: { alignItems: 'center', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 9, borderWidth: 2, backgroundColor: '#1b2030', minWidth: 64 },
   actionIcon: { fontSize: 16 },
   actionTxt: { color: '#cdd6f4', fontSize: 12, fontWeight: '700' },
+  actionKey: { color: '#7689ad', fontSize: 9, fontWeight: '800', marginTop: 1 },
 
   legend: { right: 12, bottom: 212, paddingVertical: 8 },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 1 },

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, Pressable, useWindowDimensions, PanResponder, Platform, StyleSheet } from 'react-native';
 import { useGame, nameOf } from './state/store';
-import { connect, disconnect, sendAction, sendSpawn, sendDifficulty, sendProfile } from './net/socket';
+import { connect, disconnect, sendAction, sendSpawn, sendDifficulty, sendProfile, sendStop } from './net/socket';
 import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
 import { unprojectH, centerOn, terrainHeight, BASE_H } from './render/iso';
 import Hud from './ui/Hud';
@@ -245,6 +245,8 @@ export default function GameScreen() {
     if (Platform.OS !== 'web' || !started) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { e.preventDefault(); const g = useGame.getState(); g.setShowSettings(!g.showSettings); return; }
+      if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); useGame.getState().setMode('hold'); sendStop(); return; }   // Hold
+      if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); useGame.getState().setMode('attack'); return; }                  // Attack
       const PAN = 70;
       let dx = 0, dy = 0, zoom = 1;
       switch (e.key) {
