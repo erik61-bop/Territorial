@@ -69,4 +69,7 @@ public final class Config {
 
     // Phase (ticks; 8/s). PEACE opening: expand into neutral only, no PvP. Then WAR until one remains.
     public static final int PEACE_PHASE_TICKS     = 200;   // ~25s opening land-grab, no PvP
+
+    // A human's standing order launches a wave every this many ticks (8/s) — ~1.6 waves/sec, not 8.
+    public static final int ATTACK_PERIOD_TICKS   = 5;
 }

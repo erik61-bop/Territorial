@@ -173,17 +173,17 @@ public class GameRoom {
                 if (!state.alive[p]) continue;
                 Action a;
                 if (human[p]) {
-                    a = humanActions.get(p);                       // STANDING order: persists each tick
-                    if (a != null && a.targetOwner() >= 0 && !state.alive[a.targetOwner()]) {
-                        humanActions.remove(p); a = null;          // target eliminated -> stop
+                    Action ord = humanActions.get(p);              // STANDING order: persists until Hold
+                    if (ord != null && ord.targetOwner() >= 0 && !state.alive[ord.targetOwner()]) {
+                        humanActions.remove(p); ord = null;        // target eliminated -> stop
                     }
-                    if (a != null) {                               // cap per-tick so it flows, not dumps
-                        a = new Action(p, a.targetOwner(), Math.min(a.fraction(), SUSTAIN_CAP), a.targetCell());
-                    }
+                    state.stance[p] = (ord == null) ? 1 : 0;       // having an order = attacking (Normal stance)
+                    // Launch a wave only ~1-2x/sec (not every tick): the order pulses, army rebuilds between.
+                    a = (ord != null && state.tick % Config.ATTACK_PERIOD_TICKS == 0) ? ord : null;
                 } else {
                     a = Bot.decide(state, p);
+                    state.stance[p] = (a == null) ? 1 : 0;         // a holding bot digs in (+25% defence)
                 }
-                state.stance[p] = (a == null) ? 1 : 0;   // not acting this tick = HOLD (+25% defence)
                 if (a != null) actions.add(a);
             }
             // Record this tick's PvP attacks (attacker,target,...) for the client's battle arrows.
