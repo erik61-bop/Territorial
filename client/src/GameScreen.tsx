@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, Pressable, useWindowDimensions, PanResponder, Platform, StyleSheet } from 'react-native';
 import { useGame, nameOf } from './state/store';
-import { connect, sendAction, sendSpawn, sendDifficulty, sendProfile } from './net/socket';
+import { connect, disconnect, sendAction, sendSpawn, sendDifficulty, sendProfile } from './net/socket';
 import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
 import { unprojectH, centerOn, terrainHeight, BASE_H } from './render/iso';
 import Hud from './ui/Hud';
@@ -10,6 +10,7 @@ import Minimap from './ui/Minimap';
 import Inspect from './ui/Inspect';
 import Menu from './ui/Menu';
 import Help from './ui/Help';
+import Settings from './ui/Settings';
 import { sfx } from './audio/sfx';
 
 const MIN_SCALE = 2;
@@ -261,6 +262,7 @@ export default function GameScreen() {
   useEffect(() => {
     if (Platform.OS !== 'web' || !started) return;
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); const g = useGame.getState(); g.setShowSettings(!g.showSettings); return; }
       const PAN = 70;
       let dx = 0, dy = 0, zoom = 1;
       switch (e.key) {
@@ -292,6 +294,14 @@ export default function GameScreen() {
     setCam(centerOn(mapX, mapY, 0, c.scale, winW / 2, winH / 2));
   }, [winW, winH, setCam]);
 
+  // Leave the match and return to the menu (disconnect, no auto-reconnect).
+  const leaveMatch = useCallback(() => {
+    disconnect();
+    const g = useGame.getState();
+    g.setShowSettings(false); g.setStarted(false); g.setPlayerId(-1);
+    g.setSpectating(false); g.setOrder(null);
+  }, []);
+
   // On-screen zoom (about screen centre) + recenter (on your capital, else the map).
   const zoomBy = useCallback((f: number) => setCam((c) => {
     const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, c.scale * f));
@@ -312,6 +322,7 @@ export default function GameScreen() {
   if (!started) {
     return <Menu onPlay={(difficulty, name, color) => {
       useGame.getState().setProfile(name, color);
+      useGame.getState().setDifficulty(difficulty);
       setStarted(true); connect();
       setTimeout(() => { sendDifficulty(difficulty); sendProfile(name, color); }, 600);
     }} />;
@@ -353,6 +364,10 @@ export default function GameScreen() {
       <Pressable style={styles.helpBtn} onPress={() => useGame.getState().setShowHelp(true)}>
         <Text style={styles.helpTxt}>?</Text>
       </Pressable>
+      <Pressable style={styles.settingsBtn} onPress={() => useGame.getState().setShowSettings(true)}>
+        <Text style={styles.helpTxt}>⚙</Text>
+      </Pressable>
+      <Settings onLeave={leaveMatch} />
       <View style={styles.zoomBar}>
         <Pressable style={styles.zoomBtn} onPress={() => zoomBy(1.3)}><Text style={styles.zoomTxt}>＋</Text></Pressable>
         <Pressable style={styles.zoomBtn} onPress={() => zoomBy(1 / 1.3)}><Text style={styles.zoomTxt}>－</Text></Pressable>
@@ -392,6 +407,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   helpTxt: { color: '#8aa0c8', fontSize: 19, fontWeight: '900' },
+  settingsBtn: {
+    position: 'absolute', top: 12, right: 54, width: 34, height: 34, borderRadius: 17,
+    backgroundColor: 'rgba(20,24,36,0.92)', borderWidth: 1, borderColor: '#2a3145',
+    alignItems: 'center', justifyContent: 'center',
+  },
   zoomBar: { position: 'absolute', left: 12, top: '40%', gap: 8 },
   zoomBtn: {
     width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(20,24,36,0.92)',

@@ -90,6 +90,8 @@ interface GameStore {
   selected: number | null; // nation currently inspected (playerId), or null
   spectating: boolean;   // eliminated/idle player chose to watch instead of respawning
   showHelp: boolean;     // the How-to-play overlay is open
+  showSettings: boolean; // the settings / pause panel is open
+  difficulty: number;    // chosen bot difficulty (0 Easy, 1 Normal, 2 Hard)
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
@@ -107,6 +109,8 @@ interface GameStore {
   setSelected: (id: number | null) => void;
   setSpectating: (b: boolean) => void;
   setShowHelp: (b: boolean) => void;
+  setShowSettings: (b: boolean) => void;
+  setDifficulty: (n: number) => void;
 }
 
 export const useGame = create<GameStore>((set) => ({
@@ -125,6 +129,8 @@ export const useGame = create<GameStore>((set) => ({
   selected: null,
   spectating: false,
   showHelp: false,
+  showSettings: false,
+  difficulty: 1,
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
   setMatchId: (n) => set({ matchId: n }),
@@ -141,6 +147,8 @@ export const useGame = create<GameStore>((set) => ({
   setSelected: (id) => set({ selected: id }),
   setSpectating: (b) => set({ spectating: b }),
   setShowHelp: (b) => set({ showHelp: b }),
+  setShowSettings: (b) => set({ showSettings: b }),
+  setDifficulty: (n) => set({ difficulty: n }),
 }));
 
 // Expose the store on web for debugging / automated end-to-end checks.

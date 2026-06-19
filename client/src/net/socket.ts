@@ -2,6 +2,7 @@ import { useGame } from '../state/store';
 
 let ws: WebSocket | null = null;
 let chatKey = 1;
+let intentionalClose = false;   // set when the player leaves, so we don't auto-reconnect
 
 /** A persistent client id so a reload/disconnect reconnects to the same empire. */
 function clientToken(): string {
@@ -27,6 +28,7 @@ export function serverUrl(): string {
 
 export function connect(url = serverUrl()): WebSocket {
   if (ws) return ws;
+  intentionalClose = false;
   const store = useGame.getState();
   const sock = new WebSocket(url);
 
@@ -34,8 +36,8 @@ export function connect(url = serverUrl()): WebSocket {
   sock.onclose = () => {
     store.setConnected(false);
     ws = null;
-    // simple auto-reconnect after a short delay
-    setTimeout(() => connect(url), 1000);
+    if (intentionalClose) return;            // player left — don't reconnect
+    setTimeout(() => connect(url), 1000);    // otherwise auto-reconnect
   };
   sock.onerror = () => { /* state surfaced via connected=false */ };
   sock.onmessage = (ev) => {
@@ -87,6 +89,13 @@ export function connect(url = serverUrl()): WebSocket {
 
   ws = sock;
   return sock;
+}
+
+/** Leave the match: close the socket and stop auto-reconnect (back to the menu). */
+export function disconnect(): void {
+  intentionalClose = true;
+  if (ws) { try { ws.close(); } catch { /* ignore */ } ws = null; }
+  useGame.getState().setConnected(false);
 }
 
 function send(obj: unknown): void {
