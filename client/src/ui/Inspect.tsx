@@ -9,6 +9,7 @@ export default function Inspect() {
   const sel = useGame((s) => s.selected);
   const setSelected = useGame((s) => s.setSelected);
   const snap = useGame((s) => s.snap);
+  const map = useGame((s) => s.map);
   const playerId = useGame((s) => s.playerId);
   const fraction = useGame((s) => s.fraction);
 
@@ -28,7 +29,20 @@ export default function Inspect() {
   const myArmy = snap.army?.[playerId] ?? 0;
   const myMom = (snap.morale?.[playerId] ?? 100) / 100;
   const wave = myArmy * Math.min(fraction, 0.30) * myMom;
-  const canBreak = wave > theirDef * 1.3;
+  // Do I share a LAND border with them? If not, attacking is a naval invasion (≈NAVAL_COST_MULT dearer).
+  let landAdjacent = false;
+  if (map && !me) {
+    const W = map.width, H = map.height, o = snap.owner;
+    for (let i = 0; i < o.length && !landAdjacent; i++) {
+      if (o[i] !== playerId) continue;
+      const x = i % W, y = (i / W) | 0;
+      if ((x > 0 && o[i - 1] === sel) || (x < W - 1 && o[i + 1] === sel) ||
+          (y > 0 && o[i - W] === sel) || (y < H - 1 && o[i + W] === sel)) landAdjacent = true;
+    }
+  }
+  const naval = !me && !landAdjacent;
+  const effWave = naval ? wave / 2.5 : wave;   // naval cells cost ~NAVAL_COST_MULT more
+  const canBreak = effWave > theirDef * 1.3;
 
   return (
     <View style={styles.card}>
@@ -40,9 +54,10 @@ export default function Inspect() {
       </View>
       <Text style={styles.stat}>army <Text style={styles.val}>{army}</Text>    land <Text style={styles.val}>{land}</Text>    🛡 def <Text style={[styles.val, { color: '#86d6ff' }]}>{theirDef}</Text><Text style={styles.unit}>/cell</Text></Text>
 
+      {naval && <Text style={styles.naval}>⚓ Across the sea — ships in (costs ~2.5× more)</Text>}
       {!me && (
         <Text style={[styles.break, { color: canBreak ? '#8affb0' : '#ff9f8f' }]}>
-          {canBreak ? `⚔ Your push (~${Math.round(wave)}) can crack their line` : `✋ Too strong (push ~${Math.round(wave)} vs def ${theirDef}) — mass up`}
+          {canBreak ? `⚔ Your push (~${Math.round(effWave)}) can crack their line` : `✋ Too strong (push ~${Math.round(effWave)} vs def ${theirDef}) — mass up`}
         </Text>
       )}
 
@@ -82,6 +97,7 @@ const styles = StyleSheet.create({
   val: { color: '#fff', fontWeight: '800' },
   unit: { color: '#8aa0c8', fontSize: 11 },
   break: { fontSize: 13, fontWeight: '700', marginBottom: 8 },
+  naval: { color: '#86d6ff', fontSize: 12, fontWeight: '700', marginBottom: 4 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   btn: { backgroundColor: '#262d40', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
   atk: { backgroundColor: '#7a2a26' },

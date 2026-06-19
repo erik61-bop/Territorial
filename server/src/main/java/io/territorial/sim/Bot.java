@@ -147,6 +147,7 @@ public final class Bot {
         double strongestDef = -1;
         int biggestNeighbour = -1, biggestNeighbourLand = -1;
 
+        boolean hasCoast = false;
         boolean[] seen = new boolean[s.numPlayers];
         for (int c = 0; c < s.cellCount; c++) {
             if (s.owner[c] != p) continue;
@@ -157,7 +158,7 @@ public final class Bot {
                     neutralTarget = nb;
                     if (s.terrain[nb] == Terrain.CITY) cityTarget = nb;
                 } else if (o == GameState.WATER) {
-                    /* coastline */
+                    hasCoast = true;
                 } else if (o != p && !seen[o]) {
                     seen[o] = true;
                     if (s.areFriendly(p, o)) continue;        // don't waste turns on peace/allies
@@ -186,9 +187,15 @@ public final class Bot {
                                                                               // late war push to close gaps
                 && s.army[p] * st.expandFraction * s.momentum[p] > Config.NEUTRAL_COST;
 
-        // Opening Peace phase: no PvP — grab land (toward a city) when able, else accumulate.
+        // Opening Peace phase: no PvP — grab land (toward a city); if landlocked-out, ship to an island.
         if (s.phase == GameState.PEACE) {
-            return canExpand ? new Action(p, GameState.NEUTRAL, st.expandFraction, expandTarget) : null;
+            if (canExpand) return new Action(p, GameState.NEUTRAL, st.expandFraction, expandTarget);
+            if (hasCoast && !misplay && s.density(p) > st.expandMinDensity) {
+                int nt = navalTarget(s, p, true);                  // neutral islands only during peace
+                if (nt >= 0 && s.army[p] * st.expandFraction * s.momentum[p] > Config.NEUTRAL_COST * Config.NAVAL_COST_MULT * 1.3)
+                    return new Action(p, GameState.NEUTRAL, st.expandFraction, nt);
+            }
+            return null;
         }
 
         // GROW FIRST: claim free neutral land (cheap and always effective) before assaulting forts.
@@ -223,6 +230,36 @@ public final class Bot {
         if (!defends && weakestEnemy >= 0) {                      // Aggressor: keep poking even when weak
             return new Action(p, weakestEnemy, st.attackFraction, s.capitalCell[weakestEnemy]);
         }
+        // No good land move — if I have a coast and a healthy reserve, launch a naval invasion
+        // (island or enemy coast across the sea) so the seas/islands get contested too.
+        if (hasCoast && !misplay && !threatened && s.density(p) > st.expandMinDensity) {
+            int nt = navalTarget(s, p, false);
+            if (nt >= 0) {
+                int no = s.owner[nt];
+                double cost = (no == GameState.NEUTRAL ? Config.NEUTRAL_COST : s.defensePerCell(no) * s.momentum[no]) * Config.NAVAL_COST_MULT;
+                if (wave > cost * 1.4) return new Action(p, no, st.attackFraction, nt);
+            }
+        }
         return null;   // hold and regrow
+    }
+
+    /** Nearest land cell reachable by sea (≤ NAVAL_RANGE water tiles) that p may invade, or -1.
+     *  neutralOnly restricts to neutral land (islands) — used during the Peace phase. */
+    static int navalTarget(GameState s, int p, boolean neutralOnly) {
+        java.util.HashMap<Integer, Integer> wd = new java.util.HashMap<>();
+        java.util.ArrayDeque<Integer> q = new java.util.ArrayDeque<>();
+        for (int w : s.waterCells)
+            for (int nb : s.neighbours[w]) if (s.owner[nb] == p) { if (wd.putIfAbsent(w, 1) == null) q.add(w); break; }
+        while (!q.isEmpty()) {
+            int w = q.poll(); int d = wd.get(w);
+            for (int nb : s.neighbours[w]) {
+                int o = s.owner[nb];
+                if (o == GameState.NEUTRAL) return nb;                                  // island — easiest
+                if (!neutralOnly && o >= 0 && o != p && !s.areFriendly(p, o)) return nb; // enemy coast
+            }
+            if (d < Config.NAVAL_RANGE)
+                for (int nb : s.neighbours[w]) if (s.owner[nb] == GameState.WATER && wd.putIfAbsent(nb, d + 1) == null) q.add(nb);
+        }
+        return -1;
     }
 }
