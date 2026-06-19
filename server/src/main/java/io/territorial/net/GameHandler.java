@@ -20,18 +20,35 @@ public class GameHandler extends TextWebSocketHandler {
 
     private final RoomManager manager;
     private final ObjectMapper json;
+    private final io.territorial.room.Bank bank;
 
-    public GameHandler(RoomManager manager, ObjectMapper json) {
+    public GameHandler(RoomManager manager, ObjectMapper json, io.territorial.room.Bank bank) {
         this.manager = manager;
         this.json = json;
+        this.bank = bank;
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        GameRoom room = manager.assign(session, tokenOf(session), soloOf(session));
+        String token = tokenOf(session);
+        long stake = stakeOf(session);
+        // Prize room: refuse up front if the player can't cover the ante (so we don't seat them).
+        if (stake > 0 && bank.balance(token) < stake) {
+            sendNow(session, java.util.Map.of("type", "joinError", "reason", "insufficient_coins",
+                    "coins", bank.balance(token), "stake", stake));
+            try { session.close(); } catch (Exception ignored) {}
+            return;
+        }
+        GameRoom room = manager.assign(session, token, soloOf(session), stake);
         if (room == null) return;   // server at capacity
         room.send(session, room.welcomeFor(session));
         room.send(session, room.mapMessage());
+    }
+
+    private void sendNow(WebSocketSession session, Object payload) {
+        try {
+            synchronized (session) { if (session.isOpen()) session.sendMessage(new TextMessage(json.writeValueAsString(payload))); }
+        } catch (Exception ignored) {}
     }
 
     /** Single-player flag from the ws URL query (&solo=1). */
@@ -40,6 +57,20 @@ public class GameHandler extends TextWebSocketHandler {
         if (uri == null || uri.getQuery() == null) return false;
         for (String kv : uri.getQuery().split("&")) if (kv.equals("solo=1")) return true;
         return false;
+    }
+
+    /** Prize-room stake from the ws URL query (&stake=N). 0 = free room. */
+    private static long stakeOf(WebSocketSession session) {
+        java.net.URI uri = session.getUri();
+        if (uri == null || uri.getQuery() == null) return 0;
+        for (String kv : uri.getQuery().split("&")) {
+            int i = kv.indexOf('=');
+            if (i > 0 && kv.substring(0, i).equals("stake")) {
+                try { return Math.max(0, Math.min(1_000_000, Long.parseLong(kv.substring(i + 1)))); }
+                catch (NumberFormatException e) { return 0; }
+            }
+        }
+        return 0;
     }
 
     /** Persistent client token from the ws URL query (?t=...), used for reconnection. */

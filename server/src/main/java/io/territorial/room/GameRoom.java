@@ -67,15 +67,34 @@ public class GameRoom {
     private ScheduledExecutorService scheduler;
 
     private final int roomId;
+    private final Bank bank;
     volatile boolean isPrivate = false;   // single-player room — matchmaking won't add others
 
-    public GameRoom(ObjectMapper json, int tickMs, int roomId) {
+    // Prize (wager) room: each joiner antes `stake` into `pot`; the winner takes the whole pot.
+    volatile boolean isPrize = false;
+    volatile long stake = 0;
+    private long pot = 0;
+    private boolean potPaid = false;
+
+    public GameRoom(ObjectMapper json, Bank bank, int tickMs, int roomId) {
         this.json = json;
+        this.bank = bank;
         this.tickMs = tickMs;
         this.roomId = roomId;
     }
 
     public int roomId() { return roomId; }
+
+    /** Make this a prize (wager) room: each joiner antes {@code stake} into the pot; winner takes it. */
+    public void setPrize(long stake) { this.isPrize = true; this.stake = stake; }
+
+    /** Prize rooms lock to new joiners once the peace opening ends (the roster is fixed for the wager).
+     *  Free rooms are always joinable. */
+    public boolean joinable() {
+        if (!isPrize) return true;
+        lock.lock();
+        try { return winner == -1 && state.phase == GameState.PEACE; } finally { lock.unlock(); }
+    }
 
     /** Begin ticking (called by RoomManager when the room is created). */
     public void start() {
@@ -147,9 +166,9 @@ public class GameRoom {
     private void step() {
         lock.lock();
         try {
-            if (winner != -1) {                       // match over: hold, then restart
-                if (++holdTicks >= RESTART_AFTER_TICKS) {
-                    newMatch();
+            if (winner != -1) {                       // match over: hold, then restart (free rooms only)
+                if (!isPrize && ++holdTicks >= RESTART_AFTER_TICKS) {
+                    newMatch();                       // prize rooms are single-match: stay on the result
                     broadcast(buildMapMessage());
                 }
                 broadcastState();
@@ -201,6 +220,7 @@ public class GameRoom {
             }
             buildEvents();
             winner = sim.winner();
+            if (winner != -1 && isPrize && !potPaid) awardPot();
             broadcastState();
         } finally {
             lock.unlock();
@@ -229,6 +249,12 @@ public class GameRoom {
             }
             for (int p = 0; p < NUM_PLAYERS; p++) {
                 if (!human[p]) {
+                    // Prize room: ante the stake into the pot before claiming the seat. If the player
+                    // can't afford it (or has no token), they don't get a seat.
+                    if (isPrize) {
+                        if (token == null || !bank.tryDebit(token, stake)) return -1;
+                        pot += stake;
+                    }
                     human[p] = true;
                     connected[p] = true;
                     sessionToPlayer.put(session.getId(), p);
@@ -275,6 +301,20 @@ public class GameRoom {
             sim.recomputeDerived();
         } finally {
             lock.unlock();
+        }
+    }
+
+    /** Settle a finished prize match: the human winner takes the whole pot. If a BOT won (every human
+     *  was eliminated), refund each still-seated human their ante — bots shouldn't pocket the wager. */
+    private void awardPot() {
+        if (potPaid) return;
+        potPaid = true;
+        if (pot <= 0) return;
+        if (winner >= 0 && human[winner] && slotToken[winner] != null) {
+            bank.credit(slotToken[winner], pot);
+        } else {
+            for (int p = 0; p < NUM_PLAYERS; p++)
+                if (human[p] && slotToken[p] != null) bank.credit(slotToken[p], stake);
         }
     }
 
@@ -499,6 +539,13 @@ public class GameRoom {
         m.put("rel", rel);
         m.put("offer", state.offer);
         m.put("allyOffer", state.allyOffer);
+        // Prize-room economy: the stake, the live pot, and each seated human's coin balance (by slot).
+        m.put("isPrize", isPrize);
+        m.put("stake", stake);
+        m.put("pot", pot);
+        int[] coins = new int[state.numPlayers];
+        for (int p = 0; p < state.numPlayers; p++) coins[p] = slotToken[p] != null ? (int) bank.balance(slotToken[p]) : 0;
+        m.put("coins", coins);
         return m;
     }
 

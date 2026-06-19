@@ -34,12 +34,33 @@ function clientToken(): string {
 /** ws://<same-host>:8080/ws/game on web (same origin as the page); localhost otherwise. */
 export function serverUrl(): string {
   const t = encodeURIComponent(clientToken());
-  const solo = useGame.getState().singlePlayer ? '&solo=1' : '';
+  const st = useGame.getState();
+  const solo = st.singlePlayer ? '&solo=1' : '';
+  // Prize (wager) rooms are multiplayer only; stake = coins to ante.
+  const stake = (!st.singlePlayer && st.prizeStake > 0) ? `&stake=${st.prizeStake}` : '';
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${proto}://${window.location.hostname}:8080/ws/game?t=${t}${solo}`;
+    return `${proto}://${window.location.hostname}:8080/ws/game?t=${t}${solo}${stake}`;
   }
-  return `ws://localhost:8080/ws/game?t=${t}${solo}`;
+  return `ws://localhost:8080/ws/game?t=${t}${solo}${stake}`;
+}
+
+/** Same host as the page, port 8080 (http(s)). */
+function httpBase(): string {
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const proto = window.location.protocol === 'https:' ? 'https' : 'http';
+    return `${proto}://${window.location.hostname}:8080`;
+  }
+  return 'http://localhost:8080';
+}
+
+/** Fetch this client's coin balance (for the menu wallet display, before joining a room). */
+export async function fetchWallet(): Promise<number> {
+  try {
+    const r = await fetch(`${httpBase()}/api/wallet?t=${encodeURIComponent(clientToken())}`);
+    const j = await r.json();
+    return typeof j.coins === 'number' ? j.coins : 0;
+  } catch { return 0; }
 }
 
 export function connect(url = serverUrl()): WebSocket {
@@ -64,6 +85,14 @@ export function connect(url = serverUrl()): WebSocket {
       case 'welcome':
         s.setPlayerId(m.playerId);
         s.setMatchId(m.room ?? -1);
+        s.setJoinError(null);
+        break;
+      case 'joinError':
+        intentionalClose = true;   // server will close; don't auto-reconnect into the same refusal
+        s.setJoinError(m.reason === 'insufficient_coins'
+          ? `Not enough coins — you have ${m.coins}, need ${m.stake}.`
+          : 'Could not join that room.');
+        s.setStarted(false);       // bounce back to the menu
         break;
       case 'map':
         s.setMap({
@@ -94,6 +123,7 @@ export function connect(url = serverUrl()): WebSocket {
           capitals: m.capitals ?? [],
           names: m.names, colors: m.colors, attacks: m.attacks,
           peakLand: m.peakLand, place: m.place,
+          isPrize: m.isPrize, stake: m.stake, pot: m.pot, coins: m.coins,
         });
         // Announce this tick's events (eliminations, capitals, your treaties) in the feed.
         if (Array.isArray(m.events) && m.events.length) {

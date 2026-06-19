@@ -140,6 +140,9 @@ export default function Hud() {
         {(snap?.developing?.[playerId] ?? 0) > 0 && (
           <Text style={styles.statusLine}>🏗 <Text style={[styles.statusVal, { color: '#ffd07a' }]}>{snap!.developing![playerId]}</Text> <Text style={styles.dim}>cells developing — no income yet</Text></Text>
         )}
+        {snap?.isPrize && (
+          <Text style={styles.statusLine}>🪙 Pot <Text style={[styles.statusVal, { color: '#ffd54a' }]}>{snap.pot ?? 0}</Text> <Text style={styles.dim}>· you {snap.coins?.[playerId] ?? 0}</Text></Text>
+        )}
         <View style={styles.barTrack}><View style={[styles.barFill, { width: `${mapPct}%` }]} /></View>
         <Text style={styles.dim}>{mapPct}% of the map</Text>
       </View>
@@ -202,7 +205,14 @@ export default function Hud() {
               {snap!.peakLand?.[playerId] ? `  ·  peak land ${snap!.peakLand[playerId]}` : ''}
             </Text>
           ) : null}
-          <Text style={styles.dim}>new match starting…</Text>
+          {snap!.isPrize ? (
+            <Text style={styles.prizeWin}>
+              {snap!.winner === playerId ? `🪙 You won the ${snap!.pot ?? 0} pot!`
+                : snap!.human?.[snap!.winner] ? `🪙 ${nameOf(snap, snap!.winner, playerId)} took the ${snap!.pot ?? 0} pot`
+                : `🤖 A bot won — your ${snap!.stake ?? 0} ante was refunded`}
+            </Text>
+          ) : null}
+          <Text style={styles.dim}>{snap!.isPrize ? 'leave to play again' : 'new match starting…'}</Text>
         </View>
       )}
     </>
@@ -281,4 +291,5 @@ const styles = StyleSheet.create({
   bannerWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   banner: { color: '#fff', fontSize: 40, fontWeight: '900', textShadowColor: '#000', textShadowRadius: 8 },
   summary: { color: '#ffe08a', fontSize: 18, fontWeight: '800', marginTop: 6, textShadowColor: '#000', textShadowRadius: 6 },
+  prizeWin: { color: '#ffd54a', fontSize: 22, fontWeight: '900', marginTop: 8, textShadowColor: '#000', textShadowRadius: 6 },
 });

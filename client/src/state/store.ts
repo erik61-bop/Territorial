@@ -36,6 +36,10 @@ export interface Snapshot {
   attacks?: number[];  // this tick's PvP attacks, flat [attacker, target, ...] (battle arrows)
   peakLand?: number[]; // post-game summary: max land each player ever held
   place?: number[];    // final ranking (1 = winner), present once the match ends; 0 = never played
+  isPrize?: boolean;   // prize (wager) room?
+  stake?: number;      // coins each player anted
+  pot?: number;        // total prize pool for the winner
+  coins?: number[];    // per-slot coin balance (0 for non-humans)
 }
 
 /** Colour index for a player (uses the server's colour permutation, falls back to slot). */
@@ -99,6 +103,8 @@ interface GameStore {
   showSettings: boolean; // the settings / pause panel is open
   difficulty: number;    // chosen bot difficulty (0 Easy, 1 Normal, 2 Hard)
   singlePlayer: boolean; // true = private match (you + bots); false = shared multiplayer room
+  prizeStake: number;    // coins to wager for a prize room (0 = free room)
+  joinError: string | null; // last failed-join reason (e.g. not enough coins)
 
   setConnected: (b: boolean) => void;
   setPlayerId: (n: number) => void;
@@ -119,6 +125,8 @@ interface GameStore {
   setShowSettings: (b: boolean) => void;
   setDifficulty: (n: number) => void;
   setSinglePlayer: (b: boolean) => void;
+  setPrizeStake: (n: number) => void;
+  setJoinError: (s: string | null) => void;
   pushGameEvent: (text: string, color: string) => void;
 }
 
@@ -144,6 +152,8 @@ export const useGame = create<GameStore>((set) => ({
   showSettings: false,
   difficulty: 1,
   singlePlayer: true,
+  prizeStake: 0,
+  joinError: null,
   setConnected: (b) => set({ connected: b }),
   setPlayerId: (n) => set({ playerId: n }),
   setMatchId: (n) => set({ matchId: n }),
@@ -163,6 +173,8 @@ export const useGame = create<GameStore>((set) => ({
   setShowSettings: (b) => set({ showSettings: b }),
   setDifficulty: (n) => set({ difficulty: n }),
   setSinglePlayer: (b) => set({ singlePlayer: b }),
+  setPrizeStake: (n) => set({ prizeStake: n }),
+  setJoinError: (s) => set({ joinError: s }),
   pushGameEvent: (text, color) => set((st) => ({
     gameEvents: [...st.gameEvents, { key: ++evKey, text, color, t: typeof performance !== 'undefined' ? performance.now() : Date.now() }].slice(-6),
   })),

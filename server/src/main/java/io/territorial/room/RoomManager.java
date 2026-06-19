@@ -22,6 +22,7 @@ public class RoomManager {
     static final long REAP_PERIOD_MS = 15_000;   // dispose abandoned (all-bot) rooms periodically
 
     private final ObjectMapper json;
+    private final Bank bank;
     private final int tickMs;
     private final ReentrantLock lock = new ReentrantLock();
     private final List<GameRoom> rooms = new ArrayList<>();
@@ -30,8 +31,9 @@ public class RoomManager {
     private int nextRoomId = 1;
     private ScheduledExecutorService reaper;
 
-    public RoomManager(ObjectMapper json, @Value("${territorial.tickMs:125}") int tickMs) {
+    public RoomManager(ObjectMapper json, Bank bank, @Value("${territorial.tickMs:125}") int tickMs) {
         this.json = json;
+        this.bank = bank;
         this.tickMs = tickMs;
     }
 
@@ -54,26 +56,28 @@ public class RoomManager {
 
     /** Pick (or create) a room for this connection, attach the session, and return it (or null if full).
      *  solo=true gives the player a PRIVATE room (you + bots) that matchmaking won't add others to. */
-    public GameRoom assign(WebSocketSession session, String token, boolean solo) {
+    public GameRoom assign(WebSocketSession session, String token, boolean solo, long stake) {
         lock.lock();
         try {
             // 1. Reconnect to the same room if the token still owns a live one.
             GameRoom room = token != null ? tokenRoom.get(token) : null;
             if (room == null || !rooms.contains(room)) {
                 room = null;
-                // 2. Multiplayer only: join the most-populated PUBLIC room that still has space.
+                // 2. Join the most-populated PUBLIC room that matches the requested kind (free vs the
+                //    same prize stake) and is still open to joiners. Solo never matchmakes.
                 if (!solo) {
                     int best = Integer.MAX_VALUE;
                     for (GameRoom r : rooms) {
-                        if (r.isPrivate) continue;
+                        if (r.isPrivate || r.stake != stake || !r.joinable()) continue;
                         int free = r.freeHumanSlots();
                         if (free > 0 && free < best) { best = free; room = r; }
                     }
                 }
-                // 3. Otherwise (solo, or no public room with space) spin up a new match.
+                // 3. Otherwise (solo, or no matching room with space) spin up a new match.
                 if (room == null && rooms.size() < MAX_ROOMS) {
-                    room = new GameRoom(json, tickMs, nextRoomId++);
+                    room = new GameRoom(json, bank, tickMs, nextRoomId++);
                     room.isPrivate = solo;
+                    if (stake > 0) room.setPrize(stake);
                     room.start();
                     rooms.add(room);
                 }

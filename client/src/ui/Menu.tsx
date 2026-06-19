@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
 import { PLAYER_COLORS } from '../render/colors';
 import { useGame } from '../state/store';
+import { fetchWallet } from '../net/socket';
 
 const MODES = [
   { v: true, label: '🤖 Single-player', sub: 'you vs bots, private' },
   { v: false, label: '🌐 Multiplayer', sub: 'shared room with others' },
 ];
+
+// Wager tiers for prize rooms (0 = free). The winner takes the whole pot.
+const STAKES = [0, 100, 500, 1000];
 
 const LEVELS = [
   { v: 0, label: 'Easy' },
@@ -20,23 +24,58 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
   const [diff, setDiff] = useState(1);
   const [name, setName] = useState('');
   const [color, setColor] = useState(0);
+  const [coins, setCoins] = useState<number | null>(null);
   const singlePlayer = useGame((s) => s.singlePlayer);
   const setSinglePlayer = useGame((s) => s.setSinglePlayer);
+  const prizeStake = useGame((s) => s.prizeStake);
+  const setPrizeStake = useGame((s) => s.setPrizeStake);
+  const joinError = useGame((s) => s.joinError);
+
+  // Load the wallet for the prize tiers; refresh whenever we return to the menu.
+  useEffect(() => { fetchWallet().then(setCoins); }, []);
+
+  // Switching to single-player clears any wager (prize rooms are multiplayer only).
+  const pickMode = (v: boolean) => { setSinglePlayer(v); if (v) setPrizeStake(0); };
+
   return (
     <View style={styles.root}>
       <Text style={styles.title}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>The Art of Conquest — one army is your sword and your shield.</Text>
 
+      <Text style={styles.wallet}>🪙 {coins == null ? '…' : coins} coins</Text>
+
       <Text style={styles.diffLabel}>Mode</Text>
       <View style={styles.modeRow}>
         {MODES.map((m) => (
-          <Pressable key={m.label} onPress={() => setSinglePlayer(m.v)}
+          <Pressable key={m.label} onPress={() => pickMode(m.v)}
             style={[styles.modeBtn, singlePlayer === m.v && styles.modeActive]}>
             <Text style={[styles.modeTxt, singlePlayer === m.v && { color: '#fff' }]}>{m.label}</Text>
             <Text style={[styles.modeSub, singlePlayer === m.v && { color: '#dbe6ff' }]}>{m.sub}</Text>
           </Pressable>
         ))}
       </View>
+
+      {!singlePlayer && (
+        <>
+          <Text style={styles.diffLabel}>Wager — winner takes the pot</Text>
+          <View style={styles.diffRow}>
+            {STAKES.map((s) => {
+              const broke = s > 0 && coins != null && coins < s;
+              const active = prizeStake === s;
+              return (
+                <Pressable key={s} disabled={broke} onPress={() => setPrizeStake(s)}
+                  style={[styles.stakeBtn, active && styles.modeActive, broke && styles.stakeBroke]}>
+                  <Text style={[styles.diffTxt, active && styles.diffTxtActive, broke && { color: '#5a6378' }]}>
+                    {s === 0 ? 'Free' : `🪙 ${s}`}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {prizeStake > 0 && <Text style={styles.stakeNote}>Ante {prizeStake} on join · last one standing wins the whole pot.</Text>}
+        </>
+      )}
+      {joinError && <Text style={styles.joinErr}>⚠ {joinError}</Text>}
 
       <Text style={styles.diffLabel}>Your name</Text>
       <TextInput
@@ -98,6 +137,11 @@ const styles = StyleSheet.create({
   colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 320, marginBottom: 22 },
   swatch: { width: 30, height: 30, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
   swatchActive: { borderColor: '#fff' },
+  wallet: { color: '#ffd54a', fontSize: 16, fontWeight: '800', marginBottom: 18 },
+  stakeBtn: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },
+  stakeBroke: { opacity: 0.45 },
+  stakeNote: { color: '#8aa0c8', fontSize: 12, marginBottom: 20, marginTop: -6, textAlign: 'center' },
+  joinErr: { color: '#ff9f8f', fontSize: 13, fontWeight: '700', marginBottom: 14, textAlign: 'center' },
   diffRow: { flexDirection: 'row', gap: 8, marginBottom: 26 },
   diffBtn: { paddingVertical: 8, paddingHorizontal: 22, borderRadius: 10, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },
   diffActive: { backgroundColor: '#2f6df0', borderColor: '#2f6df0' },

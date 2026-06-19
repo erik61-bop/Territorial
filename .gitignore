@@ -15,3 +15,7 @@ npm-debug.*
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# runtime prize-room wallet (server-side balances)
+territorial-wallet.json
+server/territorial-wallet.json
