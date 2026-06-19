@@ -39,13 +39,18 @@ export interface Snapshot {
 export function colorIndexOf(snap: Snapshot | undefined, id: number): number {
   return snap?.colors?.[id] ?? id;
 }
-/** Per-border-cell defence (concentration × morale) — how much wave it takes to crack a border cell. */
+/** Per-border-cell defence (concentration × morale) — how much wave it takes to crack a border cell.
+ *  Kept to 1 decimal: it's often < 1 (an over-stretched empire has near-zero per-cell defence). */
 export function defenseOf(snap: Snapshot | undefined, id: number): number {
   if (!snap) return 0;
   const army = snap.army?.[id] ?? 0;
   const border = Math.max(1, snap.border?.[id] ?? 1);
   const mom = (snap.morale?.[id] ?? 100) / 100;
-  return Math.round((army / border) * mom);
+  return Math.round((army / border) * mom * 10) / 10;
+}
+/** Qualitative label for a defence value, so even small numbers read clearly. */
+export function defenseTag(def: number): string {
+  return def < 1 ? '⚠ thin' : def < 4 ? 'holding' : def < 9 ? 'solid' : 'fortress';
 }
 
 /** Display name for a player ("You" for yourself). */

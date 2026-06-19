@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { useGame, Mode, nameOf, colorIndexOf, defenseOf } from '../state/store';
+import { useGame, Mode, nameOf, colorIndexOf, defenseOf, defenseTag } from '../state/store';
 import { cssPlayer, TERRAIN_INFO, TERRAIN_COLORS } from '../render/colors';
 import Slider from './Slider';
 import { sendStop } from '../net/socket';
@@ -125,7 +125,9 @@ export default function Hud() {
         </View>
         <Text style={styles.statusLine}>Land <Text style={styles.statusVal}>{myLand}</Text>    Army <Text style={styles.statusVal}>{Math.round(myArmy)}</Text></Text>
         <Text style={styles.statusLine}>Income <Text style={[styles.statusVal, { color: '#7CFC9B' }]}>+{myIncome}/s</Text>    Morale <Text style={[styles.statusVal, { color: moraleColor }]}>{(myMorale / 100).toFixed(2)}</Text></Text>
-        <Text style={styles.statusLine}>🛡 Defense <Text style={[styles.statusVal, { color: '#86d6ff' }]}>{defenseOf(snap, playerId)}</Text> <Text style={styles.dim}>per border cell</Text></Text>
+        {(() => { const d = defenseOf(snap, playerId); return (
+          <Text style={styles.statusLine}>🛡 Defense <Text style={[styles.statusVal, { color: d < 1 ? '#ff9f8f' : '#86d6ff' }]}>{d.toFixed(1)}</Text> <Text style={styles.dim}>/border · {defenseTag(d)}</Text></Text>
+        ); })()}
         <View style={styles.barTrack}><View style={[styles.barFill, { width: `${mapPct}%` }]} /></View>
         <Text style={styles.dim}>{mapPct}% of the map</Text>
       </View>
