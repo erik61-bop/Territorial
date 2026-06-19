@@ -42,6 +42,8 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
   const heights = useRef<{ w: number; h: number; arr: Float32Array } | null>(null);
   const arrows = useRef<Map<number, number>>(new Map());
   const arrowsTick = useRef<number>(-1);
+  const navalSnap = useRef<Snapshot | null>(null);   // cache: reachable-by-sea neutral islands
+  const navalCells = useRef<number[]>([]);
 
   // Latest props mirrored into refs so the rAF loop always reads current data without re-subscribing.
   const P = useRef({ map, snap, screenW, screenH, tap, myId });
@@ -239,6 +241,46 @@ export default function GameCanvas({ map, snap, cameraRef, screenW, screenH, tap
         }
       }
       prevOwner.current = snap.owner;
+
+      // Reachable-by-sea neutral islands (recomputed once per snapshot): BFS through water from my
+      // coast up to the naval range, collecting neutral land — marked with a pulsing ⚓ as "ship here".
+      const NAVAL_RANGE = 8;
+      if (snap !== navalSnap.current) {
+        navalSnap.current = snap;
+        const found: number[] = [];
+        if (myId >= 0 && (snap.land?.[myId] ?? 0) > 0) {
+          const dist = new Map<number, number>(); const q: number[] = []; const tgt = new Set<number>();
+          for (let i = 0; i < n; i++) {
+            if (snap.owner[i] !== myId) continue;
+            const x = i % width, y = (i / width) | 0;
+            const ws = [x > 0 ? i - 1 : -1, x < width - 1 ? i + 1 : -1, y > 0 ? i - width : -1, y < height - 1 ? i + width : -1];
+            for (const w of ws) if (w >= 0 && snap.owner[w] === -2 && !dist.has(w)) { dist.set(w, 1); q.push(w); }
+          }
+          for (let qi = 0; qi < q.length; qi++) {
+            const w = q[qi], d = dist.get(w)!; const x = w % width, y = (w / width) | 0;
+            const nb = [x > 0 ? w - 1 : -1, x < width - 1 ? w + 1 : -1, y > 0 ? w - width : -1, y < height - 1 ? w + width : -1];
+            for (const c2 of nb) {
+              if (c2 < 0) continue;
+              const o = snap.owner[c2];
+              if (o === -1) tgt.add(c2);
+              else if (o === -2 && d < NAVAL_RANGE && !dist.has(c2)) { dist.set(c2, d + 1); q.push(c2); }
+            }
+          }
+          tgt.forEach((c2) => found.push(c2));
+        }
+        navalCells.current = found;
+      }
+      if (navalCells.current.length) {
+        const pulse = 0.4 + 0.4 * Math.sin((typeof performance !== 'undefined' ? performance.now() : 0) / 320);
+        const az = Math.max(11, cam.scale * 1.5);
+        ctx.font = `${az}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        for (const cell of navalCells.current) {
+          const cx2 = cell % width, cy2 = (cell / width) | 0;
+          const px = projX(cx2 + 0.5, cy2 + 0.5, cam), py = projY(cx2 + 0.5, cy2 + 0.5, hgt[cell], cam) - cam.scale * 0.55;
+          ctx.lineWidth = 3; ctx.strokeStyle = `rgba(0,0,0,${pulse * 0.9})`; ctx.strokeText('⚓', px, py);
+          ctx.fillStyle = `rgba(130,224,255,${pulse})`; ctx.fillText('⚓', px, py);
+        }
+      }
 
       const cenX = new Float64Array(np), cenY = new Float64Array(np);
       const hasC = new Uint8Array(np);

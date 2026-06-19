@@ -83,6 +83,7 @@ export default function GameScreen() {
   const prevAlive = useRef<boolean[] | null>(null);
   const prevCaps = useRef<number[] | null>(null);
   const prevTick = useRef<number | null>(null);
+  const seaHintShown = useRef(false);
   const lastSfxAt = useRef<number>(0);
   useEffect(() => {
     if (!snap || playerId < 0) return;
@@ -131,6 +132,19 @@ export default function GameScreen() {
       }
     }
     prevCaps.current = (snap.capitals ?? []).slice();
+
+    // First time your territory touches the sea, tell the player ships are now possible.
+    if (!seaHintShown.current && map && playerId >= 0 && (snap.land[playerId] ?? 0) > 0) {
+      const o = snap.owner, W = map.width, H = map.height;
+      let coast = false;
+      for (let i = 0; i < o.length && !coast; i++) {
+        if (o[i] !== playerId) continue;
+        const x = i % W, y = (i / W) | 0;
+        if ((x > 0 && o[i - 1] === -2) || (x < W - 1 && o[i + 1] === -2) ||
+            (y > 0 && o[i - W] === -2) || (y < H - 1 && o[i + W] === -2)) coast = true;
+      }
+      if (coast) { seaHintShown.current = true; pushCallout('⛵ You reached the sea! Tap an island (⚓) or enemy coast across the water to invade'); }
+    }
 
     // Clear the standing-order indicator once its target is eliminated (server already stopped it).
     const ord = useGame.getState().order;
