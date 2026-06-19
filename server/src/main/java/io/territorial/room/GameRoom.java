@@ -177,6 +177,7 @@ public class GameRoom {
                 } else {
                     a = Bot.decide(state, p);
                 }
+                state.stance[p] = (a == null) ? 1 : 0;   // not acting this tick = HOLD (+25% defence)
                 if (a != null) actions.add(a);
             }
             // Record this tick's PvP attacks (attacker,target,...) for the client's battle arrows.
@@ -418,6 +419,7 @@ public class GameRoom {
         m.put("income", income);
         m.put("land", state.land.clone());
         m.put("border", state.border.clone());   // for the client's defence readout (army/border × morale)
+        m.put("stance", state.stance.clone());    // 0 Normal, 1 Hold (+25% defence)
         m.put("alive", state.alive.clone());
         m.put("human", human.clone());
         String[] nm = new String[state.numPlayers];

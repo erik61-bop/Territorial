@@ -175,10 +175,11 @@ public final class Sim {
             double esc = (t != GameState.NEUTRAL) ? Config.warEscalation(s.tick) : 1.0;
             double wave = sent * s.momentum[x] * esc;
 
-            // Defender morale hardens defence (a turtle that keeps winning gets tougher).
+            // Defender morale hardens defence (a turtle that keeps winning gets tougher); a defender
+            // in the HOLD stance (not attacking this tick) digs in for +25%.
             double baseDef = (t == GameState.NEUTRAL)
                     ? Config.NEUTRAL_COST
-                    : s.defensePerCell(t) * s.momentum[t];
+                    : s.defensePerCell(t) * s.momentum[t] * (s.stance[t] == 1 ? Config.HOLD_DEFENSE : 1.0);
 
             // Cost per frontier cell. Order the wave: toward the directed cell if given
             // (reinforcement direction), else cheapest-first.

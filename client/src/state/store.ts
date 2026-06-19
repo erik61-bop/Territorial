@@ -19,6 +19,7 @@ export interface Snapshot {
   income: number[];    // per-player army/sec
   land: number[];
   border: number[];    // per-player border-cell count (for the defence readout)
+  stance?: number[];   // per-player defence posture: 0 Normal, 1 Hold (+25% defence)
   alive: boolean[];
   human: boolean[];
   winner: number;      // -1 while playing
@@ -46,7 +47,12 @@ export function defenseOf(snap: Snapshot | undefined, id: number): number {
   const army = snap.army?.[id] ?? 0;
   const border = Math.max(1, snap.border?.[id] ?? 1);
   const mom = (snap.morale?.[id] ?? 100) / 100;
-  return Math.round((army / border) * mom * 10) / 10;
+  const stanceMul = snap.stance?.[id] === 1 ? 1.25 : 1;   // HOLD stance digs in (+25%)
+  return Math.round((army / border) * mom * stanceMul * 10) / 10;
+}
+/** Is this player in the Hold stance (+25% defence)? */
+export function isHolding(snap: Snapshot | undefined, id: number): boolean {
+  return snap?.stance?.[id] === 1;
 }
 /** Qualitative label for a defence value, so even small numbers read clearly. */
 export function defenseTag(def: number): string {

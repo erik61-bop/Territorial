@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { useGame, Mode, nameOf, colorIndexOf, defenseOf, defenseTag } from '../state/store';
+import { useGame, Mode, nameOf, colorIndexOf, defenseOf, defenseTag, isHolding } from '../state/store';
 import { cssPlayer, TERRAIN_INFO, TERRAIN_COLORS } from '../render/colors';
 import Slider from './Slider';
 import { sendStop } from '../net/socket';
@@ -16,7 +16,12 @@ const PHASES = [
 
 const ACTIONS: { mode: Mode; label: string; icon: string; color: string; hint: string }[] = [
   { mode: 'attack', label: 'Attack', icon: '⚔️', color: '#e0473e', hint: 'tap empty land to expand, a country to conquer' },
-  { mode: 'hold', label: 'Hold', icon: '🛡️', color: '#46a35a', hint: 'stop your order and defend' },
+  { mode: 'hold', label: 'Hold', icon: '🛡️', color: '#46a35a', hint: 'stop attacking & dig in — +25% defence' },
+];
+
+// Quick send-% presets (the slider still gives fine control).
+const PRESETS: { f: number; label: string }[] = [
+  { f: 0.25, label: '25%' }, { f: 0.5, label: '50%' }, { f: 0.75, label: '75%' }, { f: 1.0, label: 'All-in' },
 ];
 
 export default function Hud() {
@@ -125,8 +130,8 @@ export default function Hud() {
         </View>
         <Text style={styles.statusLine}>Land <Text style={styles.statusVal}>{myLand}</Text>    Army <Text style={styles.statusVal}>{Math.round(myArmy)}</Text></Text>
         <Text style={styles.statusLine}>Income <Text style={[styles.statusVal, { color: '#7CFC9B' }]}>+{myIncome}/s</Text>    Morale <Text style={[styles.statusVal, { color: moraleColor }]}>{(myMorale / 100).toFixed(2)}</Text></Text>
-        {(() => { const d = defenseOf(snap, playerId); return (
-          <Text style={styles.statusLine}>🛡 Defense <Text style={[styles.statusVal, { color: d < 1 ? '#ff9f8f' : '#86d6ff' }]}>{d.toFixed(1)}</Text> <Text style={styles.dim}>/border · {defenseTag(d)}</Text></Text>
+        {(() => { const d = defenseOf(snap, playerId); const hold = isHolding(snap, playerId); return (
+          <Text style={styles.statusLine}>🛡 Defense <Text style={[styles.statusVal, { color: d < 1 ? '#ff9f8f' : '#86d6ff' }]}>{d.toFixed(1)}</Text> <Text style={styles.dim}>/border · {defenseTag(d)}{hold ? ' · 🛡Hold +25%' : ''}</Text></Text>
         ); })()}
         {order != null && (
           <Text style={styles.orderNote}>↪ army is funding your order — it won't grow. Hold to bank it.</Text>
@@ -137,6 +142,14 @@ export default function Hud() {
 
       {/* bottom-centre: action bar + commit slider */}
       <View style={[styles.card, styles.actionBar]}>
+        <View style={styles.presetRow}>
+          {PRESETS.map((pr) => (
+            <Pressable key={pr.label} onPress={() => setFraction(pr.f)}
+              style={[styles.preset, Math.abs(fraction - pr.f) < 0.02 && styles.presetActive]}>
+              <Text style={[styles.presetTxt, Math.abs(fraction - pr.f) < 0.02 && { color: '#fff' }]}>{pr.label}</Text>
+            </Pressable>
+          ))}
+        </View>
         <View style={styles.sliderRow}>
           <Text style={styles.dim}>send</Text>
           <Slider value={fraction} onChange={setFraction} width={150} />
@@ -236,6 +249,10 @@ const styles = StyleSheet.create({
   matchTag: { color: '#8aa0c8', fontSize: 11, fontWeight: '700', marginLeft: 'auto' },
   statusLine: { color: '#cdd6f4', fontSize: 13, marginVertical: 1 },
   statusVal: { color: '#fff', fontWeight: '800' },
+  presetRow: { flexDirection: 'row', gap: 6, marginBottom: 6, justifyContent: 'center' },
+  preset: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },
+  presetActive: { backgroundColor: '#4c7dff', borderColor: '#4c7dff' },
+  presetTxt: { color: '#9fb0cf', fontSize: 12, fontWeight: '800' },
   orderNote: { color: '#ffd07a', fontSize: 11, fontWeight: '700', marginTop: 2 },
   holdAttention: { borderColor: '#7CFC9B', backgroundColor: 'rgba(70,163,90,0.30)' },
   barTrack: { height: 8, borderRadius: 4, backgroundColor: '#2a3145', marginTop: 8, overflow: 'hidden' },

@@ -25,6 +25,7 @@ public final class GameRunner {
                 Diplo d = Bot.decideDiplo(s, p);
                 if (d != null) diplos.add(d);
                 Action a = Bot.decide(s, p);
+                s.stance[p] = (a == null) ? 1 : 0;       // holding bots dig in (+25% defence)
                 if (a != null) actions.add(a);
             }
             sim.applyDiplomacy(diplos);

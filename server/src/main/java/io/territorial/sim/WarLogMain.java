@@ -48,6 +48,7 @@ public final class WarLogMain {
                 Diplo d = Bot.decideDiplo(s, p);
                 if (d != null) { ds.add(d); diplo++; }
                 Action a = Bot.decide(s, p);
+                s.stance[p] = (a == null) ? 1 : 0;
                 if (a == null) { hold++; continue; }
                 if (a.targetOwner() == GameState.NEUTRAL) exp++; else atk++;
                 as.add(a);

@@ -25,6 +25,7 @@ public final class Config {
     public static final double SUPPLY_MIN         = 0.50;
 
     // Capital
+    public static final double HOLD_DEFENSE        = 1.25; // "Hold" stance: +25% defence (you're not attacking)
     public static final double CAPITAL_DEF         = 1.8;
     public static final double CAPITAL_INCOME      = 1.15;
     public static final double CAPITAL_STRIKE_ARMY = 0.5;  // losing your capital halves your army (chaos)
