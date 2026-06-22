@@ -315,6 +315,13 @@ export default function GameScreen() {
     return <Menu onPlay={(difficulty, name, color) => {
       useGame.getState().setProfile(name, color);
       useGame.getState().setDifficulty(difficulty);
+      // Onboarding: show the how-to-play on a player's very first match (once).
+      try {
+        if (typeof localStorage !== 'undefined' && !localStorage.getItem('territorial_tutorial_seen')) {
+          useGame.getState().setShowHelp(true);
+          localStorage.setItem('territorial_tutorial_seen', '1');
+        }
+      } catch { /* ignore */ }
       setStarted(true); connect();
       setTimeout(() => { sendDifficulty(difficulty); sendProfile(name, color); }, 600);
     }} />;
