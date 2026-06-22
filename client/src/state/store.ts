@@ -140,7 +140,7 @@ interface GameStore {
 export interface AccountInfo {
   id: number; email: string; displayName: string; coins: number;
   xp?: number; level?: number; wins?: number; gamesPlayed?: number; nextLevelXp?: number;
-  admin?: boolean;
+  admin?: boolean; emblem?: string;
 }
 
 /** Restore a persisted JWT (web) so a refresh keeps you logged in. */

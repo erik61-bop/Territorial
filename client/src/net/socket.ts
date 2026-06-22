@@ -119,6 +119,41 @@ export async function adminGrant(accountId: number, amount: number, note: string
   } catch { return false; }
 }
 
+// ---- Cosmetics shop ----
+
+export type ShopItem = { id: string; emoji: string; name: string; price: number; owned: boolean };
+
+export async function fetchShop(): Promise<{ items: ShopItem[]; equipped: string; coins: number }> {
+  try {
+    const r = await fetch(`${httpBase()}/api/shop`, { headers: authHeaders() });
+    return r.ok ? r.json() : { items: [], equipped: '', coins: 0 };
+  } catch { return { items: [], equipped: '', coins: 0 }; }
+}
+
+/** Buy a cosmetic; returns the server result code (OK / TOO_POOR / ...) and refreshes coins. */
+export async function buyCosmetic(id: string): Promise<string> {
+  try {
+    const r = await fetch(`${httpBase()}/api/shop/buy`, {
+      method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+    });
+    const j = await r.json();
+    if (typeof j.coins === 'number') useGame.getState().setCoins(j.coins);
+    return j.result ?? 'error';
+  } catch { return 'error'; }
+}
+
+/** Equip an owned emblem (or '' to clear); updates the cached account emblem. */
+export async function equipCosmetic(id: string): Promise<void> {
+  try {
+    const r = await fetch(`${httpBase()}/api/shop/equip`, {
+      method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+    });
+    const j = await r.json();
+    const st = useGame.getState();
+    if (st.account) st.setAuth(st.authToken, { ...st.account, emblem: j.equipped ?? '' });
+  } catch { /* ignore */ }
+}
+
 /** REST base = same origin as the page (dev: http://localhost:8080; prod: https://your-domain). */
 function httpBase(): string {
   if (typeof window !== 'undefined' && window.location && window.location.origin) {

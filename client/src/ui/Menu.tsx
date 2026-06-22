@@ -6,6 +6,7 @@ import { refreshMe, logout, claimDaily } from '../net/socket';
 import Backdrop from './Backdrop';
 import Leaderboard from './Leaderboard';
 import Admin from './Admin';
+import Shop from './Shop';
 import PressScale from './PressScale';
 
 const MODES = [
@@ -39,6 +40,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
   const [daily, setDaily] = useState(0);     // coins granted by today's bonus (toast)
   const [showLb, setShowLb] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showShop, setShowShop] = useState(false);
 
   // On landing in the menu: refresh stats, then auto-claim the daily bonus (toast if granted).
   useEffect(() => {
@@ -67,7 +69,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
 
       <View style={styles.acctRow}>
         <Text style={styles.wallet}>🪙 {coins == null ? '…' : coins}</Text>
-        {account && <Text style={styles.acctName}>· {account.displayName}</Text>}
+        {account && <Text style={styles.acctName}>· {account.emblem ? account.emblem + ' ' : ''}{account.displayName}</Text>}
         <Pressable onPress={logout} hitSlop={8}><Text style={styles.logout}>Sign out</Text></Pressable>
       </View>
 
@@ -75,6 +77,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
         <Text style={styles.lvlBadge}>Lv {lvl}</Text>
         <View style={styles.xpTrack}><View style={[styles.xpFill, { width: `${xpPct}%` }]} /></View>
         <Text style={styles.statTxt}>🏆 {account?.wins ?? 0}</Text>
+        <Pressable onPress={() => setShowShop(true)} hitSlop={8}><Text style={styles.shopLink}>✨ Shop</Text></Pressable>
         <Pressable onPress={() => setShowLb(true)} hitSlop={8}><Text style={styles.lbLink}>Leaderboard ›</Text></Pressable>
         {account?.admin && <Pressable onPress={() => setShowAdmin(true)} hitSlop={8}><Text style={styles.adminLink}>🛠 Admin</Text></Pressable>}
       </View>
@@ -154,6 +157,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
       </Text>
       {showLb && <Leaderboard onClose={() => setShowLb(false)} me={account?.displayName} />}
       {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
+      {showShop && <Shop onClose={() => { setShowShop(false); refreshMe(); }} />}
     </Animated.View>
   );
 }
@@ -188,6 +192,7 @@ const styles = StyleSheet.create({
   xpFill: { height: 8, borderRadius: 4, backgroundColor: '#7CFC9B' },
   statTxt: { color: '#cdd6f4', fontSize: 14, fontWeight: '800' },
   lbLink: { color: '#ffd54a', fontSize: 13, fontWeight: '800' },
+  shopLink: { color: '#c9a7ff', fontSize: 13, fontWeight: '800' },
   adminLink: { color: '#86d6ff', fontSize: 13, fontWeight: '800' },
   dailyToast: { color: '#0b0d14', backgroundColor: '#ffd54a', fontSize: 14, fontWeight: '900', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 999, marginBottom: 14, overflow: 'hidden' },
   stakeBtn: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },
