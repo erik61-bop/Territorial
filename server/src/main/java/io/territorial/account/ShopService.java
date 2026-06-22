@@ -37,9 +37,10 @@ public class ShopService {
         Account a = accounts.findByIdForUpdate(accountId).orElse(null);
         if (a == null) return Result.NO_ACCOUNT;
         if (itemId == null || itemId.isBlank()) { a.setEmblem(null); return Result.OK; }
-        if (Cosmetics.byId(itemId) == null) return Result.NO_SUCH_ITEM;
+        String emoji = Cosmetics.emoji(itemId);          // resolves catalog + earned season emblems
+        if (emoji.isEmpty()) return Result.NO_SUCH_ITEM;
         if (!a.owns(itemId)) return Result.NOT_OWNED;
-        a.setEmblem(Cosmetics.emoji(itemId));
+        a.setEmblem(emoji);
         return Result.OK;
     }
 }

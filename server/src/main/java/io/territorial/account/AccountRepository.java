@@ -16,6 +16,9 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     /** Leaderboard: most wins, then most XP. */
     List<Account> findTop20ByOrderByWinsDescXpDesc();
 
+    /** Season ladder: top scorers in a given season (with at least 1 point). */
+    List<Account> findTop20BySeasonIdAndSeasonPointsGreaterThanOrderBySeasonPointsDesc(long seasonId, long min);
+
     /** Admin: recent accounts + economy totals. */
     List<Account> findTop100ByOrderByIdDesc();
     @Query("select coalesce(sum(a.coinBalance),0) from Account a") long totalCoins();

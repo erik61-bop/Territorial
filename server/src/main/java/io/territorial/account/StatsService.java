@@ -39,6 +39,7 @@ public class StatsService {
         a.setCoinBalance(a.getCoinBalance() + coinGain);
         ledger.save(new LedgerEntry(accountId, coinGain, a.getCoinBalance(), LedgerEntry.Reason.MATCH_REWARD, "match"));
         Quests.applyMatch(a, won, place);   // advance daily quest progress in the same locked txn
+        Seasons.applyMatch(a, won, place);  // advance season points + maybe unlock the seasonal emblem
         return new Reward(xpGain, coinGain, a.getLevel(), a.getLevel() > oldLevel);
     }
 

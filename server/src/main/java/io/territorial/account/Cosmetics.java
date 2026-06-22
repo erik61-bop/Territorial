@@ -31,6 +31,12 @@ public final class Cosmetics {
 
     public static Item byId(String id) { return id == null ? null : BY_ID.get(id); }
 
-    /** Emoji for an owned/equipped item id, or "" if unknown. */
-    public static String emoji(String id) { Item i = byId(id); return i == null ? "" : i.emoji(); }
+    /** Emoji for an owned/equipped item id, or "" if unknown. Resolves earned season emblems too. */
+    public static String emoji(String id) {
+        if (id != null && id.startsWith("season")) {
+            try { return Seasons.emblemEmoji(Long.parseLong(id.substring(6))); } catch (NumberFormatException e) { return ""; }
+        }
+        Item i = byId(id);
+        return i == null ? "" : i.emoji();
+    }
 }

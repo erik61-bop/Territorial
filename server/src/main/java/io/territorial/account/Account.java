@@ -47,6 +47,12 @@ public class Account {
     @Column(length = 256, nullable = false)
     private String questClaimed = "";
 
+    // Season ladder: the period this score belongs to, and points earned in it (reset each season).
+    @Column(nullable = false)
+    private long seasonId = 0;
+    @Column(nullable = false)
+    private long seasonPoints = 0;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -95,6 +101,10 @@ public class Account {
     public void setQuestProgress(String s) { this.questProgress = s; }
     public String getQuestClaimed() { return questClaimed == null ? "" : questClaimed; }
     public void setQuestClaimed(String s) { this.questClaimed = s; }
+    public long getSeasonId() { return seasonId; }
+    public void setSeasonId(long s) { this.seasonId = s; }
+    public long getSeasonPoints() { return seasonPoints; }
+    public void setSeasonPoints(long p) { this.seasonPoints = p; }
     public Instant getCreatedAt() { return createdAt; }
 
     /** Level from XP: each level needs progressively more (level n at 100*n*(n-1)/2 ... simplified). */
