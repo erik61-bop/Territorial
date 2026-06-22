@@ -39,6 +39,14 @@ public class Account {
     @Column(length = 1024, nullable = false)
     private String owned = "";
 
+    // Daily quests: which day they belong to, per-quest progress ("id:n,..."), and claimed ids (CSV).
+    @Column(nullable = false)
+    private long questDay = 0;
+    @Column(length = 512, nullable = false)
+    private String questProgress = "";
+    @Column(length = 256, nullable = false)
+    private String questClaimed = "";
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -81,6 +89,12 @@ public class Account {
         java.util.Set<String> s = ownedSet();
         if (s.add(id)) this.owned = String.join(",", s);
     }
+    public long getQuestDay() { return questDay; }
+    public void setQuestDay(long d) { this.questDay = d; }
+    public String getQuestProgress() { return questProgress == null ? "" : questProgress; }
+    public void setQuestProgress(String s) { this.questProgress = s; }
+    public String getQuestClaimed() { return questClaimed == null ? "" : questClaimed; }
+    public void setQuestClaimed(String s) { this.questClaimed = s; }
     public Instant getCreatedAt() { return createdAt; }
 
     /** Level from XP: each level needs progressively more (level n at 100*n*(n-1)/2 ... simplified). */

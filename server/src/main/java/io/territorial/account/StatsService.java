@@ -38,6 +38,7 @@ public class StatsService {
         long coinGain = won ? 50 : (place > 0 && place <= Math.max(1, totalPlayers / 2)) ? 15 : 5;
         a.setCoinBalance(a.getCoinBalance() + coinGain);
         ledger.save(new LedgerEntry(accountId, coinGain, a.getCoinBalance(), LedgerEntry.Reason.MATCH_REWARD, "match"));
+        Quests.applyMatch(a, won, place);   // advance daily quest progress in the same locked txn
         return new Reward(xpGain, coinGain, a.getLevel(), a.getLevel() > oldLevel);
     }
 

@@ -8,7 +8,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "ledger_entries", indexes = @Index(name = "idx_ledger_account", columnList = "accountId"))
 public class LedgerEntry {
-    public enum Reason { SIGNUP_GRANT, PRIZE_ANTE, PRIZE_PAYOUT, PRIZE_REFUND, MATCH_REWARD, DAILY_BONUS, COSMETIC, DEPOSIT, WITHDRAWAL, ADJUSTMENT }
+    public enum Reason { SIGNUP_GRANT, PRIZE_ANTE, PRIZE_PAYOUT, PRIZE_REFUND, MATCH_REWARD, DAILY_BONUS, COSMETIC, QUEST, DEPOSIT, WITHDRAWAL, ADJUSTMENT }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
