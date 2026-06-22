@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet, Platform, Animated, Easing } from 'react-native';
 import { PLAYER_COLORS } from '../render/colors';
 import { useGame } from '../state/store';
-import { refreshMe, logout, claimDaily } from '../net/socket';
+import { refreshMe, logout, claimDaily, fetchQuests } from '../net/socket';
 import Backdrop from './Backdrop';
 import Leaderboard from './Leaderboard';
 import Admin from './Admin';
 import Shop from './Shop';
+import Quests from './Quests';
 import PressScale from './PressScale';
 
 const MODES = [
@@ -41,6 +42,10 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
   const [showLb, setShowLb] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showQuests, setShowQuests] = useState(false);
+  const [questsClaimable, setQuestsClaimable] = useState(0);
+  const refreshQuests = () => fetchQuests().then((qs) => setQuestsClaimable(qs.filter((q) => q.claimable).length));
+  useEffect(() => { refreshQuests(); }, []);
 
   // On landing in the menu: refresh stats, then auto-claim the daily bonus (toast if granted).
   useEffect(() => {
@@ -77,6 +82,9 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
         <Text style={styles.lvlBadge}>Lv {lvl}</Text>
         <View style={styles.xpTrack}><View style={[styles.xpFill, { width: `${xpPct}%` }]} /></View>
         <Text style={styles.statTxt}>🏆 {account?.wins ?? 0}</Text>
+        <Pressable onPress={() => setShowQuests(true)} hitSlop={8}>
+          <Text style={styles.questLink}>🎯 Quests{questsClaimable > 0 ? ` (${questsClaimable})` : ''}</Text>
+        </Pressable>
         <Pressable onPress={() => setShowShop(true)} hitSlop={8}><Text style={styles.shopLink}>✨ Shop</Text></Pressable>
         <Pressable onPress={() => setShowLb(true)} hitSlop={8}><Text style={styles.lbLink}>Leaderboard ›</Text></Pressable>
         {account?.admin && <Pressable onPress={() => setShowAdmin(true)} hitSlop={8}><Text style={styles.adminLink}>🛠 Admin</Text></Pressable>}
@@ -158,6 +166,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
       {showLb && <Leaderboard onClose={() => setShowLb(false)} me={account?.displayName} />}
       {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
       {showShop && <Shop onClose={() => { setShowShop(false); refreshMe(); }} />}
+      {showQuests && <Quests onClose={() => { setShowQuests(false); refreshMe(); refreshQuests(); }} />}
     </Animated.View>
   );
 }
@@ -193,6 +202,7 @@ const styles = StyleSheet.create({
   statTxt: { color: '#cdd6f4', fontSize: 14, fontWeight: '800' },
   lbLink: { color: '#ffd54a', fontSize: 13, fontWeight: '800' },
   shopLink: { color: '#c9a7ff', fontSize: 13, fontWeight: '800' },
+  questLink: { color: '#8affb0', fontSize: 13, fontWeight: '800' },
   adminLink: { color: '#86d6ff', fontSize: 13, fontWeight: '800' },
   dailyToast: { color: '#0b0d14', backgroundColor: '#ffd54a', fontSize: 14, fontWeight: '900', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 999, marginBottom: 14, overflow: 'hidden' },
   stakeBtn: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },

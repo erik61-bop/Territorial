@@ -119,6 +119,29 @@ export async function adminGrant(accountId: number, amount: number, note: string
   } catch { return false; }
 }
 
+// ---- Daily quests ----
+
+export type Quest = { id: string; desc: string; target: number; progress: number; reward: number; complete: boolean; claimed: boolean; claimable: boolean };
+
+export async function fetchQuests(): Promise<Quest[]> {
+  try {
+    const r = await fetch(`${httpBase()}/api/quests`, { headers: authHeaders() });
+    return r.ok ? (await r.json()).quests : [];
+  } catch { return []; }
+}
+
+/** Claim a completed quest; returns coins granted (0 if not claimable) and refreshes coins. */
+export async function claimQuest(id: string): Promise<number> {
+  try {
+    const r = await fetch(`${httpBase()}/api/quests/claim`, {
+      method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+    });
+    const j = await r.json();
+    if (typeof j.coins === 'number') useGame.getState().setCoins(j.coins);
+    return j.granted ?? 0;
+  } catch { return 0; }
+}
+
 // ---- Cosmetics shop ----
 
 export type ShopItem = { id: string; emoji: string; name: string; price: number; owned: boolean };
