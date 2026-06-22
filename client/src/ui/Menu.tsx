@@ -5,6 +5,7 @@ import { useGame } from '../state/store';
 import { refreshMe, logout, claimDaily } from '../net/socket';
 import Backdrop from './Backdrop';
 import Leaderboard from './Leaderboard';
+import Admin from './Admin';
 
 const MODES = [
   { v: true, label: '🤖 Single-player', sub: 'you vs bots, private' },
@@ -36,6 +37,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
 
   const [daily, setDaily] = useState(0);     // coins granted by today's bonus (toast)
   const [showLb, setShowLb] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   // On landing in the menu: refresh stats, then auto-claim the daily bonus (toast if granted).
   useEffect(() => {
@@ -70,6 +72,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
         <View style={styles.xpTrack}><View style={[styles.xpFill, { width: `${xpPct}%` }]} /></View>
         <Text style={styles.statTxt}>🏆 {account?.wins ?? 0}</Text>
         <Pressable onPress={() => setShowLb(true)} hitSlop={8}><Text style={styles.lbLink}>Leaderboard ›</Text></Pressable>
+        {account?.admin && <Pressable onPress={() => setShowAdmin(true)} hitSlop={8}><Text style={styles.adminLink}>🛠 Admin</Text></Pressable>}
       </View>
 
       {daily > 0 && <Text style={styles.dailyToast}>🎁 Daily bonus: +{daily} coins!</Text>}
@@ -146,6 +149,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
         {'\n'}Move: drag or WASD / arrows · zoom: wheel or +/− · click the minimap to jump there.
       </Text>
       {showLb && <Leaderboard onClose={() => setShowLb(false)} me={account?.displayName} />}
+      {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
     </View>
   );
 }
@@ -180,6 +184,7 @@ const styles = StyleSheet.create({
   xpFill: { height: 8, borderRadius: 4, backgroundColor: '#7CFC9B' },
   statTxt: { color: '#cdd6f4', fontSize: 14, fontWeight: '800' },
   lbLink: { color: '#ffd54a', fontSize: 13, fontWeight: '800' },
+  adminLink: { color: '#86d6ff', fontSize: 13, fontWeight: '800' },
   dailyToast: { color: '#0b0d14', backgroundColor: '#ffd54a', fontSize: 14, fontWeight: '900', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 999, marginBottom: 14, overflow: 'hidden' },
   stakeBtn: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },
   stakeBroke: { opacity: 0.45 },

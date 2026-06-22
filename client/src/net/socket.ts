@@ -92,6 +92,33 @@ export async function fetchLeaderboard(): Promise<{ name: string; wins: number; 
   } catch { return []; }
 }
 
+// ---- Admin/manager API (only works for admin accounts) ----
+
+function authHeaders(): Record<string, string> {
+  const t = useGame.getState().authToken;
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
+export async function adminOverview(): Promise<any | null> {
+  try { const r = await fetch(`${httpBase()}/api/admin/overview`, { headers: authHeaders() }); return r.ok ? r.json() : null; }
+  catch { return null; }
+}
+
+export async function adminPlayers(): Promise<any[]> {
+  try { const r = await fetch(`${httpBase()}/api/admin/players`, { headers: authHeaders() }); return r.ok ? r.json() : []; }
+  catch { return []; }
+}
+
+export async function adminGrant(accountId: number, amount: number, note: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${httpBase()}/api/admin/grant`, {
+      method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId, amount, note }),
+    });
+    return r.ok;
+  } catch { return false; }
+}
+
 /** REST base = same origin as the page (dev: http://localhost:8080; prod: https://your-domain). */
 function httpBase(): string {
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
