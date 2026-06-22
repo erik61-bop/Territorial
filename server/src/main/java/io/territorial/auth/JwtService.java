@@ -16,8 +16,17 @@ public class JwtService {
     private final SecretKey key;
     private final long ttlMs;
 
+    private static final String DEV_DEFAULT = "dev-only-secret-change-me-please-0123456789abcdef";
+
     public JwtService(@Value("${territorial.jwt.secret}") String secret,
                       @Value("${territorial.jwt.ttl-hours}") long ttlHours) {
+        if (DEV_DEFAULT.equals(secret)) {
+            System.err.println("[33m[SECURITY] JWT_SECRET is the built-in dev default — set a unique " +
+                    "JWT_SECRET (>=32 chars) before exposing this server. Tokens are forgeable otherwise.[0m");
+        }
+        if (secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("JWT_SECRET must be at least 32 bytes for HS256");
+        }
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.ttlMs = ttlHours * 3_600_000L;
     }

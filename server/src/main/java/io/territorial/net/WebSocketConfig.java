@@ -1,5 +1,6 @@
 package io.territorial.net;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
@@ -12,6 +13,9 @@ import org.springframework.web.socket.server.standard.ServletServerContainerFact
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final GameHandler handler;
+    // Default "*" for dev; in production set TERRITORIAL_WS_ALLOWED_ORIGINS=https://your-domain.
+    @Value("${territorial.ws.allowed-origins:*}")
+    private String allowedOrigins;
 
     public WebSocketConfig(GameHandler handler) {
         this.handler = handler;
@@ -19,8 +23,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        // setAllowedOrigins("*") so the Expo web/dev client can connect during development.
-        registry.addHandler(handler, "/ws/game").setAllowedOrigins("*");
+        registry.addHandler(handler, "/ws/game").setAllowedOrigins(allowedOrigins.split(","));
     }
 
     /** Cap inbound frame size and idle time so one socket can't exhaust memory or linger forever. */

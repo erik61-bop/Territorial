@@ -76,6 +76,10 @@ public class GameRoom {
     volatile long stake = 0;
     private long pot = 0;
     private boolean potPaid = false;
+    // Who anted how much (accountId -> coins). The pot is escrow: it is ALWAYS fully disbursed — to the
+    // winner, or refunded to contributors if no human wins / the match never completes. Coins are never
+    // created or destroyed. Survives players leaving (a leaver still forfeits to a human winner).
+    private final java.util.Map<Long, Long> anteByAccount = new java.util.HashMap<>();
     // Pre-match lobby (multiplayer/prize): wait a few seconds for players before the match begins.
     volatile boolean inLobby = false;
     private int lobbyTicksLeft = 0;
@@ -122,8 +126,10 @@ public class GameRoom {
         scheduler.scheduleAtFixedRate(this::safeStep, tickMs, tickMs, TimeUnit.MILLISECONDS);
     }
 
-    /** Stop ticking and release the thread (called by RoomManager on disposal/shutdown). */
+    /** Stop ticking and release the thread (called by RoomManager on disposal/shutdown). Refunds any
+     *  unpaid prize escrow first so coins are never destroyed by a room dying mid-match. */
     public void stop() {
+        settleUnpaid();
         if (scheduler != null) scheduler.shutdownNow();
     }
 
@@ -277,6 +283,7 @@ public class GameRoom {
                         if (account < 0 || !wallet.tryDebit(account, stake,
                                 io.territorial.account.LedgerEntry.Reason.PRIZE_ANTE, "room:" + roomId)) return -1;
                         pot += stake;
+                        anteByAccount.merge(account, stake, Long::sum);
                     }
                     human[p] = true;
                     connected[p] = true;
@@ -328,25 +335,39 @@ public class GameRoom {
         }
     }
 
-    /** Settle a finished prize match: the human winner takes the whole pot. If a BOT won (every human
-     *  was eliminated), refund each still-seated human their ante — bots shouldn't pocket the wager. */
+    /** Settle a finished prize match: the human winner takes the whole pot (everyone else forfeits
+     *  their ante to them). If a BOT won — i.e. no human survived — refund every contributor instead. */
     private void awardPot() {
         if (potPaid) return;
-        potPaid = true;
-        if (pot <= 0) return;
         if (winner >= 0 && human[winner] && acct(slotToken[winner]) >= 0) {
             long a = acct(slotToken[winner]);
             wallet.credit(a, pot, io.territorial.account.LedgerEntry.Reason.PRIZE_PAYOUT, "room:" + roomId);
             slotCoins[winner] = wallet.balance(a);
+            potPaid = true;
+            anteByAccount.clear();
         } else {
-            for (int p = 0; p < NUM_PLAYERS; p++) {
-                long a = acct(slotToken[p]);
-                if (human[p] && a >= 0) {
-                    wallet.credit(a, stake, io.territorial.account.LedgerEntry.Reason.PRIZE_REFUND, "room:" + roomId);
-                    slotCoins[p] = wallet.balance(a);
-                }
-            }
+            refundEscrow();   // no human winner -> give everyone their ante back
         }
+    }
+
+    /** Refund the whole escrow to its contributors and mark the pot settled. Idempotent. Used when no
+     *  human wins, or when the room is disposed before a payout (reap/shutdown) — so coins are never
+     *  destroyed: the pot is ALWAYS either won or refunded in full. */
+    private void refundEscrow() {
+        if (potPaid) return;
+        potPaid = true;
+        for (var e : anteByAccount.entrySet()) {
+            wallet.credit(e.getKey(), e.getValue(), io.territorial.account.LedgerEntry.Reason.PRIZE_REFUND, "room:" + roomId);
+            Integer slot = tokenToSlot.get(String.valueOf(e.getKey()));
+            if (slot != null) slotCoins[slot] = wallet.balance(e.getKey());
+        }
+        anteByAccount.clear();
+    }
+
+    /** Called on disposal (reap/shutdown): if a prize match never paid out, refund the escrow. */
+    void settleUnpaid() {
+        lock.lock();
+        try { if (isPrize && !potPaid && pot > 0) refundEscrow(); } finally { lock.unlock(); }
     }
 
     /** Hand a disconnected (grace-expired) player's empire to a BOT instead of dissolving it, so the
