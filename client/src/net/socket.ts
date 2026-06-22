@@ -72,6 +72,26 @@ export function logout(): void {
   useGame.getState().setAuth(null, null);
 }
 
+/** Claim the daily login bonus. Returns coins granted (0 if already claimed today). */
+export async function claimDaily(): Promise<number> {
+  const token = useGame.getState().authToken;
+  if (!token) return 0;
+  try {
+    const r = await fetch(`${httpBase()}/api/daily`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    const j = await r.json();
+    if (typeof j.coins === 'number') useGame.getState().setCoins(j.coins);
+    return j.granted ?? 0;
+  } catch { return 0; }
+}
+
+/** Fetch the public leaderboard (top players). */
+export async function fetchLeaderboard(): Promise<{ name: string; wins: number; level: number; xp: number }[]> {
+  try {
+    const r = await fetch(`${httpBase()}/api/leaderboard`);
+    return await r.json();
+  } catch { return []; }
+}
+
 /** REST base = same origin as the page (dev: http://localhost:8080; prod: https://your-domain). */
 function httpBase(): string {
   if (typeof window !== 'undefined' && window.location && window.location.origin) {

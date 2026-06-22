@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet, Platform } from 'react-native';
 import { PLAYER_COLORS } from '../render/colors';
 import { useGame } from '../state/store';
-import { refreshMe, logout } from '../net/socket';
+import { refreshMe, logout, claimDaily } from '../net/socket';
 import Backdrop from './Backdrop';
+import Leaderboard from './Leaderboard';
 
 const MODES = [
   { v: true, label: '🤖 Single-player', sub: 'you vs bots, private' },
@@ -33,10 +34,21 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
   const setPrizeStake = useGame((s) => s.setPrizeStake);
   const joinError = useGame((s) => s.joinError);
 
-  // Refresh the wallet (coins can change between games) whenever we land on the menu.
-  useEffect(() => { refreshMe(); }, []);
+  const [daily, setDaily] = useState(0);     // coins granted by today's bonus (toast)
+  const [showLb, setShowLb] = useState(false);
+
+  // On landing in the menu: refresh stats, then auto-claim the daily bonus (toast if granted).
+  useEffect(() => {
+    refreshMe().then(() => claimDaily().then((g) => { if (g > 0) { setDaily(g); setTimeout(() => setDaily(0), 4000); } }));
+  }, []);
   // Default the in-game display name to the account name.
   useEffect(() => { if (account?.displayName && !name) setName(account.displayName); }, [account?.displayName]);
+
+  const lvl = account?.level ?? 1;
+  const xp = account?.xp ?? 0;
+  const xpInto = xp - Math.max(0, ((lvl - 1) * (lvl - 1)) * 100);     // xp within current level
+  const xpSpan = Math.max(1, (account?.nextLevelXp ?? 100) - ((lvl - 1) * (lvl - 1)) * 100);
+  const xpPct = Math.max(0, Math.min(100, Math.round((xpInto / xpSpan) * 100)));
 
   // Switching to single-player clears any wager (prize rooms are multiplayer only).
   const pickMode = (v: boolean) => { setSinglePlayer(v); if (v) setPrizeStake(0); };
@@ -52,6 +64,15 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
         {account && <Text style={styles.acctName}>· {account.displayName}</Text>}
         <Pressable onPress={logout} hitSlop={8}><Text style={styles.logout}>Sign out</Text></Pressable>
       </View>
+
+      <View style={styles.statRow}>
+        <Text style={styles.lvlBadge}>Lv {lvl}</Text>
+        <View style={styles.xpTrack}><View style={[styles.xpFill, { width: `${xpPct}%` }]} /></View>
+        <Text style={styles.statTxt}>🏆 {account?.wins ?? 0}</Text>
+        <Pressable onPress={() => setShowLb(true)} hitSlop={8}><Text style={styles.lbLink}>Leaderboard ›</Text></Pressable>
+      </View>
+
+      {daily > 0 && <Text style={styles.dailyToast}>🎁 Daily bonus: +{daily} coins!</Text>}
 
       <Text style={styles.diffLabel}>Mode</Text>
       <View style={styles.modeRow}>
@@ -124,6 +145,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
         your way to be the last one standing. Tap a country to keep attacking it; Hold to stop.
         {'\n'}Move: drag or WASD / arrows · zoom: wheel or +/− · click the minimap to jump there.
       </Text>
+      {showLb && <Leaderboard onClose={() => setShowLb(false)} me={account?.displayName} />}
     </View>
   );
 }
@@ -152,6 +174,13 @@ const styles = StyleSheet.create({
   wallet: { color: '#ffd54a', fontSize: 16, fontWeight: '800' },
   acctName: { color: '#cdd6f4', fontSize: 14, fontWeight: '700' },
   logout: { color: '#8aa0c8', fontSize: 13, fontWeight: '700', textDecorationLine: 'underline', marginLeft: 4 },
+  statRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  lvlBadge: { color: '#fff', fontSize: 13, fontWeight: '900', backgroundColor: '#2f6df0', paddingVertical: 3, paddingHorizontal: 9, borderRadius: 8, overflow: 'hidden' },
+  xpTrack: { width: 120, height: 8, borderRadius: 4, backgroundColor: '#222838', overflow: 'hidden' },
+  xpFill: { height: 8, borderRadius: 4, backgroundColor: '#7CFC9B' },
+  statTxt: { color: '#cdd6f4', fontSize: 14, fontWeight: '800' },
+  lbLink: { color: '#ffd54a', fontSize: 13, fontWeight: '800' },
+  dailyToast: { color: '#0b0d14', backgroundColor: '#ffd54a', fontSize: 14, fontWeight: '900', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 999, marginBottom: 14, overflow: 'hidden' },
   stakeBtn: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },
   stakeBroke: { opacity: 0.45 },
   stakeNote: { color: '#8aa0c8', fontSize: 12, marginBottom: 20, marginTop: -6, textAlign: 'center' },
