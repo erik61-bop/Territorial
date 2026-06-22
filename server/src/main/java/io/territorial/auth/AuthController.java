@@ -18,11 +18,14 @@ public class AuthController {
     private final AccountService accountService;
     private final JwtService jwt;
     private final AccountRepository accounts;
+    private final io.territorial.account.StatsService stats;
 
-    public AuthController(AccountService accountService, JwtService jwt, AccountRepository accounts) {
+    public AuthController(AccountService accountService, JwtService jwt, AccountRepository accounts,
+                         io.territorial.account.StatsService stats) {
         this.accountService = accountService;
         this.jwt = jwt;
         this.accounts = accounts;
+        this.stats = stats;
     }
 
     public record RegisterReq(@Email @NotBlank String email, @Size(min = 6, max = 100) String password, String displayName) {}
@@ -51,11 +54,33 @@ public class AuthController {
         return ResponseEntity.ok(profile(a));
     }
 
+    /** Claim the once-a-day login bonus. Returns coins granted (0 if already claimed) + new balance. */
+    @PostMapping("/daily")
+    public ResponseEntity<?> daily(@AuthenticationPrincipal Long accountId) {
+        if (accountId == null) return ResponseEntity.status(401).build();
+        long granted = stats.claimDaily(accountId);
+        Account a = accounts.findById(accountId).orElse(null);
+        if (a == null) return ResponseEntity.status(404).build();
+        return ResponseEntity.ok(Map.of("granted", granted, "coins", a.getCoinBalance()));
+    }
+
+    /** Public leaderboard: top players by wins, then XP. */
+    @GetMapping("/leaderboard")
+    public java.util.List<Map<String, Object>> leaderboard() {
+        java.util.List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Account a : accounts.findTop20ByOrderByWinsDescXpDesc())
+            out.add(Map.of("name", a.getDisplayName(), "wins", a.getWins(), "level", a.getLevel(), "xp", a.getXp()));
+        return out;
+    }
+
     private Map<String, Object> tokenBody(Account a) {
         return Map.of("token", jwt.issue(a.getId(), a.getDisplayName()), "account", profile(a));
     }
 
     private Map<String, Object> profile(Account a) {
-        return Map.of("id", a.getId(), "email", a.getEmail(), "displayName", a.getDisplayName(), "coins", a.getCoinBalance());
+        return Map.of("id", a.getId(), "email", a.getEmail(), "displayName", a.getDisplayName(),
+                "coins", a.getCoinBalance(), "xp", a.getXp(), "level", a.getLevel(),
+                "wins", a.getWins(), "gamesPlayed", a.getGamesPlayed(),
+                "nextLevelXp", Account.xpForLevel(a.getLevel() + 1));
     }
 }

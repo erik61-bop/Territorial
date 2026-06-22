@@ -69,6 +69,8 @@ public class GameRoom {
 
     private final int roomId;
     private final io.territorial.account.WalletService wallet;
+    private final io.territorial.account.StatsService stats;
+    private boolean resultsRecorded = false;   // award XP/coins/wins once per match
     volatile boolean isPrivate = false;   // single-player room — matchmaking won't add others
 
     // Prize (wager) room: each joiner antes `stake` into `pot`; the winner takes the whole pot.
@@ -87,11 +89,25 @@ public class GameRoom {
     // DB read every tick (it only changes on ante/payout).
     private final long[] slotCoins = new long[NUM_PLAYERS];
 
-    public GameRoom(ObjectMapper json, io.territorial.account.WalletService wallet, int tickMs, int roomId) {
+    public GameRoom(ObjectMapper json, io.territorial.account.WalletService wallet,
+                    io.territorial.account.StatsService stats, int tickMs, int roomId) {
         this.json = json;
         this.wallet = wallet;
+        this.stats = stats;
         this.tickMs = tickMs;
         this.roomId = roomId;
+    }
+
+    /** Award XP/coins/wins to each human (with an account) once, when the match ends. */
+    private void recordResults() {
+        resultsRecorded = true;
+        int[] place = computePlaces();
+        int participants = 0;
+        for (int p = 0; p < NUM_PLAYERS; p++) if (place[p] > 0) participants++;
+        for (int p = 0; p < NUM_PLAYERS; p++) {
+            long a = acct(slotToken[p]);
+            if (human[p] && a >= 0) stats.recordResult(a, p == winner, place[p], participants);
+        }
     }
 
     /** slotToken[p] holds the account id as a string; parse it (or -1). */
@@ -170,6 +186,7 @@ public class GameRoom {
         sim.recomputeDerived();
         winner = -1;
         holdTicks = 0;
+        resultsRecorded = false;
         lastOwner = null;
         humanActions.clear();
         humanDiplo.clear();
@@ -248,6 +265,7 @@ public class GameRoom {
             buildEvents();
             winner = sim.winner();
             if (winner != -1 && isPrize && !potPaid) awardPot();
+            if (winner != -1 && !resultsRecorded) recordResults();   // XP/coins/wins
             broadcastState();
         } finally {
             lock.unlock();

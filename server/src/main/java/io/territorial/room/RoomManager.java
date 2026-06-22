@@ -23,6 +23,7 @@ public class RoomManager {
 
     private final ObjectMapper json;
     private final io.territorial.account.WalletService wallet;
+    private final io.territorial.account.StatsService stats;
     private final int tickMs;
     private final ReentrantLock lock = new ReentrantLock();
     private final List<GameRoom> rooms = new ArrayList<>();
@@ -32,9 +33,11 @@ public class RoomManager {
     private ScheduledExecutorService reaper;
 
     public RoomManager(ObjectMapper json, io.territorial.account.WalletService wallet,
+                       io.territorial.account.StatsService stats,
                        @Value("${territorial.tickMs:125}") int tickMs) {
         this.json = json;
         this.wallet = wallet;
+        this.stats = stats;
         this.tickMs = tickMs;
     }
 
@@ -76,7 +79,7 @@ public class RoomManager {
                 }
                 // 3. Otherwise (solo, or no matching room with space) spin up a new match.
                 if (room == null && rooms.size() < MAX_ROOMS) {
-                    room = new GameRoom(json, wallet, tickMs, nextRoomId++);
+                    room = new GameRoom(json, wallet, stats, tickMs, nextRoomId++);
                     room.isPrivate = solo;
                     if (stake > 0) room.setPrize(stake);
                     room.start();
