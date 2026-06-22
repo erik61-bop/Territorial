@@ -36,7 +36,7 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Protected: anything that reads/changes a specific account, and the admin API.
-                .requestMatchers("/api/me", "/api/account/**", "/api/admin/**", "/api/daily").authenticated()
+                .requestMatchers("/api/me", "/api/account/**", "/api/admin/**", "/api/daily", "/api/shop/**").authenticated()
                 // Everything else (auth, health, the SPA, the websocket handshake) is open;
                 // the websocket authenticates itself from the JWT in its query string.
                 .anyRequest().permitAll())

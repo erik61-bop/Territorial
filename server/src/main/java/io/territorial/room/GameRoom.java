@@ -88,6 +88,7 @@ public class GameRoom {
     // slotToken[p] is now the account id (as a string); cache each seat's coin balance to avoid a
     // DB read every tick (it only changes on ante/payout).
     private final long[] slotCoins = new long[NUM_PLAYERS];
+    private final String[] slotEmblem = new String[NUM_PLAYERS];   // equipped cosmetic emoji per seat
 
     public GameRoom(ObjectMapper json, io.territorial.account.WalletService wallet,
                     io.territorial.account.StatsService stats, int tickMs, int roomId) {
@@ -319,6 +320,7 @@ public class GameRoom {
                     state.clearPlayer(p);      // no inherited empire; player must choose a spawn
                     if (token != null) { slotToken[p] = token; tokenToSlot.put(token, p); }
                     slotCoins[p] = account >= 0 ? wallet.balance(account) : 0;   // cache for the HUD
+                    slotEmblem[p] = account >= 0 ? stats.emblemOf(account) : "";  // equipped cosmetic
                     return p;
                 }
             }
@@ -599,9 +601,11 @@ public class GameRoom {
         m.put("alive", state.alive.clone());
         m.put("human", human.clone());
         String[] nm = new String[state.numPlayers];
-        for (int p = 0; p < state.numPlayers; p++)
+        for (int p = 0; p < state.numPlayers; p++) {
             nm[p] = human[p] ? (names[p] != null ? names[p] : "Player " + (p + 1))
                              : "Bot " + (p + 1) + " · " + Bot.STYLES[state.botStyle[p] % Bot.STYLES.length].name;
+            if (human[p] && slotEmblem[p] != null && !slotEmblem[p].isEmpty()) nm[p] = slotEmblem[p] + " " + nm[p];
+        }
         m.put("names", nm);
         m.put("colors", colorIdx.clone());
         m.put("winner", winner);

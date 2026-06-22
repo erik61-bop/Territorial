@@ -33,6 +33,12 @@ public class Account {
     private int gamesPlayed = 0;
     private Instant lastDailyAt;   // last daily-bonus claim (null = never)
 
+    // Cosmetics: emblem = equipped badge (emoji) shown by your name; owned = CSV of purchased item ids.
+    @Column(length = 16)
+    private String emblem;
+    @Column(length = 1024, nullable = false)
+    private String owned = "";
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -60,6 +66,21 @@ public class Account {
     public void setGamesPlayed(int g) { this.gamesPlayed = g; }
     public Instant getLastDailyAt() { return lastDailyAt; }
     public void setLastDailyAt(Instant t) { this.lastDailyAt = t; }
+    public String getEmblem() { return emblem; }
+    public void setEmblem(String e) { this.emblem = e; }
+    public String getOwned() { return owned == null ? "" : owned; }
+
+    /** Owned cosmetic ids as a set (CSV-backed). */
+    public java.util.Set<String> ownedSet() {
+        java.util.Set<String> s = new java.util.LinkedHashSet<>();
+        for (String t : getOwned().split(",")) if (!t.isBlank()) s.add(t.trim());
+        return s;
+    }
+    public boolean owns(String id) { return ownedSet().contains(id); }
+    public void addOwned(String id) {
+        java.util.Set<String> s = ownedSet();
+        if (s.add(id)) this.owned = String.join(",", s);
+    }
     public Instant getCreatedAt() { return createdAt; }
 
     /** Level from XP: each level needs progressively more (level n at 100*n*(n-1)/2 ... simplified). */

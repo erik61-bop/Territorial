@@ -35,6 +35,12 @@ public class StatsService {
         ledger.save(new LedgerEntry(accountId, coinGain, a.getCoinBalance(), LedgerEntry.Reason.MATCH_REWARD, "match"));
     }
 
+    /** The emoji emblem equipped by an account (for decorating in-game names), or "". */
+    @Transactional(readOnly = true)
+    public String emblemOf(long accountId) {
+        return accounts.findById(accountId).map(Account::getEmblem).filter(e -> e != null).orElse("");
+    }
+
     /** Grant the daily bonus if eligible; returns coins granted (0 if already claimed today). */
     @Transactional
     public long claimDaily(long accountId) {

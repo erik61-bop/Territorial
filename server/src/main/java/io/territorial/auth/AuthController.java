@@ -71,7 +71,8 @@ public class AuthController {
     public java.util.List<Map<String, Object>> leaderboard() {
         java.util.List<Map<String, Object>> out = new java.util.ArrayList<>();
         for (Account a : accounts.findTop20ByOrderByWinsDescXpDesc())
-            out.add(Map.of("name", a.getDisplayName(), "wins", a.getWins(), "level", a.getLevel(), "xp", a.getXp()));
+            out.add(Map.of("name", a.getDisplayName(), "wins", a.getWins(), "level", a.getLevel(), "xp", a.getXp(),
+                    "emblem", a.getEmblem() == null ? "" : a.getEmblem()));
         return out;
     }
 
@@ -80,9 +81,13 @@ public class AuthController {
     }
 
     private Map<String, Object> profile(Account a) {
-        return Map.of("id", a.getId(), "email", a.getEmail(), "displayName", a.getDisplayName(),
-                "coins", a.getCoinBalance(), "xp", a.getXp(), "level", a.getLevel(),
-                "wins", a.getWins(), "gamesPlayed", a.getGamesPlayed(),
-                "nextLevelXp", Account.xpForLevel(a.getLevel() + 1), "admin", admins.isAdmin(a.getEmail()));
+        Map<String, Object> m = new java.util.HashMap<>();
+        m.put("id", a.getId()); m.put("email", a.getEmail()); m.put("displayName", a.getDisplayName());
+        m.put("coins", a.getCoinBalance()); m.put("xp", a.getXp()); m.put("level", a.getLevel());
+        m.put("wins", a.getWins()); m.put("gamesPlayed", a.getGamesPlayed());
+        m.put("nextLevelXp", Account.xpForLevel(a.getLevel() + 1));
+        m.put("admin", admins.isAdmin(a.getEmail()));
+        m.put("emblem", a.getEmblem() == null ? "" : a.getEmblem());
+        return m;
     }
 }
