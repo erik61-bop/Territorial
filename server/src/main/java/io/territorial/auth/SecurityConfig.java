@@ -35,8 +35,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())          // stateless API: no cookies, JWT in Authorization header
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Protected: anything that reads/changes a specific account.
-                .requestMatchers("/api/me", "/api/account/**").authenticated()
+                // Protected: anything that reads/changes a specific account, and the admin API.
+                .requestMatchers("/api/me", "/api/account/**", "/api/admin/**", "/api/daily").authenticated()
                 // Everything else (auth, health, the SPA, the websocket handshake) is open;
                 // the websocket authenticates itself from the JWT in its query string.
                 .anyRequest().permitAll())

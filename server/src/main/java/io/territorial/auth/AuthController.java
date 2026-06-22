@@ -19,13 +19,15 @@ public class AuthController {
     private final JwtService jwt;
     private final AccountRepository accounts;
     private final io.territorial.account.StatsService stats;
+    private final io.territorial.admin.Admins admins;
 
     public AuthController(AccountService accountService, JwtService jwt, AccountRepository accounts,
-                         io.territorial.account.StatsService stats) {
+                         io.territorial.account.StatsService stats, io.territorial.admin.Admins admins) {
         this.accountService = accountService;
         this.jwt = jwt;
         this.accounts = accounts;
         this.stats = stats;
+        this.admins = admins;
     }
 
     public record RegisterReq(@Email @NotBlank String email, @Size(min = 6, max = 100) String password, String displayName) {}
@@ -81,6 +83,6 @@ public class AuthController {
         return Map.of("id", a.getId(), "email", a.getEmail(), "displayName", a.getDisplayName(),
                 "coins", a.getCoinBalance(), "xp", a.getXp(), "level", a.getLevel(),
                 "wins", a.getWins(), "gamesPlayed", a.getGamesPlayed(),
-                "nextLevelXp", Account.xpForLevel(a.getLevel() + 1));
+                "nextLevelXp", Account.xpForLevel(a.getLevel() + 1), "admin", admins.isAdmin(a.getEmail()));
     }
 }

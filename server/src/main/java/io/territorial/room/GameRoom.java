@@ -159,6 +159,16 @@ public class GameRoom {
         } finally { lock.unlock(); }
     }
 
+    /** Connected human players in this room (for the admin "online" count). */
+    public int connectedHumans() {
+        lock.lock();
+        try {
+            int n = 0;
+            for (int p = 0; p < NUM_PLAYERS; p++) if (human[p] && connected[p]) n++;
+            return n;
+        } finally { lock.unlock(); }
+    }
+
     /** True when no human slot is occupied (all bots) — the room can be disposed. */
     public boolean isAbandoned() {
         lock.lock();

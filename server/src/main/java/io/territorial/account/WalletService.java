@@ -42,4 +42,17 @@ public class WalletService {
         a.setCoinBalance(a.getCoinBalance() + amount);
         ledger.save(new LedgerEntry(accountId, amount, a.getCoinBalance(), reason, ref));
     }
+
+    /** Admin manual adjustment (+grant / -deduct), clamped at zero. Returns the new balance, or -1 if
+     *  the account is unknown. Recorded as an ADJUSTMENT ledger entry. */
+    @Transactional
+    public long adjust(long accountId, long delta, String ref) {
+        Account a = accounts.findByIdForUpdate(accountId).orElse(null);
+        if (a == null) return -1;
+        long next = Math.max(0, a.getCoinBalance() + delta);
+        long applied = next - a.getCoinBalance();
+        a.setCoinBalance(next);
+        ledger.save(new LedgerEntry(accountId, applied, next, LedgerEntry.Reason.ADJUSTMENT, ref));
+        return next;
+    }
 }

@@ -47,6 +47,8 @@ Visit `https://play.example.com` — sign up and play.
 | `DB_URL` / `DB_USER` / `DB_PASSWORD` | localhost/territorial | Postgres connection |
 | `PORT` | 8080 | App port (internal) |
 | `JWT_TTL_HOURS` | 168 | Login session length |
+| `TERRITORIAL_ADMIN_EMAILS` | — | Comma-separated emails granted the admin/manager dashboard (🛠 Admin in the menu) |
+| `TERRITORIAL_WS_ALLOWED_ORIGINS` | `*` | Lock the game WebSocket to your domain in prod |
 
 ## Hardening checklist (recommended before real traffic)
 - [ ] Replace `ddl-auto=update` with Flyway migrations (versioned, reviewable schema changes).

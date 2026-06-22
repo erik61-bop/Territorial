@@ -127,4 +127,11 @@ public class RoomManager {
     }
 
     public int roomCount() { lock.lock(); try { return rooms.size(); } finally { lock.unlock(); } }
+
+    /** Total connected human players across all rooms (admin "online" count). */
+    public int playersOnline() {
+        lock.lock();
+        try { int n = 0; for (GameRoom r : rooms) n += r.connectedHumans(); return n; }
+        finally { lock.unlock(); }
+    }
 }
