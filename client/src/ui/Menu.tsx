@@ -8,6 +8,7 @@ import Leaderboard from './Leaderboard';
 import Admin from './Admin';
 import Shop from './Shop';
 import Quests from './Quests';
+import Season from './Season';
 import PressScale from './PressScale';
 
 const MODES = [
@@ -43,6 +44,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
   const [showAdmin, setShowAdmin] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
+  const [showSeason, setShowSeason] = useState(false);
   const [questsClaimable, setQuestsClaimable] = useState(0);
   const refreshQuests = () => fetchQuests().then((qs) => setQuestsClaimable(qs.filter((q) => q.claimable).length));
   useEffect(() => { refreshQuests(); }, []);
@@ -86,6 +88,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
           <Text style={styles.questLink}>🎯 Quests{questsClaimable > 0 ? ` (${questsClaimable})` : ''}</Text>
         </Pressable>
         <Pressable onPress={() => setShowShop(true)} hitSlop={8}><Text style={styles.shopLink}>✨ Shop</Text></Pressable>
+        <Pressable onPress={() => setShowSeason(true)} hitSlop={8}><Text style={styles.seasonLink}>🏅 Season</Text></Pressable>
         <Pressable onPress={() => setShowLb(true)} hitSlop={8}><Text style={styles.lbLink}>Leaderboard ›</Text></Pressable>
         {account?.admin && <Pressable onPress={() => setShowAdmin(true)} hitSlop={8}><Text style={styles.adminLink}>🛠 Admin</Text></Pressable>}
       </View>
@@ -167,6 +170,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
       {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
       {showShop && <Shop onClose={() => { setShowShop(false); refreshMe(); }} />}
       {showQuests && <Quests onClose={() => { setShowQuests(false); refreshMe(); refreshQuests(); }} />}
+      {showSeason && <Season onClose={() => { setShowSeason(false); refreshMe(); }} me={account?.displayName} />}
     </Animated.View>
   );
 }
@@ -203,6 +207,7 @@ const styles = StyleSheet.create({
   lbLink: { color: '#ffd54a', fontSize: 13, fontWeight: '800' },
   shopLink: { color: '#c9a7ff', fontSize: 13, fontWeight: '800' },
   questLink: { color: '#8affb0', fontSize: 13, fontWeight: '800' },
+  seasonLink: { color: '#ffd54a', fontSize: 13, fontWeight: '800' },
   adminLink: { color: '#86d6ff', fontSize: 13, fontWeight: '800' },
   dailyToast: { color: '#0b0d14', backgroundColor: '#ffd54a', fontSize: 14, fontWeight: '900', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 999, marginBottom: 14, overflow: 'hidden' },
   stakeBtn: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, backgroundColor: '#222838', borderWidth: 1, borderColor: '#2a3145' },

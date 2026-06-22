@@ -142,6 +142,21 @@ export async function claimQuest(id: string): Promise<number> {
   } catch { return 0; }
 }
 
+// ---- Season ladder ----
+
+export type SeasonInfo = {
+  season: number; endsInDays: number; points: number; rewardPoints: number;
+  rewardEmoji: string; rewardId: string; unlocked: boolean;
+  leaderboard: { name: string; points: number; emblem: string }[];
+};
+
+export async function fetchSeason(): Promise<SeasonInfo | null> {
+  try {
+    const r = await fetch(`${httpBase()}/api/season`, { headers: authHeaders() });
+    return r.ok ? r.json() : null;
+  } catch { return null; }
+}
+
 // ---- Cosmetics shop ----
 
 export type ShopItem = { id: string; emoji: string; name: string; price: number; owned: boolean };
