@@ -89,6 +89,10 @@ public class GameRoom {
     // DB read every tick (it only changes on ante/payout).
     private final long[] slotCoins = new long[NUM_PLAYERS];
     private final String[] slotEmblem = new String[NUM_PLAYERS];   // equipped cosmetic emoji per seat
+    // Per-seat end-of-match rewards (for the client's victory/defeat card); set in recordResults().
+    private final int[] rewardXp = new int[NUM_PLAYERS];
+    private final int[] rewardCoins = new int[NUM_PLAYERS];
+    private final boolean[] leveledUp = new boolean[NUM_PLAYERS];
 
     public GameRoom(ObjectMapper json, io.territorial.account.WalletService wallet,
                     io.territorial.account.StatsService stats, int tickMs, int roomId) {
@@ -99,7 +103,8 @@ public class GameRoom {
         this.roomId = roomId;
     }
 
-    /** Award XP/coins/wins to each human (with an account) once, when the match ends. */
+    /** Award XP/coins/wins to each human (with an account) once, when the match ends, and stash the
+     *  per-seat gains so the client can show a victory/defeat reward card. */
     private void recordResults() {
         resultsRecorded = true;
         int[] place = computePlaces();
@@ -107,7 +112,11 @@ public class GameRoom {
         for (int p = 0; p < NUM_PLAYERS; p++) if (place[p] > 0) participants++;
         for (int p = 0; p < NUM_PLAYERS; p++) {
             long a = acct(slotToken[p]);
-            if (human[p] && a >= 0) stats.recordResult(a, p == winner, place[p], participants);
+            if (human[p] && a >= 0) {
+                var r = stats.recordResult(a, p == winner, place[p], participants);
+                rewardXp[p] = (int) r.xp(); rewardCoins[p] = (int) r.coins(); leveledUp[p] = r.leveledUp();
+                slotCoins[p] = wallet.balance(a);   // refresh cached coins (reward added)
+            }
         }
     }
 
@@ -198,6 +207,7 @@ public class GameRoom {
         winner = -1;
         holdTicks = 0;
         resultsRecorded = false;
+        java.util.Arrays.fill(rewardXp, 0); java.util.Arrays.fill(rewardCoins, 0); java.util.Arrays.fill(leveledUp, false);
         lastOwner = null;
         humanActions.clear();
         humanDiplo.clear();
@@ -610,7 +620,12 @@ public class GameRoom {
         m.put("colors", colorIdx.clone());
         m.put("winner", winner);
         m.put("peakLand", peakLand.clone());
-        if (winner >= 0) m.put("place", computePlaces());   // final ranking for the summary screen
+        if (winner >= 0) {
+            m.put("place", computePlaces());   // final ranking for the summary screen
+            m.put("rewardXp", rewardXp.clone());        // per-seat end-of-match payoff (victory card)
+            m.put("rewardCoins", rewardCoins.clone());
+            m.put("leveledUp", leveledUp.clone());
+        }
         m.put("capitals", state.capitalCell.clone());
         m.put("phase", state.phase);
         m.put("attacks", lastAttacks);

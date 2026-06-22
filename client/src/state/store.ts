@@ -43,6 +43,9 @@ export interface Snapshot {
   lobby?: boolean;     // pre-match lobby (waiting for players)
   lobbyLeft?: number;  // seconds until the match starts
   humans?: number;     // human players currently in the room
+  rewardXp?: number[];    // per-player XP earned this match (present at match end)
+  rewardCoins?: number[]; // per-player coins earned this match
+  leveledUp?: boolean[];  // per-player: did this match push you up a level
 }
 
 /** Colour index for a player (uses the server's colour permutation, falls back to slot). */

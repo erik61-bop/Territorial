@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Pressable, StyleSheet, Animated, Easing } from 'react-native';
 import { useGame, Mode, nameOf, colorIndexOf, defenseOf, defenseTag, isHolding } from '../state/store';
 import { cssPlayer, TERRAIN_INFO, TERRAIN_COLORS } from '../render/colors';
 import Slider from './Slider';
@@ -212,10 +212,31 @@ export default function Hud() {
                 : `🤖 A bot won — your ${snap!.stake ?? 0} ante was refunded`}
             </Text>
           ) : null}
+          {playerId >= 0 && ((snap!.rewardCoins?.[playerId] ?? 0) > 0 || (snap!.rewardXp?.[playerId] ?? 0) > 0) ? (
+            <WinReward coins={snap!.rewardCoins![playerId]} xp={snap!.rewardXp![playerId]} levelUp={!!snap!.leveledUp?.[playerId]} />
+          ) : null}
           <Text style={styles.dim}>{snap!.isPrize ? 'leave to play again' : 'new match starting…'}</Text>
         </View>
       )}
     </>
+  );
+}
+
+/** Animated victory/defeat payoff card: pops in with the coins/XP earned and a LEVEL UP flourish. */
+function WinReward({ coins, xp, levelUp }: { coins: number; xp: number; levelUp: boolean }) {
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    a.setValue(0);
+    Animated.spring(a, { toValue: 1, useNativeDriver: false, speed: 8, bounciness: 12 }).start();
+  }, [a, coins, xp]);
+  return (
+    <Animated.View style={[styles.reward, {
+      opacity: a,
+      transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
+    }]}>
+      {levelUp && <Text style={styles.levelUp}>⬆ LEVEL UP!</Text>}
+      <Text style={styles.rewardTxt}>🪙 +{coins}   ·   ⭐ +{xp} XP</Text>
+    </Animated.View>
   );
 }
 
@@ -292,4 +313,7 @@ const styles = StyleSheet.create({
   banner: { color: '#fff', fontSize: 40, fontWeight: '900', textShadowColor: '#000', textShadowRadius: 8 },
   summary: { color: '#ffe08a', fontSize: 18, fontWeight: '800', marginTop: 6, textShadowColor: '#000', textShadowRadius: 6 },
   prizeWin: { color: '#ffd54a', fontSize: 22, fontWeight: '900', marginTop: 8, textShadowColor: '#000', textShadowRadius: 6 },
+  reward: { marginTop: 12, backgroundColor: 'rgba(20,24,36,0.92)', borderWidth: 1, borderColor: '#ffd54a', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 22, alignItems: 'center' },
+  rewardTxt: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  levelUp: { color: '#8affb0', fontSize: 16, fontWeight: '900', marginBottom: 4, letterSpacing: 1 },
 });

@@ -21,11 +21,16 @@ public class StatsService {
         this.ledger = ledger;
     }
 
-    /** Record a finished match for one human: +XP (scaled by placement), a coin reward, and a win. */
+    /** The coins/XP a finished match awarded one player, and whether it pushed them up a level. */
+    public record Reward(long xp, long coins, int level, boolean leveledUp) {}
+
+    /** Record a finished match for one human: +XP (scaled by placement), a coin reward, and a win.
+     *  Returns the gains so the client can show a victory/defeat reward card. */
     @Transactional
-    public void recordResult(long accountId, boolean won, int place, int totalPlayers) {
+    public Reward recordResult(long accountId, boolean won, int place, int totalPlayers) {
         Account a = accounts.findByIdForUpdate(accountId).orElse(null);
-        if (a == null) return;
+        if (a == null) return new Reward(0, 0, 1, false);
+        int oldLevel = a.getLevel();
         a.setGamesPlayed(a.getGamesPlayed() + 1);
         long xpGain = 25 + (won ? 150 : (place > 0 ? Math.max(0, (long) (totalPlayers - place + 1) * 10) : 0));
         a.setXp(a.getXp() + xpGain);
@@ -33,6 +38,7 @@ public class StatsService {
         long coinGain = won ? 50 : (place > 0 && place <= Math.max(1, totalPlayers / 2)) ? 15 : 5;
         a.setCoinBalance(a.getCoinBalance() + coinGain);
         ledger.save(new LedgerEntry(accountId, coinGain, a.getCoinBalance(), LedgerEntry.Reason.MATCH_REWARD, "match"));
+        return new Reward(xpGain, coinGain, a.getLevel(), a.getLevel() > oldLevel);
     }
 
     /** The emoji emblem equipped by an account (for decorating in-game names), or "". */
