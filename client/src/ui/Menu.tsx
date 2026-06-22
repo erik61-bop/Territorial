@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, Pressable, TextInput, StyleSheet, Platform, Animated, Easing } from 'react-native';
 import { PLAYER_COLORS } from '../render/colors';
 import { useGame } from '../state/store';
 import { refreshMe, logout, claimDaily } from '../net/socket';
 import Backdrop from './Backdrop';
 import Leaderboard from './Leaderboard';
 import Admin from './Admin';
+import PressScale from './PressScale';
 
 const MODES = [
   { v: true, label: '🤖 Single-player', sub: 'you vs bots, private' },
@@ -46,6 +47,9 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
   // Default the in-game display name to the account name.
   useEffect(() => { if (account?.displayName && !name) setName(account.displayName); }, [account?.displayName]);
 
+  const intro = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(intro, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(); }, [intro]);
+
   const lvl = account?.level ?? 1;
   const xp = account?.xp ?? 0;
   const xpInto = xp - Math.max(0, ((lvl - 1) * (lvl - 1)) * 100);     // xp within current level
@@ -56,7 +60,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
   const pickMode = (v: boolean) => { setSinglePlayer(v); if (v) setPrizeStake(0); };
 
   return (
-    <View style={styles.root}>
+    <Animated.View style={[styles.root, { opacity: intro, transform: [{ translateY: intro.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
       <Backdrop />
       <Text style={styles.title}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>The Art of Conquest — one army is your sword and your shield.</Text>
@@ -140,9 +144,9 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
         ))}
       </View>
 
-      <Pressable style={styles.play} onPress={() => onPlay(diff, name.trim(), color)}>
+      <PressScale style={styles.play} onPress={() => onPlay(diff, name.trim(), color)}>
         <Text style={styles.playTxt}>▶  Play</Text>
-      </Pressable>
+      </PressScale>
       <Text style={styles.hint}>
         Pick a spawn, expand during Peace (rivals are hidden by fog), then attack, ally, and betray
         your way to be the last one standing. Tap a country to keep attacking it; Hold to stop.
@@ -150,7 +154,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
       </Text>
       {showLb && <Leaderboard onClose={() => setShowLb(false)} me={account?.displayName} />}
       {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
-    </View>
+    </Animated.View>
   );
 }
 

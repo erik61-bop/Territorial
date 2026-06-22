@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, Pressable, TextInput, StyleSheet, ActivityIndicator, Platform, Animated, Easing } from 'react-native';
 import { apiLogin, apiRegister } from '../net/socket';
 import Backdrop from './Backdrop';
+import PressScale from './PressScale';
 
 const ERRORS: Record<string, string> = {
   email_taken: 'That email is already registered — try signing in.',
@@ -17,6 +18,9 @@ export default function Auth() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const intro = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(intro, { toValue: 1, duration: 460, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(); }, [intro]);
+
   const register = mode === 'register';
   const valid = /\S+@\S+\.\S+/.test(email) && password.length >= 6 && (!register || name.trim().length >= 2);
 
@@ -30,7 +34,7 @@ export default function Auth() {
   };
 
   return (
-    <View style={styles.root}>
+    <Animated.View style={[styles.root, { opacity: intro, transform: [{ translateY: intro.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
       <Backdrop />
       <Text style={styles.title}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>Sign in to play, wager coins, and climb the ranks.</Text>
@@ -55,12 +59,12 @@ export default function Auth() {
 
       {err && <Text style={styles.err}>⚠ {err}</Text>}
 
-      <Pressable style={[styles.btn, (!valid || busy) && styles.btnDisabled]} onPress={submit} disabled={!valid || busy}>
+      <PressScale style={[styles.btn, (!valid || busy) && styles.btnDisabled]} onPress={submit} disabled={!valid || busy}>
         {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnTxt}>{register ? 'Create account' : 'Sign in'}</Text>}
-      </Pressable>
+      </PressScale>
 
       <Text style={styles.note}>New accounts start with 🪙 1000 coins. {register ? 'Already have one? Tap “Sign in”.' : 'No account? Tap “Create account”.'}</Text>
-    </View>
+    </Animated.View>
   );
 }
 
