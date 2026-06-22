@@ -73,7 +73,9 @@ public final class Bot {
         boolean leaderDominant = totalLand > 0 && leaderLand > totalLand * LEADER_DOMINANCE && leader != p;
         // Endgame: with few players left, coalitions dissolve — everyone wants the SOLE win, so no new
         // alliances form and existing friends get betrayed. This keeps the finish a last-one-standing.
-        boolean endgame = aliveCount <= 3;
+        // Also kicks in once the war has dragged on (escalation high), so blocs can't stalemate forever.
+        double esc = Config.warEscalation(s.tick);
+        boolean endgame = aliveCount <= 4 || esc >= 2.5;
 
         // 1. Accept incoming offers. Ally readily against a dominant leader (common enemy); otherwise
         //    only with someone not much weaker. No new alliances in the endgame (go for the solo win).
@@ -99,7 +101,9 @@ public final class Bot {
                 boolean breakIt = endgame || obsolete || (warDragged && s.land[q] < s.land[p] * BETRAY_RATIO);
                 if (breakIt && s.land[q] < preyLand) { preyLand = s.land[q]; prey = q; }
             }
-            double chance = ((endgame || obsolete) ? 0.30 : DIPLO_INIT_CHANCE) * styleOf(s, p).betrayMul;
+            // Betrayal gets likelier the longer the war drags (escalation) — alliances are temporary.
+            double chance = ((endgame || obsolete) ? 0.30 : DIPLO_INIT_CHANCE) * styleOf(s, p).betrayMul
+                    * Math.min(3.0, Math.max(1.0, esc));
             if (prey >= 0 && s.rng.nextDouble() < chance) {
                 return new Diplo(p, prey, s.rel[p][prey] == 2 ? Diplo.Kind.BREAK_ALLY : Diplo.Kind.BREAK_PEACE);
             }
