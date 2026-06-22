@@ -28,7 +28,7 @@ export default function Shop({ onClose }: { onClose: () => void }) {
       <Pressable style={styles.card} onPress={() => {}}>
         <View style={styles.head}>
           <Text style={styles.title}>✨ Emblem shop</Text>
-          <Text style={styles.coins}>🪙 {coins}</Text>
+          <Text style={styles.coins}>💰 {coins}</Text>
           <Pressable onPress={onClose} hitSlop={8}><Text style={styles.close}>✕</Text></Pressable>
         </View>
         <Text style={styles.sub}>Show your flair — your emblem appears by your name in-game and on the leaderboard.</Text>
@@ -50,7 +50,7 @@ export default function Shop({ onClose }: { onClose: () => void }) {
                     </Pressable>
                   ) : (
                     <Pressable style={[styles.act, broke ? styles.broke : styles.buy]} onPress={() => buy(it)} disabled={broke || busy === it.id}>
-                      <Text style={styles.actTxt}>{busy === it.id ? '…' : `🪙 ${it.price}`}</Text>
+                      <Text style={styles.actTxt}>{busy === it.id ? '…' : `💰 ${it.price}`}</Text>
                     </Pressable>
                   )}
                 </View>

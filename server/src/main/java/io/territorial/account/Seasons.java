@@ -13,7 +13,7 @@ public final class Seasons {
     public static final long REWARD_POINTS = 150; // season points to unlock the seasonal emblem
 
     // The seasonal emblem rotates so each season's reward looks distinct.
-    static final String[] SEASON_EMOJIS = { "🥇", "🔱", "🌋", "🦅", "❄️", "🌠", "🏵️", "🪐" };
+    static final String[] SEASON_EMOJIS = { "🥇", "🔱", "🌋", "🦅", "❄️", "🌠", "🏵️", "⚜️" };
 
     private static long day() { return Instant.now().getEpochSecond() / 86_400L; }
 

@@ -63,7 +63,7 @@ export default function Auth() {
         {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnTxt}>{register ? 'Create account' : 'Sign in'}</Text>}
       </PressScale>
 
-      <Text style={styles.note}>New accounts start with 🪙 1000 coins. {register ? 'Already have one? Tap “Sign in”.' : 'No account? Tap “Create account”.'}</Text>
+      <Text style={styles.note}>New accounts start with 💰 1000 coins. {register ? 'Already have one? Tap “Sign in”.' : 'No account? Tap “Create account”.'}</Text>
     </Animated.View>
   );
 }

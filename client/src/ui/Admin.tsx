@@ -78,7 +78,7 @@ export default function Admin({ onClose }: { onClose: () => void }) {
                 <Text style={styles.cName} numberOfLines={1}>{p.name}{p.admin ? ' 🛠' : ''}</Text>
                 <Text style={styles.cNum}>{p.level}</Text>
                 <Text style={styles.cNum}>{p.wins}</Text>
-                <Text style={styles.cCoins}>🪙 {p.coins}</Text>
+                <Text style={styles.cCoins}>💰 {p.coins}</Text>
                 <Pressable style={styles.cAct} onPress={() => { setSel(p); setAmount(''); }}><Text style={styles.adjust}>Adjust</Text></Pressable>
               </View>
             ))}

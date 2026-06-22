@@ -338,7 +338,7 @@ export default function GameScreen() {
         <View style={styles.lobbyBanner} pointerEvents="none">
           <Text style={styles.lobbyTitle}>⏳ Waiting for players…</Text>
           <Text style={styles.lobbyCount}>starts in {snap?.lobbyLeft ?? 0}s</Text>
-          <Text style={styles.spawnSub}>{snap?.humans ?? 1} player{(snap?.humans ?? 1) === 1 ? '' : 's'} joined · bots fill the rest{snap?.isPrize ? ` · 🪙 pot ${snap?.pot ?? 0}` : ''}</Text>
+          <Text style={styles.spawnSub}>{snap?.humans ?? 1} player{(snap?.humans ?? 1) === 1 ? '' : 's'} joined · bots fill the rest{snap?.isPrize ? ` · 💰 pot ${snap?.pot ?? 0}` : ''}</Text>
         </View>
       )}
       {spawnMode && !spectating && (

@@ -26,7 +26,7 @@ export default function Quests({ onClose }: { onClose: () => void }) {
           <Pressable onPress={onClose} hitSlop={8}><Text style={styles.close}>✕</Text></Pressable>
         </View>
         <Text style={styles.sub}>Reset every day. Complete them in matches, then claim your coins.</Text>
-        {toast && <Text style={styles.toast}>🪙 {toast}</Text>}
+        {toast && <Text style={styles.toast}>💰 {toast}</Text>}
 
         {quests == null ? <ActivityIndicator color="#9fb0cf" style={{ margin: 24 }} /> : quests.map((q) => {
           const pct = Math.min(100, Math.round((q.progress / q.target) * 100));
@@ -34,7 +34,7 @@ export default function Quests({ onClose }: { onClose: () => void }) {
             <View key={q.id} style={styles.quest}>
               <View style={styles.qTop}>
                 <Text style={styles.qDesc}>{q.desc}</Text>
-                <Text style={styles.qReward}>🪙 {q.reward}</Text>
+                <Text style={styles.qReward}>💰 {q.reward}</Text>
               </View>
               <View style={styles.qBottom}>
                 <View style={styles.track}><View style={[styles.fill, { width: `${pct}%` }, q.complete && styles.fillDone]} /></View>

@@ -141,7 +141,7 @@ export default function Hud() {
           <Text style={styles.statusLine}>🏗 <Text style={[styles.statusVal, { color: '#ffd07a' }]}>{snap!.developing![playerId]}</Text> <Text style={styles.dim}>cells developing — no income yet</Text></Text>
         )}
         {snap?.isPrize && (
-          <Text style={styles.statusLine}>🪙 Pot <Text style={[styles.statusVal, { color: '#ffd54a' }]}>{snap.pot ?? 0}</Text> <Text style={styles.dim}>· you {snap.coins?.[playerId] ?? 0}</Text></Text>
+          <Text style={styles.statusLine}>💰 Pot <Text style={[styles.statusVal, { color: '#ffd54a' }]}>{snap.pot ?? 0}</Text> <Text style={styles.dim}>· you {snap.coins?.[playerId] ?? 0}</Text></Text>
         )}
         <View style={styles.barTrack}><View style={[styles.barFill, { width: `${mapPct}%` }]} /></View>
         <Text style={styles.dim}>{mapPct}% of the map</Text>
@@ -207,8 +207,8 @@ export default function Hud() {
           ) : null}
           {snap!.isPrize ? (
             <Text style={styles.prizeWin}>
-              {snap!.winner === playerId ? `🪙 You won the ${snap!.pot ?? 0} pot!`
-                : snap!.human?.[snap!.winner] ? `🪙 ${nameOf(snap, snap!.winner, playerId)} took the ${snap!.pot ?? 0} pot`
+              {snap!.winner === playerId ? `💰 You won the ${snap!.pot ?? 0} pot!`
+                : snap!.human?.[snap!.winner] ? `💰 ${nameOf(snap, snap!.winner, playerId)} took the ${snap!.pot ?? 0} pot`
                 : `🤖 A bot won — your ${snap!.stake ?? 0} ante was refunded`}
             </Text>
           ) : null}
@@ -235,7 +235,7 @@ function WinReward({ coins, xp, levelUp }: { coins: number; xp: number; levelUp:
       transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
     }]}>
       {levelUp && <Text style={styles.levelUp}>⬆ LEVEL UP!</Text>}
-      <Text style={styles.rewardTxt}>🪙 +{coins}   ·   ⭐ +{xp} XP</Text>
+      <Text style={styles.rewardTxt}>💰 +{coins}   ·   ⭐ +{xp} XP</Text>
     </Animated.View>
   );
 }

@@ -75,7 +75,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
       <Text style={styles.subtitle}>The Art of Conquest — one army is your sword and your shield.</Text>
 
       <View style={styles.acctRow}>
-        <Text style={styles.wallet}>🪙 {coins == null ? '…' : coins}</Text>
+        <Text style={styles.wallet}>💰 {coins == null ? '…' : coins}</Text>
         {account && <Text style={styles.acctName}>· {account.emblem ? account.emblem + ' ' : ''}{account.displayName}</Text>}
         <Pressable onPress={logout} hitSlop={8}><Text style={styles.logout}>Sign out</Text></Pressable>
       </View>
@@ -117,7 +117,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
                 <Pressable key={s} disabled={broke} onPress={() => setPrizeStake(s)}
                   style={[styles.stakeBtn, active && styles.modeActive, broke && styles.stakeBroke]}>
                   <Text style={[styles.diffTxt, active && styles.diffTxtActive, broke && { color: '#5a6378' }]}>
-                    {s === 0 ? 'Free' : `🪙 ${s}`}
+                    {s === 0 ? 'Free' : `💰 ${s}`}
                   </Text>
                 </Pressable>
               );
