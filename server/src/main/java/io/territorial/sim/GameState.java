@@ -180,9 +180,17 @@ public final class GameState {
     }
 
     /** THE per-cell defence formula — the wave-cost to crack one of {@code p}'s cells. Single source of
-     *  truth shared by combat ({@link Sim}) and the HUD readout. {@code base} = {@link #baseDef(int)}. */
+     *  truth shared by combat ({@link Sim}) and the HUD readout. {@code base} = {@link #baseDef(int)}.
+     *
+     *  Two parts: a CONTROL floor (cost to occupy the land at all, supply-independent) PLUS the
+     *  army-scaled defence. The floor stops a near-zero army value (a hollow giant) from letting one
+     *  army sweep many cells — every enemy cell costs at least ~CONTROL_COST to take. */
     public double cellDefenseWith(int cell, int p, double base) {
-        return base * terrain[cell].defMult * supplyMult(cell, p) * (cell == capitalCell[p] ? Config.CAPITAL_DEF : 1.0);
+        double terr = terrain[cell].defMult;
+        double capMul = (cell == capitalCell[p]) ? Config.CAPITAL_DEF : 1.0;
+        double armyDef = base * terr * supplyMult(cell, p) * capMul;
+        double control = Config.CONTROL_COST * terr * capMul;   // supply does NOT cheapen the floor
+        return control + armyDef;
     }
 
     public double density(int p)        { return army[p] / Math.max(1, land[p]); }

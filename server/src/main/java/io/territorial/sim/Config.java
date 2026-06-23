@@ -14,6 +14,9 @@ public final class Config {
 
     // Combat / waves
     public static final double NEUTRAL_COST        = 2.3;  // claiming empty land is fairly cheap (fills the map)
+    public static final double CONTROL_COST        = 2.0;  // floor to OCCUPY an enemy cell, even if its army
+                                                           // defence is ~0 — stops a tiny wave sweeping a
+                                                           // hollow giant (supply does NOT reduce this).
     public static final double NAVAL_COST_MULT     = 2.5;  // amphibious (cross-water) capture is costlier
     public static final int    NAVAL_RANGE         = 8;    // how many open-water tiles a "ship" wave can cross
     public static final double NAVAL_RANGE_PENALTY = 0.4;  // each extra sea tile crossed adds this to the cost mult

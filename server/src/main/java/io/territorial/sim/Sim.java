@@ -199,7 +199,7 @@ public final class Sim {
                 int c = frontier[k];
                 // Each successive cell costs more: you can chip a border, not blitz a nation.
                 double effCost = cost[k] * (1.0 + takenThisWave * Config.PENETRATION_PENALTY / esc);
-                if (wave < effCost) break;
+                if (wave <= effCost) break;   // must STRICTLY exceed the cell's cost to capture it
                 int old = s.owner[c];
                 s.owner[c] = x;
                 s.settle[c] = Config.SETTLE_TICKS;   // freshly captured: integrates before it earns income

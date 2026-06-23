@@ -81,7 +81,8 @@ export function isHolding(snap: Snapshot | undefined, id: number): boolean {
 }
 /** Qualitative label for a defence value, so even small numbers read clearly. */
 export function defenseTag(def: number): string {
-  return def < 1 ? '⚠ thin' : def < 4 ? 'holding' : def < 9 ? 'solid' : 'fortress';
+  // Per-cell scale after the control-cost floor (~2 min): weak points read ~2-4, fortresses 20+.
+  return def < 4 ? '⚠ thin' : def < 10 ? 'holding' : def < 22 ? 'solid' : 'fortress';
 }
 
 /** Display name for a player ("You" for yourself). */
