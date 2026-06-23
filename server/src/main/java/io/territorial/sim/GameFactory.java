@@ -17,6 +17,7 @@ public final class GameFactory {
 
         assignTerrain(s);
         carveWater(s);
+        carveRivers(s);
         int[] capitals = placeCapitals(s, numPlayers);
         for (int p = 0; p < numPlayers; p++) {
             s.capitalCell[p] = capitals[p];
@@ -135,6 +136,33 @@ public final class GameFactory {
         for (int c = 0; c < s.cellCount; c++) if (s.terrain[c] == Terrain.WATER) tmp[w++] = c;
         s.waterCells = java.util.Arrays.copyOf(tmp, w);
         s.ownableCells = s.cellCount - w;
+    }
+
+    /** Carve a few winding rivers through the lowlands. Each river is a 1-cell line that meanders in a
+     *  general heading and stops at the sea, giving a natural defensive chokepoint (+35% to hold) to
+     *  anchor a border on. Rivers are ownable land — they don't block movement, just cost more to take. */
+    private static void carveRivers(GameState s) {
+        int W = s.width, H = s.height;
+        int rivers = 2 + s.rng.nextInt(3);              // 2..4 rivers
+        int maxLen = (int) ((W + H) * 0.9);
+        final int[] DX = {1, 0, -1, 0}, DY = {0, 1, 0, -1};   // E, S, W, N (so ±1 = perpendicular)
+        for (int r = 0; r < rivers; r++) {
+            int start = -1;
+            for (int t = 0; t < 40 && start < 0; t++) {
+                int c = s.rng.nextInt(s.cellCount);
+                if (s.terrain[c] != Terrain.WATER) start = c;
+            }
+            if (start < 0) continue;
+            int x = start % W, y = start / W, dir = s.rng.nextInt(4);
+            for (int len = 0; len < maxLen; len++) {
+                if (x < 0 || y < 0 || x >= W || y >= H) break;
+                int c = y * W + x;
+                if (s.terrain[c] == Terrain.WATER) break;     // reached the sea — river mouth
+                if (s.terrain[c] == Terrain.PLAIN || s.terrain[c] == Terrain.FOREST) s.terrain[c] = Terrain.RIVER;
+                int step = (s.rng.nextDouble() < 0.30) ? (dir + (s.rng.nextInt(2) == 0 ? 1 : 3)) & 3 : dir; // meander
+                x += DX[step]; y += DY[step];
+            }
+        }
     }
 
     /** Greedy spread: each capital is the unused LAND cell farthest from those already chosen. */
