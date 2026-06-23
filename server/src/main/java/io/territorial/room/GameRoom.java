@@ -604,7 +604,8 @@ public class GameRoom {
         m.put("income", income);
         m.put("land", state.land.clone());
         m.put("border", state.border.clone());   // border-cell count (where battles happen)
-        m.put("defScore", round1(state.defScore)); // terrain/supply/morale/stance-aware defence per border cell
+        m.put("defScore", round1(state.defScore)); // avg per-cell defence (terrain/supply/morale/stance)
+        m.put("defWeak", round1(state.defWeak));   // weakest border cell — the breach point
         m.put("stance", state.stance.clone());    // 0 Normal, 1 Hold (+25% defence)
         m.put("developing", state.developing.clone());   // just-captured cells not yet earning income
         m.put("events", lastEvents);              // this tick's events for the feed [type,a,b]

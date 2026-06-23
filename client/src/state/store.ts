@@ -19,7 +19,8 @@ export interface Snapshot {
   income: number[];    // per-player army/sec
   land: number[];
   border: number[];    // per-player border-cell count (where battles happen)
-  defScore?: number[]; // per-player terrain/supply/morale/stance-aware defence per border cell
+  defScore?: number[]; // per-player AVERAGE per-cell defence (terrain/supply/morale/stance)
+  defWeak?: number[];  // per-player WEAKEST border cell (the breach point)
   stance?: number[];   // per-player defence posture: 0 Normal, 1 Hold (+25% defence)
   developing?: number[]; // per-player count of just-captured cells not yet producing income
   alive: boolean[];
@@ -55,15 +56,24 @@ export function colorIndexOf(snap: Snapshot | undefined, id: number): number {
 /** Defence score per border cell — the wave it takes to crack a typical border cell. Prefers the
  *  server's terrain/supply/morale/stance-aware value (defScore); falls back to the crude army/border
  *  average for older payloads. It's often < 1 (an over-stretched empire has near-zero defence). */
+/** Headline defence = your WEAKEST border cell (where an attack actually breaches). Falls back to the
+ *  average, then to the crude army/border estimate for older payloads. */
 export function defenseOf(snap: Snapshot | undefined, id: number): number {
   if (!snap) return 0;
-  const srv = snap.defScore?.[id];
-  if (srv != null) return Math.round(srv * 10) / 10;       // already terrain/supply/morale/stance-aware
+  const weak = snap.defWeak?.[id];
+  if (weak != null) return Math.round(weak * 10) / 10;
+  const avg = snap.defScore?.[id];
+  if (avg != null) return Math.round(avg * 10) / 10;
   const army = snap.army?.[id] ?? 0;
   const border = Math.max(1, snap.border?.[id] ?? 1);
   const mom = (snap.morale?.[id] ?? 100) / 100;
   const stanceMul = snap.stance?.[id] === 1 ? 1.25 : 1;   // HOLD stance digs in (+25%)
   return Math.round((army / border) * mom * stanceMul * 10) / 10;
+}
+/** Average per-cell defence across your border (secondary readout next to the weak point). */
+export function defenseAvgOf(snap: Snapshot | undefined, id: number): number {
+  const a = snap?.defScore?.[id];
+  return a != null ? Math.round(a * 10) / 10 : defenseOf(snap, id);
 }
 /** Is this player in the Hold stance (+25% defence)? */
 export function isHolding(snap: Snapshot | undefined, id: number): boolean {

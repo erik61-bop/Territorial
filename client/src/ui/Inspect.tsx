@@ -54,7 +54,7 @@ export default function Inspect() {
         <Text style={[styles.rel, { color: relColor }]}>{relName}</Text>
         <Pressable onPress={() => setSelected(null)} hitSlop={8}><Text style={styles.close}>✕</Text></Pressable>
       </View>
-      <Text style={styles.stat}>army <Text style={styles.val}>{army}</Text>    land <Text style={styles.val}>{land}</Text>    🛡 def <Text style={[styles.val, { color: '#86d6ff' }]}>{theirDef.toFixed(1)}</Text><Text style={styles.unit}>/cell</Text></Text>
+      <Text style={styles.stat}>army <Text style={styles.val}>{army}</Text>    land <Text style={styles.val}>{land}</Text>    🛡 weak point <Text style={[styles.val, { color: '#86d6ff' }]}>{theirDef.toFixed(1)}</Text><Text style={styles.unit}>/cell</Text></Text>
 
       {naval && <Text style={styles.naval}>⚓ Across the sea — ships in (costs ~2.5× more)</Text>}
       {!me && (

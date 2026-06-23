@@ -38,7 +38,8 @@ public final class GameState {
     public final double[] lastIncome;    // army/tick added last tick (for the UI income readout)
     public final int[] developing;       // per-player count of just-captured cells not yet producing income
     public final int[] settle;           // per-cell ticks until a captured cell starts producing income
-    public final double[] defScore;      // avg terrain/supply/morale/stance-aware defence per border cell
+    public final double[] defScore;      // AVG terrain/supply/morale/stance-aware defence per border cell
+    public final double[] defWeak;       // WEAKEST border cell's defence (the breach point attacks exploit)
 
     // Diplomacy (symmetric). rel: 0 none, 1 peace, 2 ally. offer[a][b] = a has offered b peace.
     public final byte[][] rel;
@@ -80,6 +81,7 @@ public final class GameState {
         this.developing = new int[numPlayers];
         this.settle = new int[cellCount];
         this.defScore = new double[numPlayers];
+        this.defWeak = new double[numPlayers];
 
         this.rel = new byte[numPlayers][numPlayers];
         this.relUntil = new int[numPlayers][numPlayers];
@@ -138,27 +140,49 @@ public final class GameState {
             if (capitalCell[p] >= 0 && owner[capitalCell[p]] == p) continue;
             for (int c = 0; c < cellCount; c++) if (owner[c] == p) { capitalCell[p] = c; break; }
         }
-        // Terrain/supply/morale/stance-aware defence: the AVERAGE wave-cost to crack one of your
-        // border cells. Mirrors Sim.cellCost so the HUD shows what combat actually charges — defence
-        // is the QUALITY of your border (terrain, cities, supply, morale, Hold), not just its length.
+        // Defence readout, using the SAME per-cell formula combat charges (cellDefense): the AVERAGE
+        // and the WEAKEST border cell. The weakest is what matters — attacks eat the cheapest cell
+        // first, so that's where you actually get breached.
         java.util.Arrays.fill(defScore, 0);
+        java.util.Arrays.fill(defWeak, 0);
         for (int p = 0; p < numPlayers; p++) {
             if (!alive[p] || border[p] == 0) continue;
-            double baseDef = defensePerCell(p) * momentum[p] * (stance[p] == 1 ? Config.HOLD_DEFENSE : 1.0);
-            int cap = capitalCell[p];
-            double sum = 0; int n = 0;
+            double base = baseDef(p);
+            double sum = 0, min = Double.MAX_VALUE; int n = 0;
             for (int c = 0; c < cellCount; c++) {
-                if (owner[c] != p) continue;
-                boolean isBorder = false;
-                for (int nb : neighbours[c]) { int no = owner[nb]; if (no != p && no != WATER) { isBorder = true; break; } }
-                if (!isBorder) continue;
-                double supply = cap < 0 ? 1.0
-                        : Math.max(Config.SUPPLY_MIN, Math.min(1.0, 1.0 - distance(c, cap) * Config.SUPPLY_FALLOFF));
-                sum += baseDef * terrain[c].defMult * supply * (c == cap ? Config.CAPITAL_DEF : 1.0);
-                n++;
+                if (owner[c] != p || !isBorderCell(c, p)) continue;
+                double d = cellDefenseWith(c, p, base);
+                sum += d; if (d < min) min = d; n++;
             }
             defScore[p] = n > 0 ? sum / n : 0;
+            defWeak[p]  = n > 0 ? min : 0;
         }
+    }
+
+    /** Is cell {@code c} (owned by p) on the front — adjacent to a non-friendly land cell? (Water is
+     *  a safe edge, so it doesn't count.) */
+    public boolean isBorderCell(int c, int p) {
+        for (int nb : neighbours[c]) { int no = owner[nb]; if (no != p && no != WATER) return true; }
+        return false;
+    }
+
+    /** Supply multiplier for a cell: defence falls off with distance from the owner's capital. */
+    public double supplyMult(int cell, int p) {
+        int cap = capitalCell[p];
+        if (cap < 0) return 1.0;
+        double m = 1.0 - distance(cell, cap) * Config.SUPPLY_FALLOFF;
+        return Math.max(Config.SUPPLY_MIN, Math.min(1.0, m));
+    }
+
+    /** A player's base per-cell defence: army concentration x morale x stance (before terrain/supply). */
+    public double baseDef(int p) {
+        return defensePerCell(p) * momentum[p] * (stance[p] == 1 ? Config.HOLD_DEFENSE : 1.0);
+    }
+
+    /** THE per-cell defence formula — the wave-cost to crack one of {@code p}'s cells. Single source of
+     *  truth shared by combat ({@link Sim}) and the HUD readout. {@code base} = {@link #baseDef(int)}. */
+    public double cellDefenseWith(int cell, int p, double base) {
+        return base * terrain[cell].defMult * supplyMult(cell, p) * (cell == capitalCell[p] ? Config.CAPITAL_DEF : 1.0);
     }
 
     public double density(int p)        { return army[p] / Math.max(1, land[p]); }

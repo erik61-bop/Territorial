@@ -222,21 +222,16 @@ public final class Sim {
         }
     }
 
+    /** Wave-cost to capture a cell. Neutral land is a flat terrain-scaled cost; an enemy cell uses the
+     *  shared per-cell defence formula (GameState.cellDefenseWith) so combat and the HUD never diverge. */
     private double cellCost(int cell, int target, double baseDef) {
-        double cost = baseDef * s.terrain[cell].defMult;
-        if (target != GameState.NEUTRAL) {
-            cost *= supplyMult(cell, target);
-            if (cell == s.capitalCell[target]) cost *= Config.CAPITAL_DEF;
-        }
+        double cost = (target == GameState.NEUTRAL)
+                ? baseDef * s.terrain[cell].defMult
+                : s.cellDefenseWith(cell, target, baseDef);
         return Math.max(cost, 0.0001);
     }
 
-    private double supplyMult(int cell, int player) {
-        int cap = s.capitalCell[player];
-        if (cap < 0) return 1.0;
-        double m = 1.0 - s.distance(cell, cap) * Config.SUPPLY_FALLOFF;
-        return clamp(m, Config.SUPPLY_MIN, 1.0);
-    }
+    private double supplyMult(int cell, int player) { return s.supplyMult(cell, player); }
 
     /** Distinct cells owned by {@code target} adjacent to at least one cell owned by {@code attacker}. */
     private int[] frontierCells(int attacker, int target) {
