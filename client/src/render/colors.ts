@@ -37,11 +37,11 @@ export const TERRAIN_SHADE: number[] = [
 ];
 
 export const TERRAIN_INFO: { name: string; note: string }[] = [
-  { name: 'Plain', note: '' },
-  { name: 'Forest', note: '+25% def' },
-  { name: 'Mountain', note: '+60% def' },
-  { name: 'City', note: '+income' },
-  { name: 'River', note: '+35% def' },
+  { name: 'Plain', note: 'balanced' },
+  { name: 'Forest', note: '+25% def · −10% income' },
+  { name: 'Mountain', note: '+60% def · −40% income' },
+  { name: 'City', note: '+30% def · +20% income' },
+  { name: 'River', note: '+35% def · −15% income' },
   { name: 'Water', note: 'cross at coasts' },
 ];
 
