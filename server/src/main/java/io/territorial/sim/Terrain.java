@@ -6,7 +6,7 @@ public enum Terrain {
     PLAIN   (1.00, 1.00),   // balanced baseline
     FOREST  (1.25, 0.90),   // +25% defence, slightly poorer
     MOUNTAIN(1.60, 0.60),   // +60% defence, but barren — great to hold, poor to farm
-    CITY    (1.30, 1.20),   // fortified AND richer — the prize holding
+    CITY    (1.30, 2.00),   // fortified AND a rich prize — a city earns like 2 plains
     RIVER   (1.35, 0.85),   // +35% defence (natural moat), modest economy
     WATER   (1.00, 0.00);   // unownable ocean; splits the map, crossable only by amphibious assault
 

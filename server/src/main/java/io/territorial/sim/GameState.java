@@ -127,7 +127,7 @@ public final class GameState {
             if (o < 0) continue;                       // neutral or water: unowned
             land[o]++;
             if (settle[c] > 0) developing[o]++;         // freshly captured: held but not yet productive
-            else incomeUnits[o] += terrain[c].incomeMult;   // settled land earns (cities 1.2x etc.)
+            else incomeUnits[o] += terrain[c].incomeMult;   // settled land earns (cities 2x, mountains 0.6x, etc.)
             for (int nb : neighbours[c]) {
                 int no = owner[nb];
                 if (no != o && no != WATER) { border[o]++; break; }  // water is a safe edge
