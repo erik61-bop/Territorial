@@ -328,6 +328,7 @@ public class GameRoom {
                     connected[p] = true;
                     sessionToPlayer.put(session.getId(), p);
                     state.clearPlayer(p);      // no inherited empire; player must choose a spawn
+                    peakLand[p] = 0;           // fresh occupant: they haven't had a country yet this match
                     if (token != null) { slotToken[p] = token; tokenToSlot.put(token, p); }
                     slotCoins[p] = account >= 0 ? wallet.balance(account) : 0;   // cache for the HUD
                     slotEmblem[p] = account >= 0 ? stats.emblemOf(account) : "";  // equipped cosmetic
@@ -366,6 +367,7 @@ public class GameRoom {
             state.clearPlayer(p);          // their land returns to neutral
             human[p] = false;
             connected[p] = false;
+            peakLand[p] = 0;               // slot freed: next occupant starts fresh, not "already played"
             names[p] = null;
             humanActions.remove(p);
             if (slotToken[p] != null) { tokenToSlot.remove(slotToken[p]); slotToken[p] = null; }
@@ -423,7 +425,9 @@ public class GameRoom {
         }
     }
 
-    /** Place a joining (or eliminated) player's starting blob at a chosen neutral cell. */
+    /** Place a JOINING player's starting blob at a chosen neutral cell. A player gets ONE country per
+     *  match: once they've held land and been rushed out of it, they're eliminated (last-one-standing),
+     *  so they cannot re-pick land — {@code peakLand > 0} marks "already had a country this match". */
     public void submitSpawn(WebSocketSession session, int cell) {
         Integer p = sessionToPlayer.get(session.getId());
         if (p == null) return;
@@ -432,6 +436,7 @@ public class GameRoom {
             if (cell < 0 || cell >= state.cellCount) return;
             if (state.owner[cell] != GameState.NEUTRAL) return;   // must be empty land
             if (state.hasLand(p)) return;                          // already in play
+            if (peakLand[p] > 0) return;                           // already played -> wiped out = eliminated
             state.clearPlayer(p);                                  // drop any stale treaties/army
             humanActions.remove(p);                                // and any stale standing order
             int n = state.spawnBlob(p, cell, SPAWN_SIZE);

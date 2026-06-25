@@ -58,10 +58,14 @@ export default function GameScreen() {
   const centeredCapital = useRef<number>(-1);
   const containerRef = useRef<any>(null);
 
-  // Spawn mode: in play, connected, but holding no land (fresh join, respawn, or wiped out).
+  // Spawn mode: connected and holding no land, but ONLY before you've ever had a country this match
+  // (peakLand === 0). Once you've been rushed out (peakLand > 0, land 0) you're eliminated — no respawn.
   const myLand = snap && playerId >= 0 ? snap.land[playerId] : 0;
+  const myPeak = snap && playerId >= 0 ? (snap.peakLand?.[playerId] ?? 0) : 0;
   const inLobby = !!snap?.lobby;
-  const spawnMode = started && playerId >= 0 && !!snap && myLand === 0 && snap.winner < 0 && !inLobby;
+  const inPlay = started && playerId >= 0 && !!snap && myLand === 0 && snap.winner < 0 && !inLobby;
+  const eliminated = inPlay && myPeak > 0;        // had a country, lost it -> out for the match
+  const spawnMode = inPlay && myPeak === 0;       // never had a country yet -> pick a spawn
   const myCapital = snap?.capitals?.[playerId] ?? map?.capitals?.[playerId] ?? -1;
 
   // Fit the whole isometric board on screen when it first loads (so you can see it to pick a spawn).
@@ -183,12 +187,16 @@ export default function GameScreen() {
     if (target === -2) return;              // water is not interactable
     if (target >= 0) useGame.getState().setSelected(target);  // tap a nation -> inspect it
 
-    const inSpawn = pid >= 0 && s.land[pid] === 0 && s.winner < 0;
+    // You get ONE country per match. Picking land is only for a player who hasn't had one yet
+    // (peakLand === 0); once you've been rushed out (peakLand > 0, land 0) you're eliminated.
+    const hadCountry = pid >= 0 && (s.peakLand?.[pid] ?? 0) > 0;
+    const inSpawn = pid >= 0 && s.land[pid] === 0 && s.winner < 0 && !hadCountry;
     if (inSpawn) {
       if (st.spectating) return;            // watching, not playing — tap Respawn to re-enter
       if (target === -1) { showTap(screenX, screenY, 'spawn'); sendSpawn(cell); } // must choose empty land
       return;
     }
+    if (pid >= 0 && s.land[pid] === 0) return;   // eliminated / spectating -> can only inspect, not order
     if (st.mode === 'hold') return;         // defensive: ignore taps
     if (target === pid) return;             // can't attack yourself
 
@@ -356,6 +364,12 @@ export default function GameScreen() {
           <Pressable style={styles.respawnBtn} onPress={() => useGame.getState().setSpectating(false)}>
             <Text style={styles.spectateTxt}>↩  Respawn</Text>
           </Pressable>
+        </View>
+      )}
+      {eliminated && (
+        <View style={styles.spawnBanner} pointerEvents="none">
+          <Text style={styles.spawnTitle}>💀 Your country was rushed</Text>
+          <Text style={styles.spawnSub}>you're eliminated — spectating. Last one standing wins.</Text>
         </View>
       )}
       {callouts.length > 0 && (
