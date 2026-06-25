@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, Platform, Animated, Easing } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, Platform, Animated, Easing, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PLAYER_COLORS } from '../render/colors';
 import { useGame } from '../state/store';
 import { refreshMe, logout, claimDaily, fetchQuests } from '../net/socket';
@@ -28,6 +29,7 @@ const LEVELS = [
 const rgb = (c: number[]) => `rgb(${c[0]},${c[1]},${c[2]})`;
 
 export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: string, color: number) => void }) {
+  const insets = useSafeAreaInsets();
   const account = useGame((s) => s.account);
   const [diff, setDiff] = useState(1);
   const [name, setName] = useState('');
@@ -71,6 +73,12 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
   return (
     <Animated.View style={[styles.root, { opacity: intro, transform: [{ translateY: intro.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
       <Backdrop />
+      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 24 + insets.top, paddingBottom: 24 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <Text style={styles.title}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>The Art of Conquest — one army is your sword and your shield.</Text>
 
@@ -164,8 +172,10 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
       <Text style={styles.hint}>
         Pick a spawn, expand during Peace (rivals are hidden by fog), then attack, ally, and betray
         your way to be the last one standing. Tap a country to keep attacking it; Hold to stop.
-        {'\n'}Move: drag or WASD / arrows · zoom: wheel or +/− · click the minimap to jump there.
+        {'\n'}Move: drag or WASD / arrows · zoom: pinch, wheel or +/− · tap the minimap to jump there.
       </Text>
+      </ScrollView>
+      </KeyboardAvoidingView>
       {showLb && <Leaderboard onClose={() => setShowLb(false)} me={account?.displayName} />}
       {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
       {showShop && <Shop onClose={() => { setShowShop(false); refreshMe(); }} />}
@@ -176,7 +186,9 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0b0d14', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  root: { flex: 1, backgroundColor: '#0b0d14' },
+  fill: { flex: 1 },
+  scrollContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   title: { color: '#fff', fontSize: 58, fontWeight: '900', letterSpacing: 5, textShadowColor: 'rgba(90,150,255,0.85)', textShadowRadius: 24 },
   subtitle: { color: '#9aa', fontSize: 15, marginTop: 8, marginBottom: 22, textAlign: 'center' },
   diffLabel: { color: '#8aa0c8', fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 8 },
@@ -186,7 +198,7 @@ const styles = StyleSheet.create({
   modeTxt: { color: '#cfe0ff', fontSize: 15, fontWeight: '800' },
   modeSub: { color: '#8aa0c8', fontSize: 11, marginTop: 2 },
   nameInput: {
-    width: 260, color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center',
+    width: '100%', maxWidth: 260, color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center',
     backgroundColor: '#222a3e', borderWidth: 1, borderColor: '#41507a', borderRadius: 10,
     paddingVertical: 11, marginBottom: 20,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),

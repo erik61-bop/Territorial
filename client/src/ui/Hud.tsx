@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Animated, Easing, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame, Mode, nameOf, colorIndexOf, defenseOf, defenseAvgOf, defenseTag, isHolding } from '../state/store';
 import { cssPlayer, TERRAIN_INFO, TERRAIN_COLORS } from '../render/colors';
 import Slider from './Slider';
@@ -25,6 +26,9 @@ const PRESETS: { f: number; label: string }[] = [
 ];
 
 export default function Hud() {
+  const insets = useSafeAreaInsets();                       // notch / status bar / home indicator
+  const { width: winW } = useWindowDimensions();
+  const narrow = winW < 480;                                // phone-width: declutter the HUD
   const connected = useGame((s) => s.connected);
   const playerId = useGame((s) => s.playerId);
   const matchId = useGame((s) => s.matchId);
@@ -72,7 +76,7 @@ export default function Hud() {
   return (
     <>
       {/* top-left: match info */}
-      <View style={[styles.card, styles.topLeft]}>
+      <View style={[styles.card, styles.topLeft, { top: 12 + insets.top, left: 12 + insets.left }, narrow && { minWidth: 0 }]}>
         <Text style={styles.cardLabel}>MATCH</Text>
         <View style={styles.statRow}>
           <Text style={styles.statBig}>👥 {aliveCount}</Text>
@@ -86,7 +90,7 @@ export default function Hud() {
 
       {/* top-centre: phase banner */}
       {phase && !won && (
-        <View style={[styles.card, styles.phaseBar]}>
+        <View style={[styles.card, styles.phaseBar, { top: 12 + insets.top }, narrow && { minWidth: 0, paddingHorizontal: 12 }]}>
           <Text style={[styles.phaseName, { color: phase.color }]}>{phase.name}</Text>
           {phaseSecs >= 0 && <Text style={styles.phaseTimer}>{mmss(phaseSecs)}</Text>}
           {phaseSecs >= 0 && phase.next !== '' && <Text style={styles.dim}>{phase.next} starts in {mmss(phaseSecs)}</Text>}
@@ -96,18 +100,18 @@ export default function Hud() {
 
       {/* threat cue */}
       {underAttack && !won && (
-        <View style={[styles.card, styles.threat]} pointerEvents="none">
+        <View style={[styles.card, styles.threat, { top: 92 + insets.top }]} pointerEvents="none">
           <Text style={styles.threatTxt}>⚠ UNDER ATTACK</Text>
         </View>
       )}
 
-      {/* top-right: buttons */}
-      <View style={styles.topRight}>
+      {/* top-right: buttons (left of GameScreen's help/settings cluster) */}
+      <View style={[styles.topRight, { top: 12 + insets.top, right: 12 + insets.right }]}>
         <Pressable style={styles.iconBtn} onPress={toggleMuted}><Text style={styles.iconTxt}>{muted ? '🔇' : '🔊'}</Text></Pressable>
       </View>
 
       {/* left: leaderboard */}
-      <View style={[styles.card, styles.leaderboard]}>
+      <View style={[styles.card, styles.leaderboard, { top: 92 + insets.top, left: 12 + insets.left }, narrow && { width: 150 }]}>
         <Text style={styles.cardLabel}>LEADERBOARD</Text>
         {top.map((p, i) => (
           <Row key={p.id} rank={i + 1} id={p.id} land={p.land} me={playerId}
@@ -123,7 +127,7 @@ export default function Hud() {
       </View>
 
       {/* bottom-left: your status */}
-      <View style={[styles.card, styles.status]}>
+      <View style={[styles.card, styles.status, { bottom: 12 + insets.bottom, left: 12 + insets.left }, narrow && { width: 200 }]}>
         <View style={styles.statusHead}>
           <View style={[styles.shield, { backgroundColor: playerId >= 0 ? cssPlayer(colorIndexOf(snap, playerId)) : '#666' }]} />
           <Text style={styles.statusTitle}>{playerId >= 0 ? (useGame.getState().myName || nameOf(snap, playerId, playerId)) : 'Spectating'}</Text>
@@ -148,7 +152,7 @@ export default function Hud() {
       </View>
 
       {/* bottom-centre: action bar + commit slider */}
-      <View style={[styles.card, styles.actionBar]}>
+      <View style={[styles.card, styles.actionBar, { bottom: 12 + insets.bottom }]}>
         <View style={styles.presetRow}>
           {PRESETS.map((pr) => (
             <Pressable key={pr.label} onPress={() => setFraction(pr.f)}
@@ -183,15 +187,17 @@ export default function Hud() {
         </Text>
       </View>
 
-      {/* terrain legend */}
-      <View style={[styles.card, styles.legend]}>
-        {TERRAIN_INFO.map((t, i) => (
-          <View key={t.name} style={styles.legendRow}>
-            <View style={[styles.legendSwatch, { backgroundColor: terrainCss(i) }]} />
-            <Text style={styles.legendTxt}>{t.name}{t.note ? `  ${t.note}` : ''}</Text>
-          </View>
-        ))}
-      </View>
+      {/* terrain legend — reference only; hidden on phone-width to declutter the play area */}
+      {!narrow && (
+        <View style={[styles.card, styles.legend, { right: 12 + insets.right, bottom: 212 + insets.bottom }]}>
+          {TERRAIN_INFO.map((t, i) => (
+            <View key={t.name} style={styles.legendRow}>
+              <View style={[styles.legendSwatch, { backgroundColor: terrainCss(i) }]} />
+              <Text style={styles.legendTxt}>{t.name}{t.note ? `  ${t.note}` : ''}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {won && (
         <View style={styles.bannerWrap} pointerEvents="none">

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, ActivityIndicator, Platform, Animated, Easing } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, ActivityIndicator, Platform, Animated, Easing, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiLogin, apiRegister } from '../net/socket';
 import Backdrop from './Backdrop';
 import PressScale from './PressScale';
@@ -11,6 +12,7 @@ const ERRORS: Record<string, string> = {
 };
 
 export default function Auth() {
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,6 +38,12 @@ export default function Auth() {
   return (
     <Animated.View style={[styles.root, { opacity: intro, transform: [{ translateY: intro.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
       <Backdrop />
+      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 24 + insets.top, paddingBottom: 24 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <Text style={styles.title}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>Sign in to play, wager coins, and climb the ranks.</Text>
 
@@ -64,12 +72,16 @@ export default function Auth() {
       </PressScale>
 
       <Text style={styles.note}>New accounts start with 💰 1000 coins. {register ? 'Already have one? Tap “Sign in”.' : 'No account? Tap “Create account”.'}</Text>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0b0d14', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  root: { flex: 1, backgroundColor: '#0b0d14' },
+  fill: { flex: 1 },
+  scrollContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   title: { color: '#fff', fontSize: 54, fontWeight: '900', letterSpacing: 5, textShadowColor: 'rgba(90,150,255,0.85)', textShadowRadius: 22 },
   subtitle: { color: '#9aa', fontSize: 15, marginTop: 8, marginBottom: 26, textAlign: 'center' },
   tabs: { flexDirection: 'row', gap: 8, marginBottom: 18 },
@@ -77,7 +89,7 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: '#2f6df0', borderColor: '#2f6df0' },
   tabTxt: { color: '#9fb0cf', fontSize: 14, fontWeight: '800' },
   input: {
-    width: 300, color: '#fff', fontSize: 16, fontWeight: '600',
+    width: '100%', maxWidth: 300, color: '#fff', fontSize: 16, fontWeight: '600',
     backgroundColor: '#222a3e', borderWidth: 1, borderColor: '#41507a', borderRadius: 10,
     paddingVertical: 12, paddingHorizontal: 14, marginBottom: 12,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),

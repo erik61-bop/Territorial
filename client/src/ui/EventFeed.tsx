@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame } from '../state/store';
 
 const LIFE = 6000;   // ms an event stays before it's gone
@@ -7,6 +8,7 @@ const FADE = 1500;   // ms of fade-out at the end
 
 /** Top-centre scrolling feed of recent game events (eliminations, capitals, treaties). */
 export default function EventFeed() {
+  const insets = useSafeAreaInsets();
   const events = useGame((s) => s.gameEvents);
   const [, tick] = useState(0);
   // re-render a few times a second so events fade out over time
@@ -20,7 +22,7 @@ export default function EventFeed() {
   if (!shown.length) return null;
 
   return (
-    <View style={styles.wrap} pointerEvents="none">
+    <View style={[styles.wrap, { top: 64 + insets.top }]} pointerEvents="none">
       {shown.map((e) => {
         const age = now - e.t;
         const opacity = age > LIFE - FADE ? Math.max(0, (LIFE - age) / FADE) : 1;

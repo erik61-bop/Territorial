@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, Pressable, useWindowDimensions, PanResponder, Platform, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame, nameOf } from './state/store';
 import { connect, disconnect, sendAction, sendSpawn, sendDifficulty, sendProfile, sendStop, refreshMe } from './net/socket';
 import GameCanvas, { Camera, TapMark } from './render/GameCanvas';
@@ -21,6 +22,7 @@ const DRAG_THRESHOLD = 6; // px of movement before a gesture counts as a pan, no
 
 export default function GameScreen() {
   const { width: winW, height: winH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();   // notch / status bar / home indicator padding (mobile-first)
   const started = useGame((s) => s.started);
   const setStarted = useGame((s) => s.setStarted);
   const map = useGame((s) => s.map);
@@ -212,12 +214,40 @@ export default function GameScreen() {
   }, [showTap]);
 
   const lastPan = useRef<{ x: number; y: number } | null>(null);
+  const pinchDist = useRef<number | null>(null);   // finger spread last frame (two-finger zoom)
+  const didPinch = useRef(false);                   // a pinch happened this gesture -> release isn't a tap
+  // Distance + screen midpoint between the first two active touches.
+  const twoFinger = (touches: any[]) => {
+    const [a, b] = touches;
+    const dx = a.locationX - b.locationX, dy = a.locationY - b.locationY;
+    return { dist: Math.hypot(dx, dy), cx: (a.locationX + b.locationX) / 2, cy: (a.locationY + b.locationY) / 2 };
+  };
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => { lastPan.current = null; },
-      onMoveShouldSetPanResponder: (_e, g) => Math.hypot(g.dx, g.dy) > DRAG_THRESHOLD,
-      onPanResponderMove: (_e, g) => {
+      onPanResponderGrant: () => { lastPan.current = null; pinchDist.current = null; didPinch.current = false; },
+      // Claim the gesture for a drag OR as soon as a second finger lands (pinch), even before it moves.
+      onMoveShouldSetPanResponder: (e, g) =>
+        (e.nativeEvent.touches?.length ?? 0) >= 2 || Math.hypot(g.dx, g.dy) > DRAG_THRESHOLD,
+      onPanResponderMove: (e, g) => {
+        const touches = e.nativeEvent.touches ?? [];
+        if (touches.length >= 2) {
+          // Pinch zoom about the midpoint between the two fingers.
+          const { dist, cx, cy } = twoFinger(touches);
+          didPinch.current = true;
+          if (pinchDist.current != null && dist > 0) {
+            const factor = dist / pinchDist.current;
+            setCam((c) => {
+              const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, c.scale * factor));
+              const k = next / c.scale;
+              return { scale: next, tx: cx - (cx - c.tx) * k, ty: cy - (cy - c.ty) * k };
+            });
+          }
+          pinchDist.current = dist;
+          lastPan.current = { x: g.dx, y: g.dy };   // re-baseline pan so dropping to one finger doesn't jump
+          return;
+        }
+        pinchDist.current = null;                    // back to a single finger -> pan
         const prev = lastPan.current ?? { x: 0, y: 0 };
         const ddx = g.dx - prev.x;
         const ddy = g.dy - prev.y;
@@ -225,10 +255,10 @@ export default function GameScreen() {
         setCam((c) => ({ ...c, tx: c.tx + ddx, ty: c.ty + ddy }));
       },
       onPanResponderRelease: (e, g) => {
-        if (Math.hypot(g.dx, g.dy) <= DRAG_THRESHOLD) {
+        if (!didPinch.current && Math.hypot(g.dx, g.dy) <= DRAG_THRESHOLD) {
           handleTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
         }
-        lastPan.current = null;
+        lastPan.current = null; pinchDist.current = null; didPinch.current = false;
       },
     }),
   ).current;
@@ -359,7 +389,7 @@ export default function GameScreen() {
         </View>
       )}
       {spawnMode && spectating && (
-        <View style={styles.spectateBar} pointerEvents="box-none">
+        <View style={[styles.spectateBar, { top: 12 + insets.top }]} pointerEvents="box-none">
           <Text style={styles.spectateLabel}>👁  Spectating</Text>
           <Pressable style={styles.respawnBtn} onPress={() => useGame.getState().setSpectating(false)}>
             <Text style={styles.spectateTxt}>↩  Respawn</Text>
@@ -382,14 +412,14 @@ export default function GameScreen() {
       <QuickChat />
       <Inspect />
       {map && snap && <Minimap camera={camera} screenW={winW} screenH={winH} onJump={jumpTo} />}
-      <Pressable style={styles.helpBtn} onPress={() => useGame.getState().setShowHelp(true)}>
+      <Pressable style={[styles.helpBtn, { top: 12 + insets.top, right: 60 + insets.right }]} onPress={() => useGame.getState().setShowHelp(true)}>
         <Text style={styles.helpTxt}>?</Text>
       </Pressable>
-      <Pressable style={styles.settingsBtn} onPress={() => useGame.getState().setShowSettings(true)}>
+      <Pressable style={[styles.settingsBtn, { top: 12 + insets.top, right: 102 + insets.right }]} onPress={() => useGame.getState().setShowSettings(true)}>
         <Text style={styles.helpTxt}>⚙</Text>
       </Pressable>
       <Settings onLeave={leaveMatch} />
-      <View style={styles.zoomBar}>
+      <View style={[styles.zoomBar, { left: 12 + insets.left }]}>
         <Pressable style={styles.zoomBtn} onPress={() => zoomBy(1.3)}><Text style={styles.zoomTxt}>＋</Text></Pressable>
         <Pressable style={styles.zoomBtn} onPress={() => zoomBy(1 / 1.3)}><Text style={styles.zoomTxt}>－</Text></Pressable>
         <Pressable style={styles.zoomBtn} onPress={recenter}><Text style={styles.zoomTxt}>⌖</Text></Pressable>

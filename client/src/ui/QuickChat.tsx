@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame, nameOf, colorIndexOf } from '../state/store';
 import { cssPlayer } from '../render/colors';
 import { TEMPLATES, CATEGORIES, TEMPLATE_BY_ID, formatMessage, ChatCategory } from '../chat/templates';
 import { sendChat, sendDiplo } from '../net/socket';
 
 export default function QuickChat() {
+  const insets = useSafeAreaInsets();
   const playerId = useGame((s) => s.playerId);
   const snap = useGame((s) => s.snap);
   const chat = useGame((s) => s.chat);
@@ -35,7 +37,7 @@ export default function QuickChat() {
     <>
       {/* incoming offers — top-centre, under the phase banner */}
       {(peaceOffers.length > 0 || allyOffers.length > 0) && (
-        <View style={styles.offers}>
+        <View style={[styles.offers, { top: 86 + insets.top }]}>
           {allyOffers.map((from) => (
             <View key={'a' + from} style={styles.offerRow}>
               <View style={[styles.dot, { backgroundColor: col(from) }]} />
@@ -54,7 +56,7 @@ export default function QuickChat() {
       )}
 
       {/* recent messages — floating, lower-left */}
-      <View style={styles.log} pointerEvents="none">
+      <View style={[styles.log, { bottom: 150 + insets.bottom, left: 12 + insets.left }]} pointerEvents="none">
         {chat.map((m) => (
           <Text key={m.key} style={styles.logLine}>
             <Text style={{ color: col(m.from), fontWeight: '800' }}>{nm(m.from)}</Text>
@@ -64,7 +66,7 @@ export default function QuickChat() {
       </View>
 
       {/* right-side quick-chat panel */}
-      <View style={styles.panel}>
+      <View style={[styles.panel, { top: 96 + insets.top, right: 12 + insets.right }]}>
         <Pressable style={styles.header} onPress={() => setOpen((o) => !o)}>
           <Text style={styles.headerTxt}>QUICK CHAT</Text>
           <Text style={styles.collapse}>{open ? '▾' : '▸'}</Text>
