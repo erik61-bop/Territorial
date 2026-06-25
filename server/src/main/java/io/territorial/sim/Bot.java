@@ -153,6 +153,17 @@ public final class Bot {
 
         boolean hasCoast = false;
         boolean[] seen = new boolean[s.numPlayers];
+        // Per-enemy BREACH tracking: the weakest border cell of each enemy that touches my front
+        // (the cell a smart wave aims at), plus its capital if that sits on our shared border.
+        int[]    breachCell = new int[s.numPlayers];
+        double[] breachCost = new double[s.numPlayers];
+        int[]    capCell    = new int[s.numPlayers];
+        double[] capCost    = new double[s.numPlayers];
+        double[] baseDefOf  = new double[s.numPlayers];      // cached per-enemy base defence
+        java.util.Arrays.fill(breachCell, -1);
+        java.util.Arrays.fill(breachCost, Double.MAX_VALUE);
+        java.util.Arrays.fill(capCell, -1);
+        java.util.Arrays.fill(baseDefOf, -1);
         for (int c = 0; c < s.cellCount; c++) {
             if (s.owner[c] != p) continue;
             for (int nb : s.neighbours[c]) {
@@ -163,13 +174,18 @@ public final class Bot {
                     if (s.terrain[nb] == Terrain.CITY) cityTarget = nb;
                 } else if (o == GameState.WATER) {
                     hasCoast = true;
-                } else if (o != p && !seen[o]) {
-                    seen[o] = true;
-                    if (s.areFriendly(p, o)) continue;        // don't waste turns on peace/allies
-                    double d = s.defensePerCell(o);
-                    if (d < weakestDef) { weakestDef = d; weakestEnemy = o; }
-                    if (d > strongestDef) { strongestDef = d; strongestEnemy = o; }
-                    if (s.land[o] > biggestNeighbourLand) { biggestNeighbourLand = s.land[o]; biggestNeighbour = o; }
+                } else if (o != p && !s.areFriendly(p, o)) {   // a hostile enemy cell on our front
+                    if (baseDefOf[o] < 0) baseDefOf[o] = s.baseDef(o);
+                    double cost = s.cellDefenseWith(nb, o, baseDefOf[o]);   // true wave-cost of THIS cell
+                    if (cost < breachCost[o]) { breachCost[o] = cost; breachCell[o] = nb; }
+                    if (nb == s.capitalCell[o]) { capCost[o] = cost; capCell[o] = nb; }
+                    if (!seen[o]) {
+                        seen[o] = true;
+                        double d = s.defensePerCell(o);
+                        if (d < weakestDef) { weakestDef = d; weakestEnemy = o; }
+                        if (d > strongestDef) { strongestDef = d; strongestEnemy = o; }
+                        if (s.land[o] > biggestNeighbourLand) { biggestNeighbourLand = s.land[o]; biggestNeighbour = o; }
+                    }
                 }
             }
         }
@@ -183,6 +199,26 @@ public final class Bot {
         double esc = Config.warEscalation(s.tick);
         double wave = s.army[p] * st.attackFraction * s.momentum[p] * esc;   // war exhaustion
         boolean warDragging = esc > 1.6;                                     // late war -> all-out aggression
+
+        // AIM POINT when attacking the weakest enemy: drive the wave at its WEAKEST border cell — the
+        // breach — instead of its capital, which is the single most fortified cell on the map (1.8x).
+        // A concentrated wave thus eats the soft frontier first, capturing more land per hit. Exception:
+        // if my wave can actually punch THROUGH the capital, go for the decapitation (it halves their
+        // army and collapses their morale). Easy bots (level 0) keep flailing at the capital.
+        int weakestAim = weakestEnemy >= 0 ? s.capitalCell[weakestEnemy] : -1;
+        if (weakestEnemy >= 0 && level >= 1) {
+            // Go for the throat when the capital sits on our front and our wave can crack it: a
+            // decapitation halves their whole army and collapses morale, so it's worth taking even at
+            // par cost. Also finish a nearly-dead neighbour outright rather than nibbling its edge.
+            boolean small    = s.land[weakestEnemy] <= s.land[p] * 0.5;
+            boolean canDecap = capCell[weakestEnemy] >= 0 && wave > capCost[weakestEnemy] * (small ? 1.0 : breakMargin);
+            // In a dragging war, stop nibbling borders and drive toward the capital to FORCE a kill —
+            // otherwise two near-equal powers just trade frontier cells until the safety deadline.
+            weakestAim = canDecap                       ? capCell[weakestEnemy]
+                       : warDragging                    ? s.capitalCell[weakestEnemy]
+                       : breachCell[weakestEnemy] >= 0  ? breachCell[weakestEnemy]
+                       :                                  s.capitalCell[weakestEnemy];
+        }
         int expandTarget = cityTarget >= 0 ? cityTarget : neutralTarget;   // prefer cities
         // Only expand if the wave can actually capture neutral land; otherwise HOLD and let income
         // build the army up (expanding with too little army just wastes it and starves you).
@@ -217,12 +253,12 @@ public final class Bot {
         // Otherwise attack the weakest front my concentrated wave can break — even a bigger empire
         // (its defence is spread thin per cell; I mass on one point). Keeps the army WORKING.
         if (weakestEnemy >= 0 && wave > weakestDef * breakMargin) {
-            return new Action(p, weakestEnemy, warDragging ? 0.85 : st.attackFraction, s.capitalCell[weakestEnemy]);
+            return new Action(p, weakestEnemy, warDragging ? 0.85 : st.attackFraction, weakestAim);
         }
 
         // Occasional probe so it stays beatable / unpredictable.
         if (misplay && weakestEnemy >= 0) {
-            return new Action(p, weakestEnemy, st.attackFraction, s.capitalCell[weakestEnemy]);
+            return new Action(p, weakestEnemy, st.attackFraction, weakestAim);
         }
 
         // A strong neighbour can break me and I have no good move -> HOLD and regrow (defend),
@@ -232,7 +268,7 @@ public final class Bot {
             return new Action(p, GameState.NEUTRAL, st.expandFraction, expandTarget);
         }
         if (!defends && weakestEnemy >= 0) {                      // Aggressor: keep poking even when weak
-            return new Action(p, weakestEnemy, st.attackFraction, s.capitalCell[weakestEnemy]);
+            return new Action(p, weakestEnemy, st.attackFraction, weakestAim);
         }
         // No good land move — if I have a coast and a healthy reserve, launch a naval invasion
         // (island or enemy coast across the sea) so the seas/islands get contested too.
