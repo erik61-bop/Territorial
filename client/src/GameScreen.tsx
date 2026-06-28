@@ -23,6 +23,7 @@ const DRAG_THRESHOLD = 6; // px of movement before a gesture counts as a pan, no
 export default function GameScreen() {
   const { width: winW, height: winH } = useWindowDimensions();
   const insets = useSafeAreaInsets();   // notch / status bar / home indicator padding (mobile-first)
+  const narrow = winW < 480;            // phone width: declutter the HUD (hide minimap, etc.)
   const started = useGame((s) => s.started);
   const setStarted = useGame((s) => s.setStarted);
   const map = useGame((s) => s.map);
@@ -68,6 +69,7 @@ export default function GameScreen() {
   const inPlay = started && playerId >= 0 && !!snap && myLand === 0 && snap.winner < 0 && !inLobby;
   const eliminated = inPlay && myPeak > 0;        // had a country, lost it -> out for the match
   const spawnMode = inPlay && myPeak === 0;       // never had a country yet -> pick a spawn
+  const spawnSecs = snap && playerId >= 0 ? (snap.spawnLeft?.[playerId] ?? -1) : -1;  // auto-place countdown
   const myCapital = snap?.capitals?.[playerId] ?? map?.capitals?.[playerId] ?? -1;
 
   // Fit the whole isometric board on screen when it first loads (so you can see it to pick a spawn).
@@ -141,9 +143,9 @@ export default function GameScreen() {
       if (coast) { seaHintShown.current = true; pushCallout('⛵ You reached the sea! Tap an island (⚓) or enemy coast across the water to invade'); }
     }
 
-    // Clear the standing-order indicator once its target is eliminated (server already stopped it).
-    const ord = useGame.getState().order;
-    if (ord != null && ord >= 0 && !snap.alive[ord]) useGame.getState().setOrder(null);
+    // Drop any standing-order target that's been eliminated (server already stopped attacking it).
+    const g0 = useGame.getState();
+    for (const o of g0.orders) if (o >= 0 && !snap.alive[o]) g0.removeOrder(o);
   }, [snap, playerId]);
 
   // Show the How-to-play overlay on a player's first ever game.
@@ -284,6 +286,64 @@ export default function GameScreen() {
     return () => node.removeEventListener('wheel', onWheel);
   }, [started]);
 
+  // Board pan / pinch / tap on web via POINTER events. RNW's PanResponder doesn't track web drags
+  // reliably (taps fire but drags don't), and on touch the browser would otherwise scroll/zoom the
+  // page — so we handle the board gesture directly here (PanResponder stays for the native app).
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !started) return;
+    const node: any = containerRef.current;
+    if (!node || !node.addEventListener) return;
+    const pts = new Map<number, { x: number; y: number }>();   // active pointers on the board
+    let startX = 0, startY = 0, moved = 0;
+    let panLast: { x: number; y: number } | null = null;
+    let pinchPrev: number | null = null;
+    const rel = (e: PointerEvent) => { const r = node.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    const down = (e: PointerEvent) => {
+      if (e.target !== node) return;          // ignore presses that start on a HUD control (only the board)
+      const p = rel(e); pts.set(e.pointerId, p);
+      try { node.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      if (pts.size === 1) { startX = p.x; startY = p.y; moved = 0; panLast = p; pinchPrev = null; }
+      else { panLast = null; pinchPrev = null; }   // second finger -> pinch
+    };
+    const move = (e: PointerEvent) => {
+      if (!pts.has(e.pointerId)) return;
+      const p = rel(e); pts.set(e.pointerId, p);
+      if (pts.size >= 2) {                     // pinch-zoom about the finger midpoint
+        const [a, b] = [...pts.values()];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+        if (pinchPrev && dist > 0) {
+          const f = dist / pinchPrev;
+          setCam((c) => { const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, c.scale * f)); const k = next / c.scale; return { scale: next, tx: cx - (cx - c.tx) * k, ty: cy - (cy - c.ty) * k }; });
+        }
+        pinchPrev = dist; moved = 999;
+        return;
+      }
+      if (panLast) {                           // one finger -> pan
+        const ddx = p.x - panLast.x, ddy = p.y - panLast.y;
+        moved += Math.hypot(ddx, ddy);
+        setCam((c) => ({ ...c, tx: c.tx + ddx, ty: c.ty + ddy }));
+      }
+      panLast = p;
+    };
+    const up = (e: PointerEvent) => {
+      const wasSingle = pts.size === 1;
+      pts.delete(e.pointerId);
+      try { node.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+      if (wasSingle && moved <= DRAG_THRESHOLD) handleTap(startX, startY);   // a tap, not a drag
+      pinchPrev = null;
+      panLast = pts.size ? [...pts.values()][0] : null;   // keep panning with a remaining finger
+    };
+    node.addEventListener('pointerdown', down);
+    node.addEventListener('pointermove', move);
+    node.addEventListener('pointerup', up);
+    node.addEventListener('pointercancel', up);
+    return () => {
+      node.removeEventListener('pointerdown', down); node.removeEventListener('pointermove', move);
+      node.removeEventListener('pointerup', up); node.removeEventListener('pointercancel', up);
+    };
+  }, [started, setCam, handleTap]);
+
   // Keyboard navigation (web): arrows / WASD pan, +/- zoom (about screen centre).
   useEffect(() => {
     if (Platform.OS !== 'web' || !started) return;
@@ -326,8 +386,8 @@ export default function GameScreen() {
   const leaveMatch = useCallback(() => {
     disconnect();
     const g = useGame.getState();
-    g.setShowSettings(false); g.setStarted(false); g.setPlayerId(-1);
-    g.setSpectating(false); g.setOrder(null);
+    g.setShowSettings(false); g.setStarted(false);
+    g.resetMatch();   // drop the finished match's board/state so it can't bleed into the next game
   }, []);
 
   // On-screen zoom (about screen centre) + recenter (on your capital, else the map).
@@ -360,13 +420,18 @@ export default function GameScreen() {
           localStorage.setItem('territorial_tutorial_seen', '1');
         }
       } catch { /* ignore */ }
+      useGame.getState().resetMatch();   // clear any previous match so it doesn't flash before the new one loads
       setStarted(true); connect();
       setTimeout(() => { sendDifficulty(difficulty); sendProfile(name, color); }, 600);
     }} />;
   }
 
   return (
-    <View ref={containerRef} style={styles.root} {...panResponder.panHandlers}>
+    <View
+      ref={containerRef}
+      style={[styles.root, Platform.OS === 'web' ? ({ touchAction: 'none' } as any) : null]}
+      {...(Platform.OS === 'web' ? {} : panResponder.panHandlers)}
+    >
       {map && snap ? (
         <GameCanvas map={map} snap={snap} cameraRef={cameraRef} screenW={winW} screenH={winH} tap={tap} myId={playerId} />
       ) : (
@@ -381,8 +446,8 @@ export default function GameScreen() {
       )}
       {spawnMode && !spectating && (
         <View style={styles.spawnBanner} pointerEvents="box-none">
-          <Text style={styles.spawnTitle}>Choose your spawn</Text>
-          <Text style={styles.spawnSub}>tap an empty (light) area of the map</Text>
+          <Text style={styles.spawnTitle}>Choose your spawn{spawnSecs >= 0 ? `  (${spawnSecs}s)` : ''}</Text>
+          <Text style={styles.spawnSub}>tap an empty (light) area{spawnSecs >= 0 ? ' — auto-placed if you wait' : ''}</Text>
           <Pressable style={styles.spectateBtn} onPress={() => useGame.getState().setSpectating(true)}>
             <Text style={styles.spectateTxt}>👁  Spectate instead</Text>
           </Pressable>
@@ -411,17 +476,20 @@ export default function GameScreen() {
       <EventFeed />
       <QuickChat />
       <Inspect />
-      {map && snap && <Minimap camera={camera} screenW={winW} screenH={winH} onJump={jumpTo} />}
-      <Pressable style={[styles.helpBtn, { top: 12 + insets.top, right: 60 + insets.right }]} onPress={() => useGame.getState().setShowHelp(true)}>
-        <Text style={styles.helpTxt}>?</Text>
-      </Pressable>
-      <Pressable style={[styles.settingsBtn, { top: 12 + insets.top, right: 102 + insets.right }]} onPress={() => useGame.getState().setShowSettings(true)}>
+      {map && snap && !narrow && <Minimap camera={camera} screenW={winW} screenH={winH} onJump={jumpTo} />}
+      {!narrow && (
+        <Pressable style={[styles.helpBtn, { top: 12 + insets.top, right: 60 + insets.right }]} onPress={() => useGame.getState().setShowHelp(true)}>
+          <Text style={styles.helpTxt}>?</Text>
+        </Pressable>
+      )}
+      <Pressable style={[styles.settingsBtn, { top: 12 + insets.top, right: (narrow ? 60 : 102) + insets.right }]} onPress={() => useGame.getState().setShowSettings(true)}>
         <Text style={styles.helpTxt}>⚙</Text>
       </Pressable>
       <Settings onLeave={leaveMatch} />
-      <View style={[styles.zoomBar, { left: 12 + insets.left }]}>
-        <Pressable style={styles.zoomBtn} onPress={() => zoomBy(1.3)}><Text style={styles.zoomTxt}>＋</Text></Pressable>
-        <Pressable style={styles.zoomBtn} onPress={() => zoomBy(1 / 1.3)}><Text style={styles.zoomTxt}>－</Text></Pressable>
+      <View style={[styles.zoomBar, narrow ? { right: 12 + insets.right } : { left: 12 + insets.left }]}>
+        {/* On phones, pinch handles zoom — keep only a recenter button. */}
+        {!narrow && <Pressable style={styles.zoomBtn} onPress={() => zoomBy(1.3)}><Text style={styles.zoomTxt}>＋</Text></Pressable>}
+        {!narrow && <Pressable style={styles.zoomBtn} onPress={() => zoomBy(1 / 1.3)}><Text style={styles.zoomTxt}>－</Text></Pressable>}
         <Pressable style={styles.zoomBtn} onPress={recenter}><Text style={styles.zoomTxt}>⌖</Text></Pressable>
       </View>
       <Help />
@@ -470,7 +538,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(20,24,36,0.92)', borderWidth: 1, borderColor: '#2a3145',
     alignItems: 'center', justifyContent: 'center',
   },
-  zoomBar: { position: 'absolute', left: 12, top: '40%', gap: 8 },
+  zoomBar: { position: 'absolute', top: '40%', gap: 8 },   // left/right set inline (right on phones)
   zoomBtn: {
     width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(20,24,36,0.92)',
     borderWidth: 1, borderColor: '#2a3145', alignItems: 'center', justifyContent: 'center',

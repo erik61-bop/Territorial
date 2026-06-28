@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame, Mode, nameOf, colorIndexOf, defenseOf, defenseAvgOf, defenseTag, isHolding } from '../state/store';
 import { cssPlayer, TERRAIN_INFO, TERRAIN_COLORS } from '../render/colors';
 import Slider from './Slider';
-import { sendStop } from '../net/socket';
+import { sendStop, sendRate } from '../net/socket';
 
 const terrainCss = (i: number) => `rgb(${TERRAIN_COLORS[i][0]},${TERRAIN_COLORS[i][1]},${TERRAIN_COLORS[i][2]})`;
 const mmss = (secs: number) => `${Math.floor(secs / 60)}:${String(Math.max(0, secs % 60)).padStart(2, '0')}`;
@@ -29,6 +29,7 @@ export default function Hud() {
   const insets = useSafeAreaInsets();                       // notch / status bar / home indicator
   const { width: winW } = useWindowDimensions();
   const narrow = winW < 480;                                // phone-width: declutter the HUD
+  const [lbOpen, setLbOpen] = React.useState(!narrow);      // leaderboard collapsed by default on phones
   const connected = useGame((s) => s.connected);
   const playerId = useGame((s) => s.playerId);
   const matchId = useGame((s) => s.matchId);
@@ -41,7 +42,9 @@ export default function Hud() {
   const toggleMuted = useGame((s) => s.toggleMuted);
   const mode = useGame((s) => s.mode);
   const setMode = useGame((s) => s.setMode);
-  const order = useGame((s) => s.order);
+  const orders = useGame((s) => s.orders);
+  // Changing the send-% updates the split across all active fronts (live) as well as future taps.
+  const setSend = (f: number) => { setFraction(f); if (orders.length) sendRate(f); };
   const underAttackAt = useGame((s) => s.underAttackAt);
   const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
   const underAttack = nowMs - underAttackAt < 1500;
@@ -58,7 +61,7 @@ export default function Hud() {
       .sort((a, b) => b.land - a.land);
   }, [snap]);
   const myRank = leaderboard.findIndex((p) => p.id === playerId);
-  const top = leaderboard.slice(0, 5);
+  const top = leaderboard.slice(0, narrow ? 3 : 5);
   const showMine = myRank >= 5;
 
   const myLand = snap && playerId >= 0 ? snap.land[playerId] : 0;
@@ -76,31 +79,39 @@ export default function Hud() {
   return (
     <>
       {/* top-left: match info */}
-      <View style={[styles.card, styles.topLeft, { top: 12 + insets.top, left: 12 + insets.left }, narrow && { minWidth: 0 }]}>
-        <Text style={styles.cardLabel}>MATCH</Text>
+      <View style={[styles.card, styles.topLeft, { top: 12 + insets.top, left: 12 + insets.left }, narrow && styles.topLeftNarrow]}>
+        {!narrow && <Text style={styles.cardLabel}>MATCH</Text>}
         <View style={styles.statRow}>
           <Text style={styles.statBig}>👥 {aliveCount}</Text>
           <Text style={styles.statBig}>💀 {eliminated}</Text>
           <Text style={styles.statBig}>⏱ {mmss(matchSecs)}</Text>
         </View>
-        <Text style={[styles.dim, { color: connected ? '#7CFC9B' : '#FF6B6B' }]}>
-          {connected ? 'connected' : 'connecting…'}
-        </Text>
+        {!narrow && (
+          <Text style={[styles.dim, { color: connected ? '#7CFC9B' : '#FF6B6B' }]}>
+            {connected ? 'connected' : 'connecting…'}
+          </Text>
+        )}
       </View>
 
       {/* top-centre: phase banner */}
       {phase && !won && (
-        <View style={[styles.card, styles.phaseBar, { top: 12 + insets.top }, narrow && { minWidth: 0, paddingHorizontal: 12 }]}>
-          <Text style={[styles.phaseName, { color: phase.color }]}>{phase.name}</Text>
-          {phaseSecs >= 0 && <Text style={styles.phaseTimer}>{mmss(phaseSecs)}</Text>}
-          {phaseSecs >= 0 && phase.next !== '' && <Text style={styles.dim}>{phase.next} starts in {mmss(phaseSecs)}</Text>}
-          {snap?.phase === 0 && <Text style={styles.dim}>🌫 fog of war — rivals hidden until war</Text>}
+        <View style={[styles.card, styles.phaseBar, { top: 12 + insets.top }, narrow && { minWidth: 0, paddingHorizontal: 12, paddingVertical: 5 }]}>
+          {narrow ? (
+            <Text style={[styles.phaseNameNarrow, { color: phase.color }]} numberOfLines={1}>
+              {phase.name.split(' ')[0]}{phaseSecs >= 0 ? `  ${mmss(phaseSecs)}` : ''}
+            </Text>
+          ) : (<>
+            <Text style={[styles.phaseName, { color: phase.color }]}>{phase.name}</Text>
+            {phaseSecs >= 0 && <Text style={styles.phaseTimer}>{mmss(phaseSecs)}</Text>}
+            {phaseSecs >= 0 && phase.next !== '' && <Text style={styles.dim}>{phase.next} starts in {mmss(phaseSecs)}</Text>}
+            {snap?.phase === 0 && <Text style={styles.dim}>🌫 fog of war — rivals hidden until war</Text>}
+          </>)}
         </View>
       )}
 
       {/* threat cue */}
       {underAttack && !won && (
-        <View style={[styles.card, styles.threat, { top: 92 + insets.top }]} pointerEvents="none">
+        <View style={[styles.card, styles.threat, { top: (narrow ? 52 : 92) + insets.top }]} pointerEvents="none">
           <Text style={styles.threatTxt}>⚠ UNDER ATTACK</Text>
         </View>
       )}
@@ -110,69 +121,84 @@ export default function Hud() {
         <Pressable style={styles.iconBtn} onPress={toggleMuted}><Text style={styles.iconTxt}>{muted ? '🔇' : '🔊'}</Text></Pressable>
       </View>
 
-      {/* left: leaderboard */}
+      {/* left: leaderboard (collapsible on phones so it doesn't fight the event feed) */}
       <View style={[styles.card, styles.leaderboard, { top: 92 + insets.top, left: 12 + insets.left }, narrow && { width: 150 }]}>
-        <Text style={styles.cardLabel}>LEADERBOARD</Text>
-        {top.map((p, i) => (
-          <Row key={p.id} rank={i + 1} id={p.id} land={p.land} me={playerId}
-               name={nameOf(snap, p.id, playerId)} color={cssPlayer(colorIndexOf(snap, p.id))} />
-        ))}
-        {showMine && (
-          <>
-            <Text style={styles.ellipsis}>…</Text>
-            <Row rank={myRank + 1} id={playerId} land={myLand} me={playerId}
-                 name={nameOf(snap, playerId, playerId)} color={cssPlayer(colorIndexOf(snap, playerId))} />
-          </>
-        )}
+        <Pressable onPress={() => narrow && setLbOpen((o) => !o)} disabled={!narrow}>
+          <Text style={styles.cardLabel}>LEADERBOARD{narrow ? (lbOpen ? '  ▾' : '  ▸') : ''}</Text>
+        </Pressable>
+        {(!narrow || lbOpen) && (<>
+          {top.map((p, i) => (
+            <Row key={p.id} rank={i + 1} id={p.id} land={p.land} me={playerId}
+                 name={nameOf(snap, p.id, playerId)} color={cssPlayer(colorIndexOf(snap, p.id))} />
+          ))}
+          {showMine && (
+            <>
+              <Text style={styles.ellipsis}>…</Text>
+              <Row rank={myRank + 1} id={playerId} land={myLand} me={playerId}
+                   name={nameOf(snap, playerId, playerId)} color={cssPlayer(colorIndexOf(snap, playerId))} />
+            </>
+          )}
+        </>)}
       </View>
 
       {/* bottom-left: your status */}
-      <View style={[styles.card, styles.status, { bottom: 12 + insets.bottom, left: 12 + insets.left }, narrow && { width: 200 }]}>
+      <View style={[styles.card, styles.status, narrow
+        ? { bottom: 104 + insets.bottom, left: 12 + insets.left, right: 12, width: undefined }   // slim line, stacked above the action bar
+        : { bottom: 12 + insets.bottom, left: 12 + insets.left }]}>
         <View style={styles.statusHead}>
           <View style={[styles.shield, { backgroundColor: playerId >= 0 ? cssPlayer(colorIndexOf(snap, playerId)) : '#666' }]} />
           <Text style={styles.statusTitle}>{playerId >= 0 ? (useGame.getState().myName || nameOf(snap, playerId, playerId)) : 'Spectating'}</Text>
           <Text style={styles.matchTag}>{singlePlayer ? 'Solo' : matchId > 0 ? `Match #${matchId}` : ''}</Text>
         </View>
-        <Text style={styles.statusLine}>Land <Text style={styles.statusVal}>{myLand}</Text>    Army <Text style={styles.statusVal}>{Math.round(myArmy)}</Text></Text>
-        <Text style={styles.statusLine}>Income <Text style={[styles.statusVal, { color: '#7CFC9B' }]}>+{myIncome}/s</Text>    Morale <Text style={[styles.statusVal, { color: moraleColor }]}>{(myMorale / 100).toFixed(2)}</Text></Text>
-        {(() => { const weak = defenseOf(snap, playerId); const avg = defenseAvgOf(snap, playerId); const hold = isHolding(snap, playerId); return (
-          <Text style={styles.statusLine}>🛡 Defense <Text style={[styles.statusVal, { color: weak < 1 ? '#ff9f8f' : '#86d6ff' }]}>{weak.toFixed(1)}</Text> <Text style={styles.dim}>weakest · avg {avg.toFixed(1)} · {defenseTag(weak)}{hold ? ' · 🛡Hold +25%' : ''}</Text></Text>
-        ); })()}
-        {order != null && (
-          <Text style={styles.orderNote}>↪ You're attacking — your army is being spent, so it won't grow. Press 🛡 Hold to stop & build it up.</Text>
-        )}
-        {(snap?.developing?.[playerId] ?? 0) > 0 && (
-          <Text style={styles.statusLine}>🏗 <Text style={[styles.statusVal, { color: '#ffd07a' }]}>{snap!.developing![playerId]}</Text> <Text style={styles.dim}>cells developing — no income yet</Text></Text>
-        )}
-        {snap?.isPrize && (
-          <Text style={styles.statusLine}>💰 Pot <Text style={[styles.statusVal, { color: '#ffd54a' }]}>{snap.pot ?? 0}</Text> <Text style={styles.dim}>· you {snap.coins?.[playerId] ?? 0}</Text></Text>
-        )}
-        <View style={styles.barTrack}><View style={[styles.barFill, { width: `${mapPct}%` }]} /></View>
-        <Text style={styles.dim}>{mapPct}% of the map</Text>
+        {narrow ? (
+          // Phones: one slim line — land · army · income · weakest defence (with a Hold marker).
+          (() => { const weak = defenseOf(snap, playerId); const hold = isHolding(snap, playerId); return (
+            <Text style={styles.statusLine}>🚩 <Text style={styles.statusVal}>{myLand}</Text>   ⚔ <Text style={styles.statusVal}>{Math.round(myArmy)}</Text>   💰 <Text style={[styles.statusVal, { color: '#7CFC9B' }]}>+{myIncome}</Text>   🛡 <Text style={[styles.statusVal, { color: weak < 1 ? '#ff9f8f' : '#86d6ff' }]}>{weak.toFixed(1)}</Text>{orders.length > 0 ? <Text style={[styles.statusVal, { color: '#ffb060' }]}>{`  ⚔${orders.length} front${orders.length > 1 ? 's' : ''}`}</Text> : hold ? <Text style={styles.dim}>  Hold</Text> : null}</Text>
+          ); })()
+        ) : (<>
+          <Text style={styles.statusLine}>Land <Text style={styles.statusVal}>{myLand}</Text>    Army <Text style={styles.statusVal}>{Math.round(myArmy)}</Text></Text>
+          <Text style={styles.statusLine}>Income <Text style={[styles.statusVal, { color: '#7CFC9B' }]}>+{myIncome}/s</Text>    Morale <Text style={[styles.statusVal, { color: moraleColor }]}>{(myMorale / 100).toFixed(2)}</Text></Text>
+          {(() => { const weak = defenseOf(snap, playerId); const avg = defenseAvgOf(snap, playerId); const hold = isHolding(snap, playerId); return (
+            <Text style={styles.statusLine}>🛡 Defense <Text style={[styles.statusVal, { color: weak < 1 ? '#ff9f8f' : '#86d6ff' }]}>{weak.toFixed(1)}</Text> <Text style={styles.dim}>weakest · avg {avg.toFixed(1)} · {defenseTag(weak)}{hold ? ' · 🛡Hold +25%' : ''}</Text></Text>
+          ); })()}
+          {orders.length > 0 && (
+            <Text style={styles.orderNote}>↪ Attacking {orders.length} front{orders.length > 1 ? 's' : ''} — army split among them, so it won't grow. Press 🛡 Hold to stop & build up.</Text>
+          )}
+          {(snap?.developing?.[playerId] ?? 0) > 0 && (
+            <Text style={styles.statusLine}>🏗 <Text style={[styles.statusVal, { color: '#ffd07a' }]}>{snap!.developing![playerId]}</Text> <Text style={styles.dim}>cells developing — no income yet</Text></Text>
+          )}
+          {snap?.isPrize && (
+            <Text style={styles.statusLine}>💰 Pot <Text style={[styles.statusVal, { color: '#ffd54a' }]}>{snap.pot ?? 0}</Text> <Text style={styles.dim}>· you {snap.coins?.[playerId] ?? 0}</Text></Text>
+          )}
+          <View style={styles.barTrack}><View style={[styles.barFill, { width: `${mapPct}%` }]} /></View>
+          <Text style={styles.dim}>{mapPct}% of the map</Text>
+        </>)}
       </View>
 
       {/* bottom-centre: action bar + commit slider */}
       <View style={[styles.card, styles.actionBar, { bottom: 12 + insets.bottom }]}>
         <View style={styles.presetRow}>
           {PRESETS.map((pr) => (
-            <Pressable key={pr.label} onPress={() => setFraction(pr.f)}
+            <Pressable key={pr.label} onPress={() => setSend(pr.f)}
               style={[styles.preset, Math.abs(fraction - pr.f) < 0.02 && styles.presetActive]}>
               <Text style={[styles.presetTxt, Math.abs(fraction - pr.f) < 0.02 && { color: '#fff' }]}>{pr.label}</Text>
             </Pressable>
           ))}
         </View>
-        <View style={styles.sliderRow}>
-          <Text style={styles.dim}>send</Text>
-          <Slider value={fraction} onChange={setFraction} width={150} />
-          <Text style={styles.fracVal}>{Math.round(fraction * 100)}%</Text>
-        </View>
+        {!narrow && (
+          <View style={styles.sliderRow}>
+            <Text style={styles.dim}>send</Text>
+            <Slider value={fraction} onChange={setSend} width={150} />
+            <Text style={styles.fracVal}>{Math.round(fraction * 100)}%</Text>
+          </View>
+        )}
         <View style={styles.actions}>
           {ACTIONS.map((a) => (
             <Pressable
               key={a.mode}
               onPress={() => { setMode(a.mode); if (a.mode === 'hold') sendStop(); }}
               style={[styles.action, { borderColor: a.color }, mode === a.mode && { backgroundColor: a.color },
-                      order != null && a.mode === 'hold' && styles.holdAttention]}
+                      orders.length > 0 && a.mode === 'hold' && styles.holdAttention]}
             >
               <Text style={styles.actionIcon}>{a.icon}</Text>
               <Text style={[styles.actionTxt, mode === a.mode && { color: '#fff' }]}>{a.label}</Text>
@@ -180,11 +206,13 @@ export default function Hud() {
             </Pressable>
           ))}
         </View>
-        <Text style={styles.dim}>
-          {order != null
-            ? (order === -1 ? '↗ expanding — keeps going (Hold to stop)' : `⚔ attacking ${nameOf(snap, order, playerId)} — keeps going (Hold to stop)`)
-            : ACTIONS.find((a) => a.mode === mode)?.hint}
-        </Text>
+        {!narrow && (
+          <Text style={styles.dim}>
+            {orders.length > 0
+              ? `⚔ attacking ${orders.length} front${orders.length > 1 ? 's' : ''} — tap more countries to add; Hold to stop`
+              : ACTIONS.find((a) => a.mode === mode)?.hint}
+          </Text>
+        )}
       </View>
 
       {/* terrain legend — reference only; hidden on phone-width to declutter the play area */}
@@ -263,6 +291,7 @@ const styles = StyleSheet.create({
   dim: { color: '#8aa0c8', fontSize: 11 },
 
   topLeft: { top: 12, left: 12, minWidth: 180 },
+  topLeftNarrow: { minWidth: 0, paddingVertical: 6, paddingHorizontal: 9 },
   statRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
   statBig: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
@@ -270,6 +299,7 @@ const styles = StyleSheet.create({
   threat: { top: 92, alignSelf: 'center', backgroundColor: 'rgba(120,20,20,0.92)', borderColor: '#ff5b5b', paddingVertical: 6, paddingHorizontal: 16 },
   threatTxt: { color: '#ffd1d1', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
   phaseName: { fontWeight: '900', fontSize: 16, letterSpacing: 1 },
+  phaseNameNarrow: { fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
   phaseTimer: { color: '#fff', fontSize: 26, fontWeight: '900', lineHeight: 30 },
 
   topRight: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', gap: 8 },

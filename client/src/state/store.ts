@@ -36,6 +36,7 @@ export interface Snapshot {
   colors?: number[];   // per-player colour index into PLAYER_COLORS
   attacks?: number[];  // this tick's PvP attacks, flat [attacker, target, ...] (battle arrows)
   peakLand?: number[]; // post-game summary: max land each player ever held
+  spawnLeft?: number[]; // seconds left to choose a spawn before auto-placement (-1 = not choosing)
   place?: number[];    // final ranking (1 = winner), present once the match ends; 0 = never played
   isPrize?: boolean;   // prize (wager) room?
   stake?: number;      // coins each player anted
@@ -111,7 +112,7 @@ interface GameStore {
   mode: Mode;          // current action mode (from the bottom action bar)
   myName: string;      // chosen display name (sent on join)
   myColor: number;     // chosen colour index (sent on join)
-  order: number | null; // current standing-order target (playerId, -1 = expand, null = none)
+  orders: number[];     // current standing-order targets (playerId, -1 = expand); empty = holding
   underAttackAt: number; // performance.now() of the last time we lost land (for the threat cue)
   selected: number | null; // nation currently inspected (playerId), or null
   gameEvents: { key: number; text: string; color: string; t: number }[]; // event feed (recent)
@@ -130,13 +131,16 @@ interface GameStore {
   setMatchId: (n: number) => void;
   setMap: (m: MapInfo) => void;
   setSnap: (s: Snapshot) => void;
+  resetMatch: () => void;   // clear the previous match's board/state before a new game
   setFraction: (f: number) => void;
   pushChat: (m: ChatMsg) => void;
   setStarted: (b: boolean) => void;
   toggleMuted: () => void;
   setMode: (m: Mode) => void;
   setProfile: (name: string, color: number) => void;
-  setOrder: (o: number | null) => void;
+  addOrder: (o: number) => void;       // add a standing-order target (multi-front attack)
+  removeOrder: (o: number) => void;    // drop one target (e.g. it was eliminated)
+  clearOrders: () => void;             // Hold / stop all
   flagUnderAttack: () => void;
   setSelected: (id: number | null) => void;
   setSpectating: (b: boolean) => void;
@@ -175,7 +179,7 @@ export const useGame = create<GameStore>((set) => ({
   mode: 'attack',
   myName: '',
   myColor: 0,
-  order: null,
+  orders: [],
   underAttackAt: 0,
   selected: null,
   gameEvents: [],
@@ -193,13 +197,19 @@ export const useGame = create<GameStore>((set) => ({
   setMatchId: (n) => set({ matchId: n }),
   setMap: (m) => set({ map: m }),
   setSnap: (s) => set({ snap: s }),
+  resetMatch: () => set({
+    map: undefined, snap: undefined, playerId: -1, matchId: -1,
+    chat: [], gameEvents: [], orders: [], selected: null, spectating: false, joinError: null,
+  }),
   setFraction: (f) => set({ fraction: f }),
   pushChat: (m) => set((st) => ({ chat: [...st.chat, m].slice(-6) })),
   setStarted: (b) => set({ started: b }),
   toggleMuted: () => set((st) => ({ muted: !st.muted })),
   setMode: (m) => set({ mode: m }),
   setProfile: (name, color) => set({ myName: name, myColor: color }),
-  setOrder: (o) => set({ order: o }),
+  addOrder: (o) => set((st) => st.orders.includes(o) ? {} : { orders: [...st.orders, o] }),
+  removeOrder: (o) => set((st) => ({ orders: st.orders.filter((x) => x !== o) })),
+  clearOrders: () => set({ orders: [] }),
   flagUnderAttack: () => set({ underAttackAt: typeof performance !== 'undefined' ? performance.now() : Date.now() }),
   setSelected: (id) => set({ selected: id }),
   setSpectating: (b) => set({ spectating: b }),

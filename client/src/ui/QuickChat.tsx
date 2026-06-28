@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame, nameOf, colorIndexOf } from '../state/store';
 import { cssPlayer } from '../render/colors';
@@ -8,13 +8,15 @@ import { sendChat, sendDiplo } from '../net/socket';
 
 export default function QuickChat() {
   const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
+  const narrow = winW < 480;
   const playerId = useGame((s) => s.playerId);
   const snap = useGame((s) => s.snap);
   const chat = useGame((s) => s.chat);
   const nm = (id: number) => nameOf(snap, id, playerId);
   const col = (id: number) => cssPlayer(colorIndexOf(snap, id));
 
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(!narrow);   // start collapsed on phones to save space
   const [tab, setTab] = useState<ChatCategory>('Diplomacy');
   const [pending, setPending] = useState<string | null>(null);
 
@@ -37,7 +39,7 @@ export default function QuickChat() {
     <>
       {/* incoming offers — top-centre, under the phase banner */}
       {(peaceOffers.length > 0 || allyOffers.length > 0) && (
-        <View style={[styles.offers, { top: 86 + insets.top }]}>
+        <View style={[styles.offers, { top: (narrow ? 124 : 86) + insets.top }]}>
           {allyOffers.map((from) => (
             <View key={'a' + from} style={styles.offerRow}>
               <View style={[styles.dot, { backgroundColor: col(from) }]} />
@@ -55,15 +57,17 @@ export default function QuickChat() {
         </View>
       )}
 
-      {/* recent messages — floating, lower-left */}
-      <View style={[styles.log, { bottom: 150 + insets.bottom, left: 12 + insets.left }]} pointerEvents="none">
-        {chat.map((m) => (
-          <Text key={m.key} style={styles.logLine}>
-            <Text style={{ color: col(m.from), fontWeight: '800' }}>{nm(m.from)}</Text>
-            <Text style={styles.logTxt}>{'  ' + formatMessage(m.templateId, m.target, (id) => nm(id))}</Text>
-          </Text>
-        ))}
-      </View>
+      {/* recent messages — floating, lower-left. Hidden on phones to keep the bottom clear. */}
+      {!narrow && (
+        <View style={[styles.log, { bottom: 150 + insets.bottom, left: 12 + insets.left }]} pointerEvents="none">
+          {chat.map((m) => (
+            <Text key={m.key} style={styles.logLine}>
+              <Text style={{ color: col(m.from), fontWeight: '800' }}>{nm(m.from)}</Text>
+              <Text style={styles.logTxt}>{'  ' + formatMessage(m.templateId, m.target, (id) => nm(id))}</Text>
+            </Text>
+          ))}
+        </View>
+      )}
 
       {/* right-side quick-chat panel */}
       <View style={[styles.panel, { top: 96 + insets.top, right: 12 + insets.right }]}>

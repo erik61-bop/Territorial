@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, ActivityIndicator, Platform, Animated, Easing, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, ActivityIndicator, Platform, Animated, Easing, ScrollView, KeyboardAvoidingView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiLogin, apiRegister } from '../net/socket';
 import Backdrop from './Backdrop';
@@ -13,6 +13,8 @@ const ERRORS: Record<string, string> = {
 
 export default function Auth() {
   const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
+  const titleStyle = winW < 480 ? { fontSize: 40, letterSpacing: 2 } : null;   // fit narrow phones
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,7 +46,7 @@ export default function Auth() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-      <Text style={styles.title}>TERRITORIAL</Text>
+      <Text style={[styles.title, titleStyle]} numberOfLines={1}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>Sign in to play, wager coins, and climb the ranks.</Text>
 
       <View style={styles.tabs}>

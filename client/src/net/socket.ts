@@ -260,7 +260,7 @@ export function connect(url = serverUrl()): WebSocket {
           phase: m.phase ?? 1, phaseEndsIn: m.phaseEndsIn ?? -1,
           capitals: m.capitals ?? [],
           names: m.names, colors: m.colors, attacks: m.attacks,
-          peakLand: m.peakLand, place: m.place,
+          peakLand: m.peakLand, place: m.place, spawnLeft: m.spawnLeft,
           isPrize: m.isPrize, stake: m.stake, pot: m.pot, coins: m.coins,
           lobby: m.lobby, lobbyLeft: m.lobbyLeft, humans: m.humans,
           rewardXp: m.rewardXp, rewardCoins: m.rewardCoins, leveledUp: m.leveledUp,
@@ -309,13 +309,18 @@ function send(obj: unknown): void {
  */
 export function sendAction(targetOwner: number, fraction: number, targetCell = -1): void {
   send({ type: 'action', targetOwner, fraction, targetCell });
-  useGame.getState().setOrder(targetOwner);   // remember the standing order for the UI
+  useGame.getState().addOrder(targetOwner);   // accumulate the standing order (multi-front) for the UI
 }
 
-/** Stop the standing order (Hold / defend). */
+/** Update only the send-fraction (slider/presets) for the active multi-front orders. */
+export function sendRate(fraction: number): void {
+  send({ type: 'rate', fraction });
+}
+
+/** Stop ALL standing orders (Hold / defend). */
 export function sendStop(): void {
   send({ type: 'stop' });
-  useGame.getState().setOrder(null);
+  useGame.getState().clearOrders();
 }
 
 /** Set bot difficulty for the match (0 Easy, 1 Normal, 2 Hard). */

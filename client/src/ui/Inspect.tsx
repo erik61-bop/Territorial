@@ -1,11 +1,15 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame, nameOf, colorIndexOf, defenseOf } from '../state/store';
 import { cssPlayer } from '../render/colors';
 import { sendChat, sendDiplo, sendAction } from '../net/socket';
 
 // Tap-to-inspect: shows the selected nation's army/land/relation and quick diplomacy/attack actions.
 export default function Inspect() {
+  const { width: winW } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const narrow = winW < 480;
   const sel = useGame((s) => s.selected);
   const setSelected = useGame((s) => s.setSelected);
   const snap = useGame((s) => s.snap);
@@ -47,7 +51,7 @@ export default function Inspect() {
   const canBreak = effWave > theirDef * 1.3;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, narrow && { top: undefined, bottom: 162 + insets.bottom, maxWidth: winW - 24, minWidth: 0 }]}>
       <View style={styles.head}>
         <View style={[styles.dot, { backgroundColor: cssPlayer(colorIndexOf(snap, sel)) }]} />
         <Text style={styles.title}>{nameOf(snap, sel, playerId)}</Text>

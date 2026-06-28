@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, Platform, Animated, Easing, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, Platform, Animated, Easing, ScrollView, KeyboardAvoidingView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PLAYER_COLORS } from '../render/colors';
 import { useGame } from '../state/store';
@@ -30,6 +30,8 @@ const rgb = (c: number[]) => `rgb(${c[0]},${c[1]},${c[2]})`;
 
 export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: string, color: number) => void }) {
   const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
+  const titleStyle = winW < 480 ? { fontSize: 40, letterSpacing: 2 } : null;   // fit narrow phones
   const account = useGame((s) => s.account);
   const [diff, setDiff] = useState(1);
   const [name, setName] = useState('');
@@ -79,7 +81,7 @@ export default function Menu({ onPlay }: { onPlay: (difficulty: number, name: st
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-      <Text style={styles.title}>TERRITORIAL</Text>
+      <Text style={[styles.title, titleStyle]} numberOfLines={1}>TERRITORIAL</Text>
       <Text style={styles.subtitle}>The Art of Conquest — one army is your sword and your shield.</Text>
 
       <View style={styles.acctRow}>
