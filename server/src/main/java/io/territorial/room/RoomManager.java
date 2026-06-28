@@ -63,9 +63,12 @@ public class RoomManager {
     public GameRoom assign(WebSocketSession session, String token, boolean solo, long stake) {
         lock.lock();
         try {
-            // 1. Reconnect to the same room if the token still owns a live one.
+            // 1. Reconnect to the same room ONLY if the token still owns a live human slot there (an
+            //    accidental disconnect kept the slot during the grace period). After a deliberate leave
+            //    the slot is freed, so we fall through and start/join a FRESH match — otherwise a "new
+            //    game" would rejoin the old one still ticking with its bots.
             GameRoom room = token != null ? tokenRoom.get(token) : null;
-            if (room == null || !rooms.contains(room)) {
+            if (room == null || !rooms.contains(room) || !room.ownsLiveSlot(token)) {
                 room = null;
                 // 2. Join the most-populated PUBLIC room that matches the requested kind (free vs the
                 //    same prize stake) and is still open to joiners. Solo never matchmakes.

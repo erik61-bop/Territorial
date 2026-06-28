@@ -127,6 +127,7 @@ public class GameHandler extends TextWebSocketHandler {
                     System.currentTimeMillis());
             case "spawn" -> room.submitSpawn(session, n.path("cell").asInt(-1));
             case "stop" -> room.stopOrder(session);
+            case "rate" -> room.setRate(session, n.path("fraction").asDouble(0.5));
             case "difficulty" -> room.setDifficulty(n.path("level").asInt(1));
             case "profile" -> room.setProfile(session, n.path("name").asText(""), n.path("color").asInt(-1));
             case "leave" -> room.leaveMatch(session);   // deliberate surrender: dissolve the empire now

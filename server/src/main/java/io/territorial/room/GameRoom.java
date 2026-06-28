@@ -22,6 +22,7 @@ public class GameRoom {
     static final int SPAWN_SIZE = 30;            // a human's starting blob when they pick a spawn
     static final int RESTART_AFTER_TICKS = 40;   // hold on the result, then new match
     static final int LOBBY_TICKS = 64;           // ~8s pre-match lobby for multiplayer/prize rooms
+    static final int SPAWN_PICK_TICKS = 96;      // ~12s to choose a spawn; after that we auto-place you
 
     private final ObjectMapper json;
     private final int tickMs;
@@ -33,7 +34,11 @@ public class GameRoom {
     private final ReentrantLock lock = new ReentrantLock();
     private final List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
     private final Map<String, Integer> sessionToPlayer = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Integer, Action> humanActions = new ConcurrentHashMap<>();
+    // A human's STANDING orders: a set of targets (owner -> direction cell) all attacked at once, plus
+    // the shared send-fraction. Each tick the fraction is split EQUALLY across the active targets.
+    private final ConcurrentHashMap<Integer, java.util.LinkedHashMap<Integer, Integer>> humanTargets = new ConcurrentHashMap<>();
+    private final double[] humanFraction = new double[NUM_PLAYERS];
+    private final int[] spawnBy = new int[NUM_PLAYERS];   // tick by which a seated human must pick a spawn (else auto-placed)
     private final java.util.concurrent.ConcurrentLinkedQueue<Diplo> humanDiplo = new java.util.concurrent.ConcurrentLinkedQueue<>();
     private final ConcurrentHashMap<Integer, Long> lastChatAt = new ConcurrentHashMap<>();
     private final boolean[] human = new boolean[NUM_PLAYERS];
@@ -200,8 +205,10 @@ public class GameRoom {
         Arrays.fill(peakLand, 0);
         Arrays.fill(deathSeq, 0);
         deathCount = 0;
-        // Connected humans don't inherit a bot empire — they re-pick a spawn each match.
-        for (int p = 0; p < NUM_PLAYERS; p++) if (human[p]) state.clearPlayer(p);
+        // Connected humans don't inherit a bot empire — they re-pick a spawn each match (and have
+        // SPAWN_PICK_TICKS to choose before we auto-place them; state.tick restarts at 0 here).
+        for (int p = 0; p < NUM_PLAYERS; p++) if (human[p]) { state.clearPlayer(p); spawnBy[p] = SPAWN_PICK_TICKS; }
+        java.util.Arrays.fill(humanFraction, 0.0);
         sim = new Sim(state);
         sim.recomputeDerived();
         winner = -1;
@@ -209,7 +216,7 @@ public class GameRoom {
         resultsRecorded = false;
         java.util.Arrays.fill(rewardXp, 0); java.util.Arrays.fill(rewardCoins, 0); java.util.Arrays.fill(leveledUp, false);
         lastOwner = null;
-        humanActions.clear();
+        humanTargets.clear();
         humanDiplo.clear();
         lastAttacks = new int[0];
         lastEvents = new int[0][];
@@ -255,20 +262,31 @@ public class GameRoom {
             List<Action> actions = new ArrayList<>(NUM_PLAYERS);
             for (int p = 0; p < NUM_PLAYERS; p++) {
                 if (!state.alive[p]) continue;
-                Action a;
                 if (human[p]) {
-                    Action ord = humanActions.get(p);              // STANDING order: persists until Hold
-                    if (ord != null && ord.targetOwner() >= 0 && !state.alive[ord.targetOwner()]) {
-                        humanActions.remove(p); ord = null;        // target eliminated -> stop
+                    java.util.LinkedHashMap<Integer, Integer> tgts = humanTargets.get(p);
+                    if (tgts != null) tgts.keySet().removeIf(o -> o >= 0 && !state.alive[o]);  // drop eliminated targets
+                    int n = (tgts == null) ? 0 : tgts.size();
+                    state.stance[p] = (n == 0) ? 1 : 0;            // having an order = attacking (Normal stance)
+                    // Pulse the orders ~1-2x/sec (not every tick) so the army rebuilds between waves. The
+                    // send-fraction is split EQUALLY across targets: each removes ~army×f/n. To keep the
+                    // shares equal as the pool shrinks across the sequentially-applied waves, target i uses
+                    // fraction (f/n)/(1 - i·f/n) — e.g. 200 army, 50% over 4 fronts -> 25 each.
+                    if (n > 0 && state.tick % Config.ATTACK_PERIOD_TICKS == 0) {
+                        double f = Math.max(0.0, Math.min(1.0, humanFraction[p]));
+                        double share = f / n;
+                        int i = 0;
+                        for (var e : tgts.entrySet()) {
+                            double denom = 1.0 - i * share;
+                            double frac = denom > 1e-6 ? Math.min(1.0, share / denom) : 1.0;
+                            actions.add(new Action(p, e.getKey(), frac, e.getValue()));
+                            i++;
+                        }
                     }
-                    state.stance[p] = (ord == null) ? 1 : 0;       // having an order = attacking (Normal stance)
-                    // Launch a wave only ~1-2x/sec (not every tick): the order pulses, army rebuilds between.
-                    a = (ord != null && state.tick % Config.ATTACK_PERIOD_TICKS == 0) ? ord : null;
                 } else {
-                    a = Bot.decide(state, p);
+                    Action a = Bot.decide(state, p);
                     state.stance[p] = (a == null) ? 1 : 0;         // a holding bot digs in (+25% defence)
+                    if (a != null) actions.add(a);
                 }
-                if (a != null) actions.add(a);
             }
             // Record this tick's PvP attacks (attacker,target,...) for the client's battle arrows.
             int na = 0;
@@ -278,7 +296,15 @@ public class GameRoom {
             lastAttacks = atk;
             sim.tick(actions);
             expireDisconnects();
-            sim.recomputeDerived();
+            // Auto-place any connected human who didn't pick a spawn in time (so nobody is stuck on the
+            // spawn screen). Only before they've ever held land this match (peakLand == 0 = never spawned).
+            boolean autoPlaced = false;
+            for (int p = 0; p < NUM_PLAYERS; p++) {
+                if (human[p] && connected[p] && peakLand[p] == 0 && state.land[p] == 0 && state.tick >= spawnBy[p]) {
+                    if (autoSpawn(p)) autoPlaced = true;
+                }
+            }
+            sim.recomputeDerived();   // (also reflects any auto-spawn above)
             for (int p = 0; p < NUM_PLAYERS; p++) {       // post-game stats
                 if (state.land[p] > peakLand[p]) peakLand[p] = state.land[p];
                 if (!state.alive[p] && deathSeq[p] == 0 && peakLand[p] > 0) deathSeq[p] = ++deathCount;
@@ -329,6 +355,8 @@ public class GameRoom {
                     sessionToPlayer.put(session.getId(), p);
                     state.clearPlayer(p);      // no inherited empire; player must choose a spawn
                     peakLand[p] = 0;           // fresh occupant: they haven't had a country yet this match
+                    spawnBy[p] = state.tick + SPAWN_PICK_TICKS;   // pick a spawn within this window, else auto-placed
+                    humanFraction[p] = 0.0;
                     if (token != null) { slotToken[p] = token; tokenToSlot.put(token, p); }
                     slotCoins[p] = account >= 0 ? wallet.balance(account) : 0;   // cache for the HUD
                     slotEmblem[p] = account >= 0 ? stats.emblemOf(account) : "";  // equipped cosmetic
@@ -350,11 +378,21 @@ public class GameRoom {
             if (p != null && human[p]) {
                 connected[p] = false;
                 disconnectTick[p] = state.tick;
-                humanActions.remove(p);
+                humanTargets.remove(p);
             }
         } finally {
             lock.unlock();
         }
+    }
+
+    /** True if {@code token} still holds a HUMAN slot here. Used to tell a reconnect (slot kept during
+     *  the grace period) apart from a fresh start (slot freed by leaveMatch) so a "new game" doesn't
+     *  rejoin the old match. */
+    public boolean ownsLiveSlot(String token) {
+        if (token == null) return false;
+        lock.lock();
+        try { Integer p = tokenToSlot.get(token); return p != null && human[p]; }
+        finally { lock.unlock(); }
     }
 
     /** Deliberate surrender (clicked "Leave match"): dissolve the empire NOW and free the slot — no
@@ -369,7 +407,7 @@ public class GameRoom {
             connected[p] = false;
             peakLand[p] = 0;               // slot freed: next occupant starts fresh, not "already played"
             names[p] = null;
-            humanActions.remove(p);
+            humanTargets.remove(p);
             if (slotToken[p] != null) { tokenToSlot.remove(slotToken[p]); slotToken[p] = null; }
             sim.recomputeDerived();
         } finally {
@@ -419,7 +457,7 @@ public class GameRoom {
             if (human[p] && !connected[p] && state.tick - disconnectTick[p] > RECONNECT_GRACE_TICKS) {
                 human[p] = false;              // a bot now plays the empire (no clearPlayer)
                 names[p] = null;               // back to a "Bot N" identity
-                humanActions.remove(p);
+                humanTargets.remove(p);
                 if (slotToken[p] != null) { tokenToSlot.remove(slotToken[p]); slotToken[p] = null; }
             }
         }
@@ -438,7 +476,7 @@ public class GameRoom {
             if (state.hasLand(p)) return;                          // already in play
             if (peakLand[p] > 0) return;                           // already played -> wiped out = eliminated
             state.clearPlayer(p);                                  // drop any stale treaties/army
-            humanActions.remove(p);                                // and any stale standing order
+            humanTargets.remove(p);                                // and any stale standing order
             int n = state.spawnBlob(p, cell, SPAWN_SIZE);
             state.army[p] = n * io.territorial.sim.Config.START_ARMY_PER_LAND;
             sim.recomputeDerived();
@@ -447,17 +485,67 @@ public class GameRoom {
         }
     }
 
-    /** Set a human's STANDING order: it keeps firing each tick until replaced, stopped, or invalid. */
+    /** Auto-place a starting blob for {@code p} at a free area spread from existing territory (used when
+     *  a player doesn't pick a spawn within SPAWN_PICK_TICKS). Caller holds the lock. */
+    private boolean autoSpawn(int p) {
+        int cell = pickAutoSpawnCell();
+        if (cell < 0) return false;
+        int n = state.spawnBlob(p, cell, SPAWN_SIZE);
+        if (n <= 0) return false;
+        state.army[p] = n * io.territorial.sim.Config.START_ARMY_PER_LAND;
+        return true;
+    }
+
+    /** A neutral cell far from all owned land (so auto-placed starts spread out): multi-source BFS from
+     *  every owned cell over land, taking the neutral cell reached last. Falls back to the neutral cell
+     *  nearest the map centre when nobody owns anything yet. -1 if no neutral land remains. */
+    private int pickAutoSpawnCell() {
+        int W = state.width, H = state.height, N = state.cellCount;
+        int[] dist = new int[N];
+        java.util.Arrays.fill(dist, -1);
+        java.util.ArrayDeque<Integer> q = new java.util.ArrayDeque<>();
+        for (int c = 0; c < N; c++) if (state.owner[c] >= 0) { dist[c] = 0; q.add(c); }
+        if (q.isEmpty()) {                                   // empty map -> nearest-to-centre neutral
+            int cx = W / 2, cy = H / 2; int best = -1; long bd = Long.MAX_VALUE;
+            for (int c = 0; c < N; c++) {
+                if (state.owner[c] != GameState.NEUTRAL) continue;
+                long dx = state.xOf(c) - cx, dy = state.yOf(c) - cy, d = dx * dx + dy * dy;
+                if (d < bd) { bd = d; best = c; }
+            }
+            return best;
+        }
+        int best = -1, bestD = -1;
+        while (!q.isEmpty()) {
+            int c = q.poll();
+            if (state.owner[c] == GameState.NEUTRAL && dist[c] > bestD) { bestD = dist[c]; best = c; }
+            int x = state.xOf(c), y = state.yOf(c);
+            int[] nbs = { x > 0 ? state.idx(x - 1, y) : -1, x < W - 1 ? state.idx(x + 1, y) : -1,
+                          y > 0 ? state.idx(x, y - 1) : -1, y < H - 1 ? state.idx(x, y + 1) : -1 };
+            for (int nb : nbs) if (nb >= 0 && dist[nb] < 0 && state.owner[nb] != GameState.WATER) { dist[nb] = dist[c] + 1; q.add(nb); }
+        }
+        return best;
+    }
+
+    /** ADD (or redirect) a standing-order target. Tapping several countries attacks them all at once;
+     *  the send-fraction is split equally across the active targets. Re-tapping a target updates the
+     *  direction it pushes toward. Hold ({@link #stopOrder}) clears them all. */
     public void submitAction(WebSocketSession session, int targetOwner, double fraction, int targetCell) {
         Integer p = sessionToPlayer.get(session.getId());
         if (p == null) return;
-        humanActions.put(p, new Action(p, targetOwner, fraction, targetCell));
+        humanFraction[p] = fraction;
+        humanTargets.computeIfAbsent(p, k -> new java.util.LinkedHashMap<>()).put(targetOwner, targetCell);
     }
 
-    /** Stop a human's standing order (Hold / defend). */
+    /** Update only the send-fraction (the slider/presets) without changing which targets are active. */
+    public void setRate(WebSocketSession session, double fraction) {
+        Integer p = sessionToPlayer.get(session.getId());
+        if (p != null) humanFraction[p] = fraction;
+    }
+
+    /** Stop ALL of a human's standing orders (Hold / defend). */
     public void stopOrder(WebSocketSession session) {
         Integer p = sessionToPlayer.get(session.getId());
-        if (p != null) humanActions.remove(p);
+        if (p != null) humanTargets.remove(p);
     }
 
     /** Set a player's display name and colour. The colour is applied by swapping with whoever holds
@@ -626,6 +714,13 @@ public class GameRoom {
         m.put("colors", colorIdx.clone());
         m.put("winner", winner);
         m.put("peakLand", peakLand.clone());
+        // Seconds left to choose a spawn before auto-placement (-1 if not currently choosing).
+        int[] spawnLeft = new int[state.numPlayers];
+        for (int p = 0; p < state.numPlayers; p++) {
+            spawnLeft[p] = (human[p] && connected[p] && !inLobby && peakLand[p] == 0 && state.land[p] == 0 && winner < 0)
+                    ? Math.max(0, (spawnBy[p] - state.tick + 7) / 8) : -1;
+        }
+        m.put("spawnLeft", spawnLeft);
         if (winner >= 0) {
             m.put("place", computePlaces());   // final ranking for the summary screen
             m.put("rewardXp", rewardXp.clone());        // per-seat end-of-match payoff (victory card)
