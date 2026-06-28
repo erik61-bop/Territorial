@@ -25,3 +25,6 @@ server/target/
 client/dist/
 client/.expo/
 **/node_modules/
+
+# built APKs (use EAS or a local gradle build to regenerate)
+*.apk
