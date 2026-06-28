@@ -134,11 +134,13 @@ public final class GameState {
             }
         }
         for (int p = 0; p < numPlayers; p++) alive[p] = land[p] > 0;
-        // Relocate a lost/invalid capital to a surviving cell (after a capital snipe).
+        // Relocate a lost/invalid capital (after a capital snipe) to the CENTRE of what's left — the
+        // owned cell nearest the territory's centroid — so supply (which falls off from the capital)
+        // covers the empire well, rather than dumping it in a corner.
         for (int p = 0; p < numPlayers; p++) {
             if (!alive[p]) continue;
             if (capitalCell[p] >= 0 && owner[capitalCell[p]] == p) continue;
-            for (int c = 0; c < cellCount; c++) if (owner[c] == p) { capitalCell[p] = c; break; }
+            capitalCell[p] = centralCell(p);
         }
         // Defence readout, using the SAME per-cell formula combat charges (cellDefense): the AVERAGE
         // and the WEAKEST border cell. The weakest is what matters — attacks eat the cheapest cell
@@ -157,6 +159,22 @@ public final class GameState {
             defScore[p] = n > 0 ? sum / n : 0;
             defWeak[p]  = n > 0 ? min : 0;
         }
+    }
+
+    /** The owned cell nearest the centroid of {@code p}'s territory — a central spot for a relocated
+     *  capital. Returns -1 if p owns nothing. */
+    private int centralCell(int p) {
+        long sx = 0, sy = 0; int n = 0;
+        for (int c = 0; c < cellCount; c++) if (owner[c] == p) { sx += xOf(c); sy += yOf(c); n++; }
+        if (n == 0) return -1;
+        int cx = (int) (sx / n), cy = (int) (sy / n);
+        int best = -1; long bestD = Long.MAX_VALUE;
+        for (int c = 0; c < cellCount; c++) {
+            if (owner[c] != p) continue;
+            long dx = xOf(c) - cx, dy = yOf(c) - cy, d = dx * dx + dy * dy;
+            if (d < bestD) { bestD = d; best = c; }
+        }
+        return best;
     }
 
     /** Is cell {@code c} (owned by p) on the front — adjacent to a non-friendly land cell? (Water is
