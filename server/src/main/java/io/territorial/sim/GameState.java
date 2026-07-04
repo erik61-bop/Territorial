@@ -201,12 +201,13 @@ public final class GameState {
      *  truth shared by combat ({@link Sim}) and the HUD readout. {@code base} = {@link #baseDef(int)}.
      *
      *  Two parts: a CONTROL floor (cost to occupy the land at all, supply-independent) PLUS the
-     *  army-scaled defence. The floor stops a near-zero army value (a hollow giant) from letting one
-     *  army sweep many cells — every enemy cell costs at least ~CONTROL_COST to take. */
+     *  army-scaled defence — the latter scaled by DEFENSE_ADVANTAGE so defence is ~twice attack (you
+     *  must roughly double a border to break it, territorial.io-style). The floor stops a near-zero
+     *  army value (a hollow giant) from letting one army sweep many cells. */
     public double cellDefenseWith(int cell, int p, double base) {
         double terr = terrain[cell].defMult;
         double capMul = (cell == capitalCell[p]) ? Config.CAPITAL_DEF : 1.0;
-        double armyDef = base * terr * supplyMult(cell, p) * capMul;
+        double armyDef = base * terr * supplyMult(cell, p) * capMul * Config.DEFENSE_ADVANTAGE;
         double control = Config.CONTROL_COST * terr * capMul;   // supply does NOT cheapen the floor
         return control + armyDef;
     }

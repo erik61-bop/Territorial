@@ -24,6 +24,14 @@ public final class Config {
     public static final double REFLUX              = 0.40; // unused/failed wave refunded (less waste)
     public static final double PENETRATION_PENALTY = 0.10; // each captured cell in a wave costs more
 
+    // territorial.io-style combat. DEFENSE_ADVANTAGE makes a defended cell cost this much more than the
+    // defender's raw per-cell strength — "defence is ~2x attack", so you must roughly double a border to
+    // break it. ATTACK_COST_FRAC is a flat OCCUPATION cost per captured tile as a fraction of the
+    // attacker's army (cf. territorial.io's ~1.17%/tile): conquest scales with your size and each attack
+    // can only take ~ send% / this many tiles. War escalation still erodes the defence edge over time.
+    public static final double DEFENSE_ADVANTAGE   = 2.0;
+    public static final double ATTACK_COST_FRAC    = 0.010;
+
     // Supply
     public static final double SUPPLY_FALLOFF     = 0.02;
     public static final double SUPPLY_MIN         = 0.50;

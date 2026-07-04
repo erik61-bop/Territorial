@@ -168,6 +168,7 @@ public final class Sim {
             for (int k = 0; k < frontier.length; k++) { frontier[k] = fl.get(k); navalMult[k] = nv.get(k); }
             if (t != GameState.NEUTRAL) attacked[t] = true;
 
+            double bal0 = s.army[x];                         // balance before this wave leaves (for occupation cost)
             double sent = s.army[x] * f;
             if (sent <= 0) continue;
             s.army[x] -= sent;
@@ -185,11 +186,15 @@ public final class Sim {
 
             // Cost per frontier cell. Order the wave: toward the directed cell if given
             // (reinforcement direction), else cheapest-first.
+            // Occupation cost: every captured tile costs a flat fraction of the attacker's balance
+            // (territorial.io ~1.17%/tile), terrain-scaled — so conquest scales with your size and an
+            // attack can only take ~ send%/ATTACK_COST_FRAC tiles before the wave is spent.
+            double occ = Config.ATTACK_COST_FRAC * bal0;
             double[] cost = new double[frontier.length];
             double[] key = new double[frontier.length];
             boolean directed = a.targetCell() >= 0 && a.targetCell() < s.cellCount;
             for (int k = 0; k < frontier.length; k++) {
-                cost[k] = cellCost(frontier[k], t, baseDef) * navalMult[k];
+                cost[k] = (cellCost(frontier[k], t, baseDef) + occ * s.terrain[frontier[k]].defMult) * navalMult[k];
                 key[k] = directed ? s.distance(frontier[k], a.targetCell()) : cost[k];
             }
             sortByKey(frontier, cost, key);

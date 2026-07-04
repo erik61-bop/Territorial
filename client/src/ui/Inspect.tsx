@@ -48,7 +48,10 @@ export default function Inspect() {
   }
   const naval = !me && !landAdjacent;
   const effWave = naval ? wave / 2.5 : wave;   // naval cells cost ~NAVAL_COST_MULT more
-  const canBreak = effWave > theirDef * 1.3;
+  // theirDef already reflects the ~2x defender advantage; add the per-tile occupation cost
+  // (ATTACK_COST_FRAC of my army) so the estimate matches real combat.
+  const occ = 0.01 * myArmy;
+  const canBreak = effWave > theirDef * 1.15 + occ;
 
   return (
     <View style={[styles.card, narrow && { top: undefined, bottom: 162 + insets.bottom, maxWidth: winW - 24, minWidth: 0 }]}>
