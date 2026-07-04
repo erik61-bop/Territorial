@@ -28,3 +28,6 @@ client/.expo/
 
 # built APKs (use EAS or a local gradle build to regenerate)
 *.apk
+
+# local file-based H2 dev database
+server/data/
