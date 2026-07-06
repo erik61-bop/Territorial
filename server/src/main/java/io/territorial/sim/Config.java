@@ -4,13 +4,17 @@ package io.territorial.sim;
 public final class Config {
     private Config() {}
 
-    // Economy
-    public static final double INCOME_RATE       = 0.06;
-    public static final double LAND_INCOME_EXP    = 1.0;   // linear income in land
-    public static final double ARMY_CAP_PER_LAND  = 9.0;
-    public static final double STABILITY_TARGET   = 6.0;   // target army-per-land for full income
-    public static final double STAB_MIN           = 0.30;
-    public static final int    SETTLE_TICKS        = 40;   // ~5s before a freshly captured cell earns income
+    // Economy — income per (terrain-weighted) land, with two territorial.io-style touches on top:
+    // an EARLY BOOST that makes the opening grow fast and decays to 1x, and a much higher army cap so
+    // your pool keeps climbing instead of flat-lining. Linear-in-land keeps "small beats big" intact.
+    public static final double INCOME_RATE        = 0.06;  // base income / tick per land unit
+    public static final double LAND_INCOME_EXP     = 1.0;  // linear income in land
+    public static final double EARLY_BOOST_MAX     = 1.5;  // opening income is x this at tick 0...
+    public static final int    EARLY_BOOST_TICKS   = 400;  // ...decaying linearly to x1 over ~50s (8 ticks/s)
+    public static final double ARMY_CAP_PER_LAND   = 40.0; // hard cap on army (was 9) — pool climbs much longer
+    public static final double STABILITY_TARGET    = 6.0;  // target army-per-land for full income
+    public static final double STAB_MIN            = 0.30;
+    public static final int    SETTLE_TICKS         = 40;  // ~5s before a freshly captured cell earns income
 
     // Combat / waves
     public static final double NEUTRAL_COST        = 2.3;  // claiming empty land is fairly cheap (fills the map)

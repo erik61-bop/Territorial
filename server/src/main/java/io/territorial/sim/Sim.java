@@ -105,14 +105,19 @@ public final class Sim {
     public void recomputeDerived() { s.recompute(); }
 
     private void applyIncome() {
+        // Early boost: the opening earns EARLY_BOOST_MAX× and decays to 1× over EARLY_BOOST_TICKS, so
+        // growth is fast up front then settles (territorial.io's 7%->1% opening, without compounding —
+        // linear-in-land keeps big/small balanced).
+        double boost = 1.0 + (Config.EARLY_BOOST_MAX - 1.0)
+                * Math.max(0.0, 1.0 - (double) s.tick / Config.EARLY_BOOST_TICKS);
         for (int p = 0; p < s.numPlayers; p++) {
             if (!s.alive[p]) continue;
             double stability = clamp(s.density(p) / Config.STABILITY_TARGET, Config.STAB_MIN, 1.0);
             double capMult = s.ownsCapital(p) ? Config.CAPITAL_INCOME : 1.0;
             double income = Math.pow(s.incomeUnits[p], Config.LAND_INCOME_EXP)
-                    * Config.INCOME_RATE * stability * capMult;
-            // Cap MUST match the per-tick clamp (land*cap), else cities push "income" the clamp then
-            // removes -> army shows +income/s but never actually grows.
+                    * Config.INCOME_RATE * stability * capMult * boost;
+            // Cap MUST match the per-tick clamp (land*cap), else cities push "income" past the clamp
+            // then it's removed -> army shows +income/s but never actually grows.
             double cap = s.land[p] * Config.ARMY_CAP_PER_LAND;
             double before = s.army[p];
             s.army[p] = Math.min(s.army[p] + income, cap);
