@@ -20,7 +20,10 @@ public final class Config {
     public static final double NAVAL_COST_MULT     = 2.5;  // amphibious (cross-water) capture is costlier
     public static final int    NAVAL_RANGE         = 8;    // how many open-water tiles a "ship" wave can cross
     public static final double NAVAL_RANGE_PENALTY = 0.4;  // each extra sea tile crossed adds this to the cost mult
-    public static final double GARRISON_KILL       = 1.5;  // defender army drained per captured cell
+    public static final double GARRISON_KILL       = 0.5;  // defender army lost = this × the wave spent taking
+                                                           // the cell (territorial.io: "attacked with x, lose
+                                                           // x/2") — tied to the ATTACK, not the defender's own
+                                                           // density, so a strong defender doesn't death-spiral.
     public static final double REFLUX              = 0.40; // unused/failed wave refunded (less waste)
     public static final double PENETRATION_PENALTY = 0.10; // each captured cell in a wave costs more
 

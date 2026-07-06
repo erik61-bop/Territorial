@@ -213,7 +213,10 @@ public final class Sim {
                 captured[x]++;
                 if (old != GameState.NEUTRAL) {
                     lost[old]++;
-                    s.army[old] = Math.max(0, s.army[old] - Config.GARRISON_KILL * baseDef);
+                    // Defender loses HALF the wave spent breaking this cell (territorial.io "lose x/2"),
+                    // i.e. proportional to the ATTACK — not to the defender's own density — so a strong
+                    // defender bleeds only as much as it's actually hit, instead of collapsing.
+                    s.army[old] = Math.max(0, s.army[old] - Config.GARRISON_KILL * effCost);
                     if (c == s.capitalCell[old]) {                 // capital snipe = decapitation
                         s.army[old] *= Config.CAPITAL_STRIKE_ARMY; // army thrown into chaos
                         s.momentum[old] = Config.MOMENTUM_MIN;     // morale collapses
