@@ -9,6 +9,11 @@ public final class Config {
     // your pool keeps climbing instead of flat-lining. Linear-in-land keeps "small beats big" intact.
     public static final double INCOME_RATE        = 0.06;  // base income / tick per land unit
     public static final double LAND_INCOME_EXP     = 1.0;  // linear income in land
+    // Like territorial.io: most income accrues every tick (its per-tick "interest"), plus a visible BONUS
+    // pulse every INCOME_PERIOD_TICKS (its "territorial income", ~5.6s). A PURE batch stalemated wars, so
+    // only (1 - INCOME_CONTINUOUS_FRAC) of income is periodic.
+    public static final int    INCOME_PERIOD_TICKS  = 24;    // income-bonus pulse cadence (~3s)
+    public static final double INCOME_CONTINUOUS_FRAC = 0.85; // share paid smoothly each tick; the rest pulses
     public static final double EARLY_BOOST_MAX     = 1.5;  // opening income is x this at tick 0...
     public static final int    EARLY_BOOST_TICKS   = 400;  // ...decaying linearly to x1 over ~50s (8 ticks/s)
     public static final double ARMY_CAP_PER_LAND   = 40.0; // hard cap on army (was 9) — pool climbs much longer

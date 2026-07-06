@@ -105,23 +105,24 @@ public final class Sim {
     public void recomputeDerived() { s.recompute(); }
 
     private void applyIncome() {
-        // Early boost: the opening earns EARLY_BOOST_MAX× and decays to 1× over EARLY_BOOST_TICKS, so
-        // growth is fast up front then settles (territorial.io's 7%->1% opening, without compounding —
-        // linear-in-land keeps big/small balanced).
+        // territorial.io-style: most income accrues smoothly EVERY tick, plus a visible BONUS pulse every
+        // INCOME_PERIOD_TICKS. Total over a period equals the per-tick income x the period, so balance is
+        // unchanged — only the delivery is lumpier (you see a jump on the pulse).
+        boolean pulse = (s.tick % Config.INCOME_PERIOD_TICKS == 0);
+        // Early boost: the opening earns EARLY_BOOST_MAX× and decays to 1× over EARLY_BOOST_TICKS.
         double boost = 1.0 + (Config.EARLY_BOOST_MAX - 1.0)
                 * Math.max(0.0, 1.0 - (double) s.tick / Config.EARLY_BOOST_TICKS);
         for (int p = 0; p < s.numPlayers; p++) {
             if (!s.alive[p]) continue;
             double stability = clamp(s.density(p) / Config.STABILITY_TARGET, Config.STAB_MIN, 1.0);
             double capMult = s.ownsCapital(p) ? Config.CAPITAL_INCOME : 1.0;
-            double income = Math.pow(s.incomeUnits[p], Config.LAND_INCOME_EXP)
+            double perTick = Math.pow(s.incomeUnits[p], Config.LAND_INCOME_EXP)
                     * Config.INCOME_RATE * stability * capMult * boost;
-            // Cap MUST match the per-tick clamp (land*cap), else cities push "income" past the clamp
-            // then it's removed -> army shows +income/s but never actually grows.
+            double gain = perTick * Config.INCOME_CONTINUOUS_FRAC;   // the smooth per-tick share
+            if (pulse) gain += perTick * (1.0 - Config.INCOME_CONTINUOUS_FRAC) * Config.INCOME_PERIOD_TICKS; // bonus lump
             double cap = s.land[p] * Config.ARMY_CAP_PER_LAND;
-            double before = s.army[p];
-            s.army[p] = Math.min(s.army[p] + income, cap);
-            s.lastIncome[p] = s.army[p] - before;
+            s.army[p] = Math.min(s.army[p] + gain, cap);
+            s.lastIncome[p] = perTick;   // steady "+X/s" readout (the full average rate)
         }
     }
 
